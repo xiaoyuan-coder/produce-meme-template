@@ -68,6 +68,13 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_5_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E30", "E31"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
     def test_replacement_enums_expose_named_domain_roles(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
 
@@ -106,6 +113,30 @@ class RepositoryContractTest(unittest.TestCase):
             self.assertNotIn(phase["phase"], workflow_literals)
             for test_literals in test_literal_sets:
                 self.assertNotIn(phase["phase"], test_literals)
+
+    def test_issue_5_test_consumes_slot_contract_values_without_copying_them(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        slot_contract = rules["slotCompilationContract"]
+        machine_values = set()
+        for field in (
+            "subjectKinds",
+            "semanticRoles",
+            "slotTypes",
+            "valueGateRoles",
+            "personAttributeRoles",
+            "assetUnitCountFields",
+            "singleSlotReviewAxes",
+        ):
+            machine_values.update(slot_contract[field].values())
+
+        source = (ROOT / "tests" / "test_issue_5_editable_prompt_compiler.py").read_text(encoding="utf-8")
+        literals = {
+            node.value
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
+
+        self.assertTrue(machine_values.isdisjoint(literals))
 
 
 if __name__ == "__main__":

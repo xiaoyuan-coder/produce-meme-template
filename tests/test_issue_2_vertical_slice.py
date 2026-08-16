@@ -145,8 +145,9 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         def incomplete_prompt(path):
             analysis = original(path)
             analysis["promptTemplate"] = (
-                "一只{{ pet_subject }}狗蜷卧在{{ cushion_look }}垫子上，前爪搭住垫边，"
-                "{{ room_mood }}光线从侧面照入，背景保留安静的客厅和轻微景深。"
+                '一只{{ pet_subject | "柯基犬" }}狗蜷卧在{{ cushion_look | "暖黄色软垫" }}垫子上，'
+                '前爪搭住垫边，{{ room_mood | "午后窗光" }}光线从侧面照入，'
+                "背景保留安静的客厅和轻微景深。"
             )
             return analysis
 

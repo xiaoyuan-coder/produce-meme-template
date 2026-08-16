@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "updated_at": "2026-08-16",
-  "description": "实现 Issue #4 模板图视觉硬门禁、自主确认、证据新鲜度与 P2 不可变重做。",
+  "description": "实现 Issue #5 高价值槽位、可审计例外、用户文案规则与统一 Prompt Template 编译。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -67,6 +67,7 @@
     "tests/test_issue_2_vertical_slice.py",
     "tests/test_issue_3_replacement_strategy.py",
     "tests/test_issue_4_template_image_gate.py",
+    "tests/test_issue_5_editable_prompt_compiler.py",
     "tests/test_repository_contract.py"
   ]
 }

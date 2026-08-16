@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.4.0",
+  "schemaVersion": "0.5.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -118,16 +118,89 @@
   },
   "prompt": {
     "instructionMaxCharacters": 150,
+    "instructionAllowedSections": {
+      "medium": "媒介",
+      "templateSellingPoint": "模板卖点",
+      "optionalColor": "可选色彩"
+    },
+    "hiddenLayerRoles": {
+      "lockedConstraints": "呈现维度",
+      "preserve": "语义锚点"
+    },
     "forbiddenProductionTerms": ["候选图", "来源图", "原图", "作者源", "revision", "审核"],
-    "forbiddenInstructionTerms": ["禁止", "不要", "不得", "清除", "具体IP", "候选图", "来源图"]
+    "forbiddenInstructionTerms": [
+      "禁止", "不要", "不得", "清除", "具体IP", "候选图", "来源图",
+      "摄影师署名", "品牌标志", "品牌Logo", "平台水印"
+    ]
   },
-  "semanticAuditChecks": [
-    "promptResolutionsNatural",
-    "hiddenOpenAxesRemainEditable",
-    "titleSurvivesMaximumDifference",
-    "slotSuggestionsSameAxisAndGranularity"
-  ],
+  "semanticAuditChecks": {
+    "resolvedPrompts": {
+      "check": "promptResolutionsNatural",
+      "evidence": "promptResolutionCases"
+    },
+    "openAxes": {
+      "check": "hiddenOpenAxesRemainEditable",
+      "evidence": "reviewedOpenAxes"
+    },
+    "maximumDifference": {
+      "check": "titleSurvivesMaximumDifference",
+      "evidence": "maximumDifferenceInputs"
+    },
+    "slotSuggestions": {
+      "check": "slotSuggestionsSameAxisAndGranularity",
+      "evidence": "slotSuggestionReviews"
+    },
+    "instructionScope": {
+      "check": "instructionScopeValid",
+      "evidence": "instructionScopeReview"
+    },
+    "hiddenLayerResponsibilities": {
+      "check": "hiddenLayersResponsibilitiesSeparated",
+      "evidence": "hiddenLayerResponsibilityReview"
+    }
+  },
   "slotBudget": {"minimum": 2, "normal": 3, "maximum": 5, "singleSlotRequiresEvidence": true},
+  "slotCompilationContract": {
+    "subjectKinds": {"humanSubject": "person", "nonHumanSubject": "non_person"},
+    "semanticRoles": {"primarySubject": "subject"},
+    "slotTypes": {"visibleTextPrompt": "text"},
+    "valueGateRoles": {
+      "userDemand": "userMotivation",
+      "visualVisibility": "visuallyVisible",
+      "modelControl": "modelControllable",
+      "mechanismPreservation": "mechanismPreserved"
+    },
+    "personAttributeRoles": {
+      "clothing": "clothing",
+      "styling": "styling",
+      "hairstyle": "hairstyle",
+      "pose": "pose",
+      "color": "color"
+    },
+    "assetUnitCountFields": {
+      "visibleSubjects": "visibleSubjectCount",
+      "identities": "identityUnitCount",
+      "uploads": "uploadUnitCount",
+      "controls": "controlUnitCount"
+    },
+    "singleSlotReviewAxes": {
+      "subject": "subject",
+      "contents": "contents",
+      "color": "color",
+      "text": "text",
+      "clothing": "clothing",
+      "props": "props",
+      "scene": "scene",
+      "nestedContent": "nestedContent"
+    },
+    "defaultValuePreference": {
+      "preferChinese": true,
+      "preferredMinimum": 2,
+      "preferredMaximum": 8,
+      "hardMaximum": 12,
+      "exactVisibleTextMayExceed": true
+    }
+  },
   "identifiers": {
     "productionItemIdPattern": "^[a-z][a-z0-9-]{1,127}$",
     "imageExtensionPattern": "^\\.[a-z0-9]{1,10}$"
@@ -144,5 +217,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E12", "E13", "E19", "E21", "E25", "E27", "E29", "E34", "E35", "E36", "E38"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E12", "E13", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38"]
 }

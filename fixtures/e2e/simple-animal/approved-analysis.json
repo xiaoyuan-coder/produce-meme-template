@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.4.0",
+  "schemaVersion": "0.5.0",
   "visibleFacts": [
     "一只短腿小动物蜷卧在暖黄色软垫上",
     "两只前爪搭住垫边",
@@ -10,6 +10,14 @@
   "inferences": ["主体呈现困倦和放松情绪"],
   "confirmedMeaning": ["主体、软垫颜色和环境氛围分别具有独立编辑价值"],
   "hasPrimarySubject": true,
+  "subjectKind": "non_person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 3,
+    "evidence": "单主体、单身份和单上传素材；三个控件来自三个独立高价值槽位"
+  },
   "neutralTitle": "软垫上的困倦瞬间",
   "neutralDescription": "主体蜷卧在软垫上，侧面光线强化安静又疲惫的神态",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}蜷卧在{{ cushion_look | \"暖黄色软垫\" }}上，前爪搭住垫边，{{ room_mood | \"午后窗光\" }}从侧面照入，背景保留安静的客厅和轻微景深。",

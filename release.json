@@ -1,7 +1,7 @@
 {
   "skillName": "produce-meme-template",
-  "skillVersion": "0.4.0",
-  "artifactSchemaVersion": "0.4.0",
+  "skillVersion": "0.5.0",
+  "artifactSchemaVersion": "0.5.0",
   "supportedContracts": {
     "galleryTemplate": "current-cover-contract"
   }

@@ -28,6 +28,7 @@ RESULT_NEEDS_INPUT = tuple(RULES["resultStates"])[1]
 RESULT_FAILED = tuple(RULES["resultStates"])[3]
 STRATEGY_PER_IMAGE = RULES["strategySources"]["perImageDecision"]
 STRATEGY_AUTONOMOUS = RULES["strategySources"]["autonomousDecision"]
+SUGGESTION_AUDIT_CHECK = RULES["semanticAuditChecks"]["slotSuggestions"]["check"]
 
 
 class ScenarioAdapters(DeterministicFixtureAdapters):
@@ -47,17 +48,14 @@ class ScenarioAdapters(DeterministicFixtureAdapters):
         digest = hashlib.sha256(
             json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
-        return {
-            "artifactType": "semantic-audit",
-            "schemaVersion": RULES["schemaVersion"],
-            "contentSha256": digest,
-            "observedContentSha256": digest,
-            "checks": {
-                name: name not in self.failed_semantic_checks
-                for name in RULES["semanticAuditChecks"]
-            },
-            "evidence": {"scenario": "issue-3-category-route"},
+        result = super().audit_semantics(content)
+        result["contentSha256"] = digest
+        result["observedContentSha256"] = digest
+        result["checks"] = {
+            contract["check"]: contract["check"] not in self.failed_semantic_checks
+            for contract in RULES["semanticAuditChecks"].values()
         }
+        return result
 
 
 def source_scenario(
@@ -490,7 +488,7 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
         adapters = ScenarioAdapters(
             lambda analysis: analysis,
             cross_axis_suggestions,
-            failed_semantic_checks={"slotSuggestionsSameAxisAndGranularity"},
+            failed_semantic_checks={SUGGESTION_AUDIT_CHECK},
         )
         request = {**self.request, "productionItemId": "cross-axis-slot-suggestions"}
 
@@ -500,7 +498,7 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
         self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertEqual([], adapters.upload_calls)
         audit = load_json(result.output_dir / "semantic-audit.json")
-        self.assertFalse(audit["checks"]["slotSuggestionsSameAxisAndGranularity"])
+        self.assertFalse(audit["checks"][SUGGESTION_AUDIT_CHECK])
 
     def test_preserve_cannot_freeze_a_value_required_by_the_dependency_closure(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)

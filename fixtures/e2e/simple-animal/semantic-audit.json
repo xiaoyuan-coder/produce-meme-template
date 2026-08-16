@@ -1,12 +1,14 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.4.0",
+  "schemaVersion": "0.5.0",
   "contentSha256": "e449278147dc4f5ace4db8b171c2ebd726ee7df32f91073a4bf008277286ac9d",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,
     "titleSurvivesMaximumDifference": true,
-    "slotSuggestionsSameAxisAndGranularity": true
+    "slotSuggestionsSameAxisAndGranularity": true,
+    "instructionScopeValid": true,
+    "hiddenLayersResponsibilitiesSeparated": true
   },
   "evidence": {
     "promptResolutionCases": [
@@ -22,6 +24,18 @@
       "room_mood=暖色夜灯"
     ],
     "reviewedOpenAxes": ["subject", "container_appearance", "scene_atmosphere"],
-    "maximumDifferenceInputs": ["垂耳兔", "湖蓝针织垫", "暖色夜灯"]
+    "maximumDifferenceInputs": ["垂耳兔", "湖蓝针织垫", "暖色夜灯"],
+    "slotSuggestionReviews": ["pet_subject", "cushion_look", "room_mood"],
+    "instructionScopeReview": {
+      "allowedSections": ["媒介", "模板卖点", "可选色彩"],
+      "outOfScopeContentDetected": false,
+      "evidence": "仅描述自然光摄影媒介、伏卧接触卖点和可编辑色彩"
+    },
+    "hiddenLayerResponsibilityReview": {
+      "lockedConstraintsRole": "呈现维度",
+      "preserveRole": "语义锚点",
+      "overlapDetected": false,
+      "evidence": "逐项比较后未发现职责重复或整图复述"
+    }
   }
 }

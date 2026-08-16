@@ -1,4 +1,4 @@
-# Issue #2–#4 tracer fixture
+# Issue #2–#5 tracer fixture
 
 这个 fixture 通过同一个公共工作流运行一张普通动物网图的 P0–P8。适配器读取固定的来源分析、确认模板图审核、模板图分析和独立语义审计，并用图片或被审计内容 SHA 绑定每段证据。
 
@@ -31,3 +31,5 @@ python3 scripts/produce.py \
 Issue #3 的显式策略、unknown、普通真人、知名 IP、动物、物体、文字、场景属性、稳定性与池隔离验收位于 `tests/test_issue_3_replacement_strategy.py`。
 
 Issue #4 的完整硬门禁、自主确认、风险升级、审核新鲜度、失效传播与 P2 重做验收位于 `tests/test_issue_4_template_image_gate.py`。
+
+Issue #5 的必填主体判别、主体槽省略证据、单槽例外、唯一槽位 ID、人物派生属性、默认值语言/长度及图像绑定例外、Prompt 内联默认值、非空推荐池、自由编辑文字、资产单元计数、隐藏层职责和逐检查语义证据验收位于 `tests/test_issue_5_editable_prompt_compiler.py`。

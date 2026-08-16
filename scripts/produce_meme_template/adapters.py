@@ -138,6 +138,24 @@ class DeterministicFixtureAdapters:
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "semantic-audit.json")
+        rules = _read_json(RULES_PATH)
+        roles = rules["semanticAuditChecks"]
+        slots = content["slots"]
+        result["evidence"][roles["resolvedPrompts"]["evidence"]] = [
+            "defaults",
+            *[
+                f"{slot['id']}={suggestion}"
+                for slot in slots
+                for suggestion in slot["suggestions"]
+            ],
+        ]
+        result["evidence"][roles["openAxes"]["evidence"]] = [
+            slot["semanticRole"] for slot in slots
+        ]
+        result["evidence"][roles["maximumDifference"]["evidence"]] = [
+            slot["suggestions"][0] for slot in slots
+        ]
+        result["evidence"][roles["slotSuggestions"]["evidence"]] = [slot["id"] for slot in slots]
         result["observedContentSha256"] = hashlib.sha256(
             json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()

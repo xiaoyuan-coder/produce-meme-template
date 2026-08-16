@@ -18,6 +18,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_PATH = REPO_ROOT / "contracts" / "machine-rules.json"
 GALLERY_SCHEMA_PATH = REPO_ROOT / "contracts" / "gallery-template.schema.json"
 RELEASE_PATH = REPO_ROOT / "release.json"
+CJK_CHARACTER = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+INPUT_ID_PATTERN = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))["$defs"]["inputId"]["pattern"]
+INPUT_ID_PATTERN_BODY = INPUT_ID_PATTERN.removeprefix("^").removesuffix("$")
+SLOT_ID = re.compile(INPUT_ID_PATTERN)
+PLACEHOLDER = re.compile(
+    r"\{\{\s*(" + INPUT_ID_PATTERN_BODY + r")(?=\s*(?:\||\}\}))[^}]*\}\}"
+)
+PLACEHOLDER_WITH_DEFAULT = re.compile(
+    r'\{\{\s*(' + INPUT_ID_PATTERN_BODY + r')\s*\|\s*"([^"]*)"\s*\}\}'
+)
 
 
 class WorkflowAdapters(Protocol):
@@ -979,9 +989,66 @@ def _evaluate_visual_gate(
 
 
 def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
-    slots = [slot for slot in analysis["slotCandidates"] if all(slot["valueGates"].values())]
+    slot_contract = rules["slotCompilationContract"]
+    value_gate_roles = tuple(slot_contract["valueGateRoles"].values())
+    slot_candidates = analysis.get("slotCandidates")
+    slot_candidates_valid = bool(
+        isinstance(slot_candidates, list)
+        and all(
+            isinstance(slot, dict)
+            and isinstance(slot.get("id"), str)
+            and SLOT_ID.fullmatch(slot["id"])
+            and isinstance(slot.get("semanticRole"), str)
+            and slot["semanticRole"].strip()
+            and isinstance(slot.get("valueGates"), dict)
+            and set(slot["valueGates"]) == set(value_gate_roles)
+            and all(isinstance(slot["valueGates"][role], bool) for role in value_gate_roles)
+            for slot in slot_candidates
+        )
+        and len({slot["id"] for slot in slot_candidates}) == len(slot_candidates)
+    )
+    if not slot_candidates_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "槽位候选必须为四道具名价值门禁提供完整布尔结论。",
+            {},
+        )
+    slots = [slot for slot in slot_candidates if all(slot["valueGates"][role] for role in value_gate_roles)]
     budget = rules["slotBudget"]
-    if not budget["minimum"] <= len(slots) <= budget["maximum"]:
+    has_primary_subject = analysis.get("hasPrimarySubject")
+    subject_kind = analysis.get("subjectKind")
+    person_kind = slot_contract["subjectKinds"]["humanSubject"]
+    discriminator_valid = bool(
+        isinstance(has_primary_subject, bool)
+        and subject_kind in set(slot_contract["subjectKinds"].values())
+        and (subject_kind != person_kind or has_primary_subject)
+    )
+    if not discriminator_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "主体存在性与人物/非人物判别必须提供完整且一致的具名结论。",
+            {},
+        )
+    single_slot_evidence = analysis.get("singleSlotExceptionEvidence")
+    single_slot_valid = bool(
+        len(slots) == 1
+        and isinstance(single_slot_evidence, dict)
+        and single_slot_evidence.get("confirmedOnlyOneHighValue") is True
+        and isinstance(single_slot_evidence.get("reviewedAxes"), list)
+        and all(isinstance(value, str) for value in single_slot_evidence["reviewedAxes"])
+        and len(single_slot_evidence["reviewedAxes"])
+        == len(set(single_slot_evidence["reviewedAxes"]))
+        and set(single_slot_evidence.get("reviewedAxes", []))
+        == set(slot_contract["singleSlotReviewAxes"].values())
+        and isinstance(single_slot_evidence.get("reason"), str)
+        and single_slot_evidence["reason"].strip()
+    )
+    within_budget = budget["minimum"] <= len(slots) <= budget["maximum"]
+    if not within_budget and not single_slot_valid:
         raise _stop(
             rules,
             "blocked",
@@ -989,21 +1056,207 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             "高价值槽位数量不在常态预算内。",
             {"slotCount": len(slots)},
         )
-    if analysis.get("hasPrimarySubject") and not any(slot["semanticRole"] == "subject" for slot in slots):
+    subject_role = slot_contract["semanticRoles"]["primarySubject"]
+    if has_primary_subject and not any(slot["semanticRole"] == subject_role for slot in slots):
+        omission = analysis.get("subjectSlotOmissionEvidence")
+        omission_valid = bool(
+            isinstance(omission, dict)
+            and omission.get("reviewed") is True
+            and isinstance(omission.get("valueGates"), dict)
+            and set(omission["valueGates"]) == set(value_gate_roles)
+            and all(isinstance(value, bool) for value in omission["valueGates"].values())
+            and not all(omission["valueGates"].values())
+            and isinstance(omission.get("reason"), str)
+            and omission["reason"].strip()
+        )
+        if not omission_valid:
+            raise _stop(
+                rules,
+                "blocked",
+                "contractFailure",
+                "画面存在明显主体，但高价值槽位没有主体入口或省略证据无效。",
+                {},
+            )
+    if subject_kind == person_kind:
+        assessments = analysis.get("subjectAttributeAssessments")
+        attribute_roles = set(slot_contract["personAttributeRoles"].values())
+        assessment_valid = bool(
+            isinstance(assessments, dict)
+            and set(assessments) == attribute_roles
+            and all(
+                isinstance(item, dict)
+                and set(item) == {*value_gate_roles, "includedAsSlot", "evidence"}
+                and all(isinstance(item.get(gate), bool) for gate in value_gate_roles)
+                and isinstance(item.get("includedAsSlot"), bool)
+                and isinstance(item.get("evidence"), str)
+                and item["evidence"].strip()
+                for item in assessments.values()
+            )
+            and all(
+                assessment["includedAsSlot"]
+                == all(assessment[gate] for gate in value_gate_roles)
+                and (
+                    not assessment["includedAsSlot"]
+                    or any(slot.get("semanticRole") == role for slot in slots)
+                )
+                for role, assessment in assessments.items()
+            )
+        )
+        if not assessment_valid:
+            raise _stop(
+                rules,
+                "blocked",
+                "contractFailure",
+                "人物服装、造型、发型、姿势和颜色缺少独立价值与稳定性评估。",
+                {},
+            )
+    asset_units = analysis.get("assetUnitAnalysis")
+    count_fields = set(slot_contract["assetUnitCountFields"].values())
+    control_count_field = slot_contract["assetUnitCountFields"]["controls"]
+    asset_units_valid = bool(
+        isinstance(asset_units, dict)
+        and set(asset_units) == {*count_fields, "evidence"}
+        and all(
+            isinstance(asset_units[field], int)
+            and not isinstance(asset_units[field], bool)
+            and asset_units[field] >= 0
+            for field in count_fields
+        )
+        and asset_units[control_count_field] == len(slots)
+        and isinstance(asset_units.get("evidence"), str)
+        and asset_units["evidence"].strip()
+    )
+    if not asset_units_valid:
         raise _stop(
             rules,
             "blocked",
             "contractFailure",
-            "画面存在明显主体，但高价值槽位没有主体入口。",
+            "可见主体、身份、上传素材和控件数量缺少独立计数证据，或控件数与槽位不一致。",
+            {},
+        )
+    default_preference = slot_contract["defaultValuePreference"]
+    preference_exceptions = analysis.get("defaultValuePreferenceExceptionEvidence", {})
+    preference_exceptions_valid = bool(
+        isinstance(preference_exceptions, dict)
+        and set(preference_exceptions) <= {slot["id"] for slot in slots}
+        and all(
+            isinstance(evidence, dict)
+            and set(evidence) == {"reviewed", "reason"}
+            and evidence.get("reviewed") is True
+            and isinstance(evidence.get("reason"), str)
+            and evidence["reason"].strip()
+            for evidence in preference_exceptions.values()
+        )
+    )
+    if not preference_exceptions_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "槽位默认值语言或长度偏好例外证据无效。",
+            {},
+        )
+
+    def exact_visible_text_evidence_is_valid(slot: dict[str, Any]) -> bool:
+        evidence = slot.get("exactVisibleTextEvidence")
+        return bool(
+            slot.get("type") == slot_contract["slotTypes"]["visibleTextPrompt"]
+            and slot.get("exactVisibleText") is True
+            and isinstance(evidence, dict)
+            and set(evidence) == {"approvedImageSha256", "visibleText", "evidence"}
+            and evidence.get("approvedImageSha256") == analysis.get("visualFactSourceSha256")
+            and evidence.get("visibleText") == slot.get("defaultValue")
+            and isinstance(evidence.get("evidence"), str)
+            and evidence["evidence"].strip()
+        )
+
+    invalid_exact_text_evidence = sorted(
+        slot["id"]
+        for slot in slots
+        if (
+            slot.get("exactVisibleText") is True
+            and not exact_visible_text_evidence_is_valid(slot)
+        )
+        or (
+            "exactVisibleTextEvidence" in slot
+            and not exact_visible_text_evidence_is_valid(slot)
+        )
+    )
+    if invalid_exact_text_evidence:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "精确画内文字槽必须绑定当前 Approved Template Image、默认值和可见证据。",
+            {"slotIds": invalid_exact_text_evidence},
+        )
+    invalid_defaults = sorted(
+        slot["id"]
+        for slot in slots
+        if not isinstance(slot.get("defaultValue"), str)
+        or not slot["defaultValue"].strip()
+        or (
+            len(slot["defaultValue"].strip()) > default_preference["hardMaximum"]
+            and not (
+                default_preference["exactVisibleTextMayExceed"]
+                and exact_visible_text_evidence_is_valid(slot)
+            )
+        )
+        or (
+            not default_preference["preferredMinimum"]
+            <= len(slot["defaultValue"].strip())
+            <= default_preference["preferredMaximum"]
+            and slot["id"] not in preference_exceptions
+        )
+        or (
+            default_preference["preferChinese"]
+            and not CJK_CHARACTER.search(slot["defaultValue"].strip())
+            and slot["id"] not in preference_exceptions
+        )
+    )
+    if invalid_defaults:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "槽位默认值为空、超出硬上限，或偏离中文与长度偏好但缺少审计例外。",
+            {"slotIds": invalid_defaults},
+        )
+    prompt_template = analysis.get("promptTemplate")
+    inline_bindings = PLACEHOLDER_WITH_DEFAULT.findall(prompt_template) if isinstance(prompt_template, str) else []
+    inline_defaults_valid = bool(
+        isinstance(prompt_template, str)
+        and prompt_template.strip()
+        and set(PLACEHOLDER.findall(prompt_template)) == {slot["id"] for slot in slots}
+        and len(PLACEHOLDER.findall(prompt_template)) == len(inline_bindings)
+        and all(
+            inline_default == slot["defaultValue"]
+            for slot in slots
+            for binding_id, inline_default in inline_bindings
+            if binding_id == slot["id"]
+        )
+    )
+    if not inline_defaults_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "Prompt Template 的槽位绑定和内联默认值必须与槽位侧车完全一致。",
             {},
         )
     def suggestions_are_valid(slot: dict[str, Any]) -> bool:
         suggestions = slot.get("suggestions")
+        normalized_suggestions = (
+            [value.strip() for value in suggestions]
+            if isinstance(suggestions, list) and all(isinstance(value, str) for value in suggestions)
+            else []
+        )
         return bool(
             isinstance(suggestions, list)
+            and suggestions
             and all(isinstance(value, str) and value.strip() for value in suggestions)
-            and len(suggestions) == len(set(suggestions))
-            and slot.get("defaultValue") not in suggestions
+            and len(normalized_suggestions) == len(set(normalized_suggestions))
+            and slot.get("defaultValue", "").strip() not in normalized_suggestions
         )
 
     invalid_suggestion_slots = sorted(slot["id"] for slot in slots if not suggestions_are_valid(slot))
@@ -1028,7 +1281,8 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             "高价值槽位缺少隐藏约束冲突词或最大差异标题禁用词。",
             {"slotIds": missing_semantic_guards},
         )
-    return {
+    default_slot_values = {slot["id"]: slot["defaultValue"] for slot in slots}
+    editable = {
         "artifactType": "editable-template-spec",
         "schemaVersion": rules["schemaVersion"],
         "visualFactSourceSha256": analysis["visualFactSourceSha256"],
@@ -1036,10 +1290,27 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
         "description": analysis["neutralDescription"],
         "slots": slots,
         "slotSuggestionPools": {slot["id"]: slot["suggestions"] for slot in slots},
-        "promptTemplate": analysis["promptTemplate"],
+        "promptTemplate": prompt_template,
         "freeEditableContent": analysis["freeEditableContent"],
         "tags": analysis["tags"],
+        "resolvedPromptContract": {
+            "singleSourceField": "promptTemplate",
+            "defaultSlotValues": default_slot_values,
+            "defaultResolvedPrompt": _resolve_prompt(prompt_template, default_slot_values),
+        },
     }
+    if single_slot_valid:
+        editable["singleSlotExceptionEvidence"] = single_slot_evidence
+    if has_primary_subject and not any(
+        slot["semanticRole"] == subject_role for slot in slots
+    ):
+        editable["subjectSlotOmissionEvidence"] = analysis["subjectSlotOmissionEvidence"]
+    if subject_kind == person_kind:
+        editable["subjectAttributeAssessments"] = analysis["subjectAttributeAssessments"]
+    editable["assetUnitAnalysis"] = asset_units
+    if preference_exceptions:
+        editable["defaultValuePreferenceExceptionEvidence"] = preference_exceptions
+    return editable
 
 
 def _slot_to_input(slot: dict[str, Any]) -> dict[str, Any]:
@@ -1079,7 +1350,33 @@ def _slot_to_input(slot: dict[str, Any]) -> dict[str, Any]:
 
 
 def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
-    instruction = analysis["promptEnhancement"]["instruction"]
+    prompt_enhancement = analysis.get("promptEnhancement")
+    instruction = prompt_enhancement.get("instruction") if isinstance(prompt_enhancement, dict) else None
+    locked_constraints = (
+        prompt_enhancement.get("lockedConstraints") if isinstance(prompt_enhancement, dict) else None
+    )
+    preserve = prompt_enhancement.get("preserve") if isinstance(prompt_enhancement, dict) else None
+    hidden_layers_valid = bool(
+        isinstance(instruction, str)
+        and instruction.strip()
+        and isinstance(locked_constraints, list)
+        and locked_constraints
+        and all(isinstance(value, str) and value.strip() for value in locked_constraints)
+        and len(locked_constraints) == len(set(locked_constraints))
+        and isinstance(preserve, list)
+        and preserve
+        and all(isinstance(value, str) and value.strip() for value in preserve)
+        and len(preserve) == len(set(preserve))
+        and set(locked_constraints).isdisjoint(preserve)
+    )
+    if not hidden_layers_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "instruction、lockedConstraints 与 preserve 必须完整，且呈现维度和语义锚点职责不可重复。",
+            {},
+        )
     forbidden = [term for term in rules["prompt"]["forbiddenInstructionTerms"] if term in instruction]
     if len(instruction) > rules["prompt"]["instructionMaxCharacters"] or forbidden:
         raise _stop(
@@ -1098,8 +1395,8 @@ def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rul
             "stageKey": "gallery.prompt_rewrite",
             "instruction": instruction,
             "referenceField": "referenceImage",
-            "lockedConstraints": analysis["promptEnhancement"]["lockedConstraints"],
-            "preserve": analysis["promptEnhancement"]["preserve"],
+            "lockedConstraints": locked_constraints,
+            "preserve": preserve,
             "output": {"format": "json", "promptField": "finalPrompt"},
         },
     }
@@ -1119,7 +1416,6 @@ def _compile_draft(template_key: str, image_size: str, editable: dict[str, Any],
     }
 
 
-PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_-]*)\b[^}]*\}\}")
 SENTENCE_PUNCTUATION = re.compile(r"[，。！？；,.!?;]")
 
 
@@ -1128,7 +1424,7 @@ def _resolve_prompt(prompt_template: str, values: dict[str, str]) -> str:
 
 
 def _semantic_audit_payload(draft: dict[str, Any], editable: dict[str, Any]) -> dict[str, Any]:
-    return {
+    return copy.deepcopy({
         "title": draft["title"],
         "promptTemplate": draft["promptTemplate"],
         "promptEnhancement": draft["promptEnhancement"],
@@ -1142,7 +1438,7 @@ def _semantic_audit_payload(draft: dict[str, Any], editable: dict[str, Any]) -> 
             }
             for slot in editable["slots"]
         ],
-    }
+    })
 
 
 def _validation_report(
@@ -1213,9 +1509,81 @@ def _validation_report(
         if token in draft["title"]
     )
     audited_content_sha = _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable)))
+    semantic_audit_roles = rules["semanticAuditChecks"]
+    semantic_audit_requirements = tuple(semantic_audit_roles.values())
+    required_check_fields = {contract["check"] for contract in semantic_audit_requirements}
+    required_evidence_fields = {contract["evidence"] for contract in semantic_audit_requirements}
+    semantic_checks_payload = semantic_audit.get("checks")
+    semantic_evidence_payload = semantic_audit.get("evidence")
+    evidence = semantic_evidence_payload if isinstance(semantic_evidence_payload, dict) else {}
+
+    def unique_nonempty_strings(value: Any) -> bool:
+        return bool(
+            isinstance(value, list)
+            and value
+            and all(isinstance(item, str) and item.strip() for item in value)
+            and len(value) == len(set(value))
+        )
+
+    resolved_cases_field = semantic_audit_roles["resolvedPrompts"]["evidence"]
+    open_axes_field = semantic_audit_roles["openAxes"]["evidence"]
+    maximum_difference_field = semantic_audit_roles["maximumDifference"]["evidence"]
+    suggestion_reviews_field = semantic_audit_roles["slotSuggestions"]["evidence"]
+    instruction_scope_field = semantic_audit_roles["instructionScope"]["evidence"]
+    hidden_responsibility_field = semantic_audit_roles["hiddenLayerResponsibilities"]["evidence"]
+    resolved_cases = evidence.get(resolved_cases_field)
+    reviewed_open_axes = evidence.get(open_axes_field)
+    maximum_difference_inputs = evidence.get(maximum_difference_field)
+    suggestion_reviews = evidence.get(suggestion_reviews_field)
+    instruction_scope_review = evidence.get(instruction_scope_field)
+    hidden_responsibility_review = evidence.get(hidden_responsibility_field)
+    expected_resolved_cases = {label for label, _ in resolved_prompts}
+    expected_open_axes = {slot["semanticRole"] for slot in editable["slots"]}
+    expected_slot_ids = {slot["id"] for slot in editable["slots"]}
+    maximum_difference_set = (
+        set(maximum_difference_inputs) if unique_nonempty_strings(maximum_difference_inputs) else set()
+    )
+    prompt_rules = rules["prompt"]
+    hidden_roles = prompt_rules["hiddenLayerRoles"]
+    semantic_evidence_valid = bool(
+        unique_nonempty_strings(resolved_cases)
+        and set(resolved_cases) == expected_resolved_cases
+        and unique_nonempty_strings(reviewed_open_axes)
+        and set(reviewed_open_axes) == expected_open_axes
+        and unique_nonempty_strings(maximum_difference_inputs)
+        and all(
+            maximum_difference_set & set(slot["suggestions"])
+            for slot in editable["slots"]
+        )
+        and unique_nonempty_strings(suggestion_reviews)
+        and set(suggestion_reviews) == expected_slot_ids
+        and isinstance(instruction_scope_review, dict)
+        and set(instruction_scope_review) == {"allowedSections", "outOfScopeContentDetected", "evidence"}
+        and unique_nonempty_strings(instruction_scope_review.get("allowedSections"))
+        and set(instruction_scope_review["allowedSections"])
+        == set(prompt_rules["instructionAllowedSections"].values())
+        and instruction_scope_review.get("outOfScopeContentDetected") is False
+        and isinstance(instruction_scope_review.get("evidence"), str)
+        and instruction_scope_review["evidence"].strip()
+        and isinstance(hidden_responsibility_review, dict)
+        and set(hidden_responsibility_review)
+        == {"lockedConstraintsRole", "preserveRole", "overlapDetected", "evidence"}
+        and hidden_responsibility_review.get("lockedConstraintsRole")
+        == hidden_roles["lockedConstraints"]
+        and hidden_responsibility_review.get("preserveRole") == hidden_roles["preserve"]
+        and hidden_responsibility_review.get("overlapDetected") is False
+        and isinstance(hidden_responsibility_review.get("evidence"), str)
+        and hidden_responsibility_review["evidence"].strip()
+    )
+
     semantic_audit_contract_valid = (
         semantic_audit.get("artifactType") == "semantic-audit"
         and semantic_audit.get("schemaVersion") == rules["schemaVersion"]
+        and isinstance(semantic_checks_payload, dict)
+        and set(semantic_checks_payload) == required_check_fields
+        and isinstance(semantic_evidence_payload, dict)
+        and set(semantic_evidence_payload) == required_evidence_fields
+        and semantic_evidence_valid
     )
     semantic_audit_bound = (
         semantic_audit_contract_valid
@@ -1223,7 +1591,8 @@ def _validation_report(
         and semantic_audit.get("observedContentSha256") == audited_content_sha
     )
     semantic_audit_checks = {
-        name: semantic_audit.get("checks", {}).get(name) is True for name in rules["semanticAuditChecks"]
+        contract["check"]: semantic_audit.get("checks", {}).get(contract["check"]) is True
+        for contract in semantic_audit_requirements
     }
     semantic_audit_passed = semantic_audit_bound and all(semantic_audit_checks.values())
     layers = {
@@ -1830,12 +2199,33 @@ def run_production(
         _persist_manifest(output_dir, manifest)
 
         semantic_audit_content = _semantic_audit_payload(draft, editable)
+        compiled_content_sha = _sha_bytes(_canonical_bytes(semantic_audit_content))
+        semantic_audit_request = copy.deepcopy(semantic_audit_content)
+        audit_request_sha = _sha_bytes(_canonical_bytes(semantic_audit_request))
         semantic_audit = _adapter_call(
             rules,
             "audit_semantics",
             adapters.audit_semantics,
-            semantic_audit_content,
+            semantic_audit_request,
         )
+        compiled_content_unchanged = (
+            _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable)))
+            == compiled_content_sha
+        )
+        audit_request_unchanged = (
+            _sha_bytes(_canonical_bytes(semantic_audit_request)) == audit_request_sha
+        )
+        if not compiled_content_unchanged or not audit_request_unchanged:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "语义审计 adapter 修改了只读编译快照。",
+                {
+                    "compiledContentUnchanged": compiled_content_unchanged,
+                    "auditRequestUnchanged": audit_request_unchanged,
+                },
+            )
         _atomic_write_new(output_dir / "semantic-audit.json", _json_bytes(semantic_audit))
         _record_artifact(
             manifest,

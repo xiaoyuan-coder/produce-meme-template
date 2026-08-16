@@ -1,0 +1,523 @@
+from __future__ import annotations
+
+import json
+import hashlib
+import tempfile
+import unittest
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
+
+from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+
+
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURE = ROOT / "fixtures" / "e2e" / "simple-animal"
+RULES = json.loads((ROOT / "contracts" / "machine-rules.json").read_text(encoding="utf-8"))
+FIXED_TIME = datetime.fromisoformat("2026-08-16T08:00:00+00:00")
+SLOT_CONTRACT = RULES["slotCompilationContract"]
+VALUE_GATE_ROLES = SLOT_CONTRACT["valueGateRoles"]
+PERSON_KIND = SLOT_CONTRACT["subjectKinds"]["humanSubject"]
+NON_PERSON_KIND = SLOT_CONTRACT["subjectKinds"]["nonHumanSubject"]
+SUBJECT_ROLE = SLOT_CONTRACT["semanticRoles"]["primarySubject"]
+PERSON_ATTRIBUTE_ROLES = tuple(SLOT_CONTRACT["personAttributeRoles"].values())
+SINGLE_SLOT_REVIEW_AXES = tuple(SLOT_CONTRACT["singleSlotReviewAxes"].values())
+ASSET_COUNT_FIELDS = SLOT_CONTRACT["assetUnitCountFields"]
+VISIBLE_TEXT_SLOT_TYPE = SLOT_CONTRACT["slotTypes"]["visibleTextPrompt"]
+
+
+def load_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+class ApprovedAnalysisAdapters(DeterministicFixtureAdapters):
+    def __init__(self, transform: Callable[[dict], dict]):
+        super().__init__(FIXTURE)
+        self.transform = transform
+
+    def analyze_approved(self, approved_image: Path) -> dict:
+        return self.transform(super().analyze_approved(approved_image))
+
+    def audit_semantics(self, content: dict) -> dict:
+        result = super().audit_semantics(content)
+        digest = hashlib.sha256(
+            json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        result["contentSha256"] = digest
+        result["observedContentSha256"] = digest
+        return result
+
+
+class Issue5EditablePromptCompilerTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.output_root = Path(self.temporary.name)
+        self.request = load_json(FIXTURE / "request.json")
+        self.request["sourceImage"] = str(FIXTURE / self.request["sourceImage"])
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def run_case(self, item_id: str, transform: Callable[[dict], dict]):
+        return run_production(
+            {**self.request, "productionItemId": item_id},
+            self.output_root,
+            ApprovedAnalysisAdapters(transform),
+            clock=lambda: FIXED_TIME,
+        )
+
+    def test_audited_subject_omission_can_keep_two_other_high_value_slots(self) -> None:
+        def omit_subject(analysis: dict) -> dict:
+            analysis["slotCandidates"] = [
+                slot for slot in analysis["slotCandidates"] if slot["semanticRole"] != SUBJECT_ROLE
+            ]
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace(
+                '{{ pet_subject | "柯基犬" }}',
+                "一只放松的小动物",
+            ).replace("一只一只", "一只")
+            analysis["subjectSlotOmissionEvidence"] = {
+                "reviewed": True,
+                "valueGates": {
+                    role: role != VALUE_GATE_ROLES["mechanismPreservation"]
+                    for role in VALUE_GATE_ROLES.values()
+                },
+                "reason": "主体替换会破坏唯一的伏卧接触机制",
+            }
+            analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 2
+            return analysis
+
+        result = self.run_case("audited-subject-slot-omission", omit_subject)
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        self.assertEqual(2, len(editable["slots"]))
+        self.assertEqual("主体替换会破坏唯一的伏卧接触机制", editable["subjectSlotOmissionEvidence"]["reason"])
+
+    def test_exhaustive_single_slot_exception_is_allowed_and_preserved_as_evidence(self) -> None:
+        reviewed_axes = list(SINGLE_SLOT_REVIEW_AXES)
+
+        def one_slot(analysis: dict) -> dict:
+            analysis["slotCandidates"] = [analysis["slotCandidates"][0]]
+            analysis["promptTemplate"] = (
+                '一只{{ pet_subject | "柯基犬" }}蜷卧在柔软承托物上，前爪搭住边缘，'
+                "侧面柔光照入安静室内，背景带轻微景深。"
+            )
+            analysis["freeEditableContent"] = ["柔软承托物", "侧面柔光", "安静室内", "轻微景深"]
+            analysis["singleSlotExceptionEvidence"] = {
+                "confirmedOnlyOneHighValue": True,
+                "reviewedAxes": reviewed_axes,
+                "reason": "其余内容缺少独立用户动机或会破坏核心机制",
+            }
+            analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 1
+            return analysis
+
+        result = self.run_case("audited-single-slot-exception", one_slot)
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        self.assertEqual(1, len(editable["slots"]))
+        self.assertEqual(set(reviewed_axes), set(editable["singleSlotExceptionEvidence"]["reviewedAxes"]))
+
+    def test_long_production_style_default_value_is_rejected(self) -> None:
+        def long_default(analysis: dict) -> dict:
+            analysis["slotCandidates"][1]["defaultValue"] = "带有复杂编织纹理的暖黄色柔软大坐垫"
+            return analysis
+
+        adapters = ApprovedAnalysisAdapters(long_default)
+        result = run_production(
+            {**self.request, "productionItemId": "long-slot-default-value"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_preferred_default_length_requires_audited_exception(self) -> None:
+        def one_character_default(analysis: dict) -> dict:
+            analysis["slotCandidates"][0]["defaultValue"] = "犬"
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace("柯基犬", "犬")
+            return analysis
+
+        blocked = self.run_case("one-character-default-without-evidence", one_character_default)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], blocked.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], blocked.error_code)
+        self.assertFalse((blocked.output_dir / "editable-template-spec.json").exists())
+
+        def audited_one_character_default(analysis: dict) -> dict:
+            analysis = one_character_default(analysis)
+            slot_id = analysis["slotCandidates"][0]["id"]
+            analysis["defaultValuePreferenceExceptionEvidence"] = {
+                slot_id: {
+                    "reviewed": True,
+                    "reason": "单字犬是该可见主体的最短自然中文称呼",
+                }
+            }
+            return analysis
+
+        completed = self.run_case("audited-one-character-default", audited_one_character_default)
+
+        self.assertEqual(RULES["resultStates"]["completed"], completed.state)
+        editable = load_json(completed.output_dir / "editable-template-spec.json")
+        slot_id = editable["slots"][0]["id"]
+        self.assertIn(slot_id, editable["defaultValuePreferenceExceptionEvidence"])
+
+    def test_non_chinese_default_requires_audited_exception(self) -> None:
+        def english_default(analysis: dict) -> dict:
+            analysis["slotCandidates"][0]["defaultValue"] = "cat"
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace("柯基犬", "cat")
+            return analysis
+
+        result = self.run_case("english-default-without-evidence", english_default)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_editable_sidecar_exposes_one_resolved_prompt_for_both_edit_modes(self) -> None:
+        result = run_production(
+            {**self.request, "productionItemId": "unified-resolved-prompt"},
+            self.output_root,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        contract = editable["resolvedPromptContract"]
+        self.assertEqual("promptTemplate", contract["singleSourceField"])
+        self.assertEqual(
+            {slot["id"]: slot["defaultValue"] for slot in editable["slots"]},
+            contract["defaultSlotValues"],
+        )
+        self.assertNotIn("{{", contract["defaultResolvedPrompt"])
+        self.assertTrue(
+            all(value in contract["defaultResolvedPrompt"] for value in editable["freeEditableContent"])
+        )
+
+    def test_person_attributes_require_independent_value_and_stability_assessments(self) -> None:
+        def missing_assessments(analysis: dict) -> dict:
+            analysis["subjectKind"] = PERSON_KIND
+            return analysis
+
+        missing = self.run_case("person-attributes-missing-assessment", missing_assessments)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], missing.state)
+        self.assertFalse((missing.output_dir / "editable-template-spec.json").exists())
+
+        def assessed(analysis: dict) -> dict:
+            analysis["subjectKind"] = PERSON_KIND
+            analysis["subjectAttributeAssessments"] = {
+                role: {gate: False for gate in VALUE_GATE_ROLES.values()} | {
+                    "includedAsSlot": False,
+                    "evidence": f"已独立检查 {role} 的编辑价值与生成稳定性",
+                }
+                for role in PERSON_ATTRIBUTE_ROLES
+            }
+            return analysis
+
+        valid = self.run_case("person-attributes-independently-assessed", assessed)
+
+        self.assertEqual(RULES["resultStates"]["completed"], valid.state)
+        editable = load_json(valid.output_dir / "editable-template-spec.json")
+        self.assertEqual(set(PERSON_ATTRIBUTE_ROLES), set(editable["subjectAttributeAssessments"]))
+
+    def test_subject_presence_and_kind_discriminators_are_required(self) -> None:
+        for field in ("hasPrimarySubject", "subjectKind"):
+            with self.subTest(field=field):
+                def missing_discriminator(analysis: dict, field: str = field) -> dict:
+                    analysis.pop(field, None)
+                    return analysis
+
+                result = self.run_case(f"missing-{field.lower()}", missing_discriminator)
+
+                self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+                self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+        def explicit_non_person(analysis: dict) -> dict:
+            analysis["subjectKind"] = NON_PERSON_KIND
+            return analysis
+
+        completed = self.run_case("explicit-non-person-kind", explicit_non_person)
+        self.assertEqual(RULES["resultStates"]["completed"], completed.state)
+
+    def test_slot_ids_must_be_unique(self) -> None:
+        def duplicate_slot_id(analysis: dict) -> dict:
+            duplicate_id = analysis["slotCandidates"][0]["id"]
+            analysis["slotCandidates"][1]["id"] = duplicate_id
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace("cushion_look", duplicate_id)
+            return analysis
+
+        result = self.run_case("duplicate-slot-id", duplicate_slot_id)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_slot_id_schema_is_enforced_before_editable_sidecar(self) -> None:
+        def overlong_slot_id(analysis: dict) -> dict:
+            old_id = analysis["slotCandidates"][0]["id"]
+            long_id = "a" * 41
+            analysis["slotCandidates"][0]["id"] = long_id
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace(old_id, long_id)
+            return analysis
+
+        result = self.run_case("overlong-slot-id", overlong_slot_id)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_prompt_inline_defaults_must_match_slot_defaults(self) -> None:
+        def mismatched_default(analysis: dict) -> dict:
+            analysis["slotCandidates"][1]["defaultValue"] = "奶白软垫"
+            return analysis
+
+        result = self.run_case("mismatched-inline-slot-default", mismatched_default)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_exact_visible_text_exception_binds_value_and_approved_image_sha(self) -> None:
+        long_visible_text = "今天先休息一下明天继续努力呀"
+
+        def fake_exact_text(analysis: dict) -> dict:
+            slot = analysis["slotCandidates"][1]
+            old_default = slot["defaultValue"]
+            slot["defaultValue"] = long_visible_text
+            slot["type"] = VISIBLE_TEXT_SLOT_TYPE
+            slot["exactVisibleText"] = True
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace(old_default, long_visible_text)
+            analysis["defaultValuePreferenceExceptionEvidence"] = {
+                slot["id"]: {"reviewed": True, "reason": "精确保留画内可见文字"}
+            }
+            return analysis
+
+        blocked = self.run_case("unbound-exact-visible-text", fake_exact_text)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], blocked.state)
+        self.assertFalse((blocked.output_dir / "editable-template-spec.json").exists())
+
+        def bound_exact_text(analysis: dict) -> dict:
+            analysis = fake_exact_text(analysis)
+            slot = analysis["slotCandidates"][1]
+            slot["exactVisibleTextEvidence"] = {
+                "approvedImageSha256": analysis["visualFactSourceSha256"],
+                "visibleText": long_visible_text,
+                "evidence": "Approved Template Image 的软垫区域逐字可见",
+            }
+            return analysis
+
+        completed = self.run_case("bound-exact-visible-text", bound_exact_text)
+        self.assertEqual(RULES["resultStates"]["completed"], completed.state)
+
+    def test_slot_value_gates_must_contain_all_named_boolean_roles(self) -> None:
+        def incomplete_gates(analysis: dict) -> dict:
+            analysis["slotCandidates"][0]["valueGates"] = {
+                VALUE_GATE_ROLES["userDemand"]: True,
+            }
+            return analysis
+
+        adapters = ApprovedAnalysisAdapters(incomplete_gates)
+        result = run_production(
+            {**self.request, "productionItemId": "incomplete-value-gates"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertNotEqual(RULES["resultStates"]["completed"], result.state)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_asset_unit_analysis_is_required_and_control_count_matches_slots(self) -> None:
+        def missing_asset_units(analysis: dict) -> dict:
+            analysis.pop("assetUnitAnalysis", None)
+            return analysis
+
+        missing = self.run_case("missing-asset-unit-analysis", missing_asset_units)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], missing.state)
+        self.assertFalse((missing.output_dir / "editable-template-spec.json").exists())
+
+        def wrong_control_count(analysis: dict) -> dict:
+            analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 99
+            return analysis
+
+        wrong = self.run_case("wrong-control-unit-count", wrong_control_count)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], wrong.state)
+        self.assertFalse((wrong.output_dir / "editable-template-spec.json").exists())
+
+    def test_secondary_text_stays_free_editable_and_asset_units_are_counted_independently(self) -> None:
+        secondary_text = "墙上小字写着慢慢来"
+
+        def analyze_units(analysis: dict) -> dict:
+            analysis["promptTemplate"] = analysis["promptTemplate"].removesuffix("。") + f"，{secondary_text}。"
+            analysis["freeEditableContent"].append(secondary_text)
+            analysis["assetUnitAnalysis"] = {
+                ASSET_COUNT_FIELDS["visibleSubjects"]: 4,
+                ASSET_COUNT_FIELDS["identities"]: 4,
+                ASSET_COUNT_FIELDS["uploads"]: 1,
+                ASSET_COUNT_FIELDS["controls"]: 3,
+                "evidence": "四个身份共用一张上传素材，控件按三个高价值编辑入口计算",
+            }
+            return analysis
+
+        result = self.run_case("secondary-text-and-independent-asset-units", analyze_units)
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        record = load_json(result.gallery_template)
+        self.assertIn(secondary_text, editable["freeEditableContent"])
+        self.assertIn(secondary_text, editable["promptTemplate"])
+        self.assertNotIn(secondary_text, json.dumps(record["inputSchema"], ensure_ascii=False))
+        self.assertEqual(4, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["visibleSubjects"]])
+        self.assertEqual(4, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["identities"]])
+        self.assertEqual(1, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["uploads"]])
+        self.assertEqual(3, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]])
+
+    def test_semantic_audit_requires_structured_evidence(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_audit = adapters.audit_semantics
+
+        def evidence_free_audit(content: dict) -> dict:
+            audit = original_audit(content)
+            audit.pop("evidence", None)
+            return audit
+
+        adapters.audit_semantics = evidence_free_audit
+        result = run_production(
+            {**self.request, "productionItemId": "semantic-audit-without-evidence"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
+        scalar_adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_scalar_audit = scalar_adapters.audit_semantics
+
+        def scalar_evidence_audit(content: dict) -> dict:
+            audit = original_scalar_audit(content)
+            audit["evidence"] = {
+                contract["evidence"]: "ok"
+                for contract in RULES["semanticAuditChecks"].values()
+            }
+            return audit
+
+        scalar_adapters.audit_semantics = scalar_evidence_audit
+        scalar = run_production(
+            {**self.request, "productionItemId": "semantic-audit-with-scalar-evidence"},
+            self.output_root,
+            scalar_adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], scalar.state)
+        self.assertEqual([], scalar_adapters.upload_calls)
+
+        incomplete_adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_incomplete_audit = incomplete_adapters.audit_semantics
+        resolved_cases_field = RULES["semanticAuditChecks"]["resolvedPrompts"]["evidence"]
+
+        def incomplete_coverage_audit(content: dict) -> dict:
+            audit = original_incomplete_audit(content)
+            audit["evidence"][resolved_cases_field] = ["defaults"]
+            return audit
+
+        incomplete_adapters.audit_semantics = incomplete_coverage_audit
+        incomplete = run_production(
+            {**self.request, "productionItemId": "semantic-audit-incomplete-coverage"},
+            self.output_root,
+            incomplete_adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], incomplete.state)
+        self.assertEqual([], incomplete_adapters.upload_calls)
+
+    def test_instruction_scope_and_hidden_layer_responsibilities_are_enforced(self) -> None:
+        def out_of_scope_instruction(analysis: dict) -> dict:
+            analysis["promptEnhancement"]["instruction"] = "添加摄影师署名和品牌标志"
+            return analysis
+
+        out_of_scope = self.run_case("out-of-scope-instruction", out_of_scope_instruction)
+        self.assertEqual(RULES["resultStates"]["blocked"], out_of_scope.state)
+
+        def duplicated_hidden_responsibility(analysis: dict) -> dict:
+            locked = analysis["promptEnhancement"]["lockedConstraints"]
+            analysis["promptEnhancement"]["preserve"].append(locked[0])
+            return analysis
+
+        duplicated = self.run_case("duplicated-hidden-responsibility", duplicated_hidden_responsibility)
+        self.assertEqual(RULES["resultStates"]["blocked"], duplicated.state)
+
+    def test_prompt_slots_require_nonempty_suggestion_pools(self) -> None:
+        def empty_prompt_suggestions(analysis: dict) -> dict:
+            analysis["slotCandidates"][1]["suggestions"] = []
+            return analysis
+
+        result = self.run_case("empty-prompt-suggestion-pool", empty_prompt_suggestions)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_suggestion_duplicates_are_compared_as_trimmed_user_visible_values(self) -> None:
+        def trimmed_duplicate(analysis: dict) -> dict:
+            first = analysis["slotCandidates"][1]["suggestions"][0]
+            analysis["slotCandidates"][1]["suggestions"].append(f" {first} ")
+            return analysis
+
+        duplicate = self.run_case("trimmed-duplicate-suggestion", trimmed_duplicate)
+        self.assertEqual(RULES["resultStates"]["blocked"], duplicate.state)
+
+        def trimmed_default_duplicate(analysis: dict) -> dict:
+            slot = analysis["slotCandidates"][1]
+            slot["suggestions"][0] = f" {slot['defaultValue']} "
+            return analysis
+
+        default_duplicate = self.run_case("trimmed-default-duplicate", trimmed_default_duplicate)
+        self.assertEqual(RULES["resultStates"]["blocked"], default_duplicate.state)
+
+    def test_semantic_adapter_cannot_mutate_compiled_core_objects(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_audit = adapters.audit_semantics
+
+        def mutating_audit(content: dict) -> dict:
+            first = content["slots"][1]["suggestions"][0]
+            content["slots"][1]["suggestions"].append(f" {first} ")
+            content["promptEnhancement"]["preserve"].append("审计期间注入的语义锚点")
+            audit = original_audit(content)
+            digest = hashlib.sha256(
+                json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            audit["contentSha256"] = digest
+            audit["observedContentSha256"] = digest
+            return audit
+
+        adapters.audit_semantics = mutating_audit
+        result = run_production(
+            {**self.request, "productionItemId": "mutating-semantic-adapter"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["failed"], result.state)
+        self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        draft = load_json(result.output_dir / "gallery-template.draft.json")
+        self.assertEqual(3, len(editable["slots"][1]["suggestions"]))
+        self.assertNotIn("审计期间注入的语义锚点", draft["promptEnhancement"]["preserve"])
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+        self.assertEqual([], adapters.upload_calls)
+
+
+if __name__ == "__main__":
+    unittest.main()
