@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.3.0",
+  "schemaVersion": "0.4.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -51,14 +51,46 @@
     "actionFields": ["replacementValue", "preserve", "forbidValues"]
   },
   "visualDimensions": ["medium", "form", "edge", "colorAndShading", "surface", "composition"],
-  "visualHardGates": [
-    "replacementComplete",
-    "dependencyClosureComplete",
-    "mechanismPreserved",
-    "contactGeometryValid",
-    "watermarkFree",
-    "legacyIdentityFree"
-  ],
+  "visualReviewContract": {
+    "hardGateRoles": {
+      "primaryReplacement": "replacementComplete",
+      "dependencyClosure": "dependencyClosureComplete",
+      "nonTargetPreservation": "nonTargetPreserved",
+      "mechanismPreservation": "mechanismPreserved",
+      "contactGeometry": "contactGeometryValid",
+      "visibleText": "visibleTextClean",
+      "fullCanvasCleanliness": "fullCanvasClean",
+      "watermarkAbsence": "watermarkFree",
+      "legacyIdentityAbsence": "legacyIdentityFree"
+    },
+    "cleanlinessFindingRoles": {
+      "ghostText": "ghostTextDetected",
+      "pseudoSignature": "pseudoSignatureDetected",
+      "platformWatermark": "platformWatermarkDetected"
+    },
+    "ambiguitySignalRoles": {
+      "identityAmbiguity": "identityAmbiguous",
+      "aestheticRisk": "aestheticRiskPresent",
+      "evidenceInsufficient": "evidenceInsufficient",
+      "alternativesClose": "validAlternativesClose"
+    },
+    "evidenceFields": [
+      "hardGates",
+      "visualDimensions",
+      "visibleTextEvidence",
+      "cleanlinessFindings",
+      "ambiguitySignals"
+    ],
+    "decisionValues": {
+      "approved": "approved",
+      "needsReview": "needs_review",
+      "rejected": "rejected"
+    }
+  },
+  "invalidationReasons": {
+    "generationFactsChanged": "generation_facts_changed",
+    "approvedImageChanged": "approved_image_changed"
+  },
   "formalProjection": {
     "topLevel": [
       "key",
@@ -112,5 +144,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E19", "E21", "E25", "E27", "E35", "E36", "E38"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E12", "E13", "E19", "E21", "E25", "E27", "E29", "E34", "E35", "E36", "E38"]
 }

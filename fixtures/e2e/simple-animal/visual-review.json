@@ -1,11 +1,14 @@
 {
   "artifactType": "visual-review",
-  "schemaVersion": "0.3.0",
+  "schemaVersion": "0.4.0",
   "hardGates": {
     "replacementComplete": true,
     "dependencyClosureComplete": true,
+    "nonTargetPreserved": true,
     "mechanismPreserved": true,
     "contactGeometryValid": true,
+    "visibleTextClean": true,
+    "fullCanvasClean": true,
     "watermarkFree": true,
     "legacyIdentityFree": true
   },
@@ -17,6 +20,25 @@
     "surface": {"pass": true, "evidence": "短毛和织物材质连续"},
     "composition": {"pass": true, "evidence": "主体、软垫和背景占比保持"}
   },
+  "visibleTextEvidence": {
+    "pass": true,
+    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "cleanlinessFindings": {
+    "ghostTextDetected": false,
+    "pseudoSignatureDetected": false,
+    "platformWatermarkDetected": false
+  },
+  "ambiguitySignals": {
+    "identityAmbiguous": false,
+    "aestheticRiskPresent": false,
+    "evidenceInsufficient": false,
+    "validAlternativesClose": false
+  },
   "watermarkScan": ["显眼标记无残留", "半透明角标无残留", "嵌入区域无残留"],
-  "decision": "approved"
+  "method": {
+    "id": "deterministic-fixture-visual-review",
+    "version": "1"
+  },
+  "reviewedAt": "2026-08-16T08:00:00Z"
 }

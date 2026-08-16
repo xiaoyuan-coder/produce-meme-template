@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-`0.3.0` 已提供 Issue #2–#3 的单图纵向切片：普通真人、知名 IP、动物、物体、文字或场景来源图可通过同一公共工作流完成 P0–P8；单图显式策略优先于自主选择，未覆盖决定由默认替换规范补齐。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
+`0.4.0` 已提供 Issue #2–#4 的单图纵向切片：普通真人、知名 IP、动物、物体、文字或场景来源图可通过同一公共工作流完成 P0–P8；单图显式策略优先于自主选择，未覆盖决定由默认替换规范补齐。P2 对模板图执行完整视觉硬门禁、证据新鲜度校验、自主确认与风险升级，并能从视觉硬失败创建不可变重做 revision。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
 
 ## 开始工作
 
@@ -30,7 +30,8 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 规则路由
 
-- P0–P2 的自主替换、依赖闭包、生图包和视觉门禁读取 [第一阶段替换规范](references/replacement-spec.md)。
+- P0–P2 的自主替换、依赖闭包和生图包读取 [第一阶段替换规范](references/replacement-spec.md)。
+- P2 的视觉硬门禁、证据绑定、自主确认和不可变重做读取 [模板图确认与恢复合同](references/template-image-gate.md)。
 - P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/gallery-template.schema.json`。

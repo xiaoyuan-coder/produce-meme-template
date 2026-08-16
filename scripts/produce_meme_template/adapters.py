@@ -8,8 +8,23 @@ from pathlib import Path
 from typing import Any
 
 
+RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "machine-rules.json"
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _visual_evidence_sha(review: dict[str, Any], contract: dict[str, Any]) -> str:
+    evidence_payload = {field: review[field] for field in contract["evidenceFields"]}
+    return hashlib.sha256(
+        json.dumps(
+            evidence_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
 
 
 def _semantic_overlap(left: str, right: str) -> bool:
@@ -104,9 +119,16 @@ class DeterministicFixtureAdapters:
             "imageBytes": image_path.read_bytes(),
         }
 
-    def inspect_generated(self, generated_image: Path) -> dict[str, Any]:
+    def inspect_generated(
+        self, generated_image: Path, review_context: dict[str, str]
+    ) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "visual-review.json")
-        result["generatedImageSha256"] = hashlib.sha256(generated_image.read_bytes()).hexdigest()
+        contract = _read_json(RULES_PATH)["visualReviewContract"]
+        result["bindings"] = {
+            **review_context,
+            "generatedImageSha256": hashlib.sha256(generated_image.read_bytes()).hexdigest(),
+            "evidenceSha256": _visual_evidence_sha(result, contract),
+        }
         return result
 
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
@@ -137,13 +159,15 @@ class DeterministicFixtureAdapters:
         clone = copy.copy(self)
         original = clone.inspect_generated
 
-        def inspect(generated_image: Path) -> dict[str, Any]:
-            result = original(generated_image)
+        def inspect(generated_image: Path, review_context: dict[str, str]) -> dict[str, Any]:
+            result = original(generated_image, review_context)
             for key, value in overrides.items():
                 if isinstance(value, dict) and isinstance(result.get(key), dict):
                     result[key].update(value)
                 else:
                     result[key] = value
+            contract = _read_json(RULES_PATH)["visualReviewContract"]
+            result["bindings"]["evidenceSha256"] = _visual_evidence_sha(result, contract)
             return result
 
         clone.inspect_generated = inspect  # type: ignore[method-assign]

@@ -61,6 +61,13 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_4_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E06", "E10", "E11", "E12", "E13", "E29", "E34"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
     def test_replacement_enums_expose_named_domain_roles(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
 
@@ -84,6 +91,7 @@ class RepositoryContractTest(unittest.TestCase):
         machine_values.extend(rules["errorCodes"].values())
         machine_values.extend(rules["sourceCategories"].values())
         machine_values.extend(rules["strategySources"].values())
+        machine_values.extend(rules["invalidationReasons"].values())
 
         string_literals = [
             {node.value for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Constant) and isinstance(node.value, str)}

@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "updated_at": "2026-08-16",
-  "description": "实现 Issue #3 单图显式/自主替换策略、类别路由与两类值池隔离。",
+  "description": "实现 Issue #4 模板图视觉硬门禁、自主确认、证据新鲜度与 P2 不可变重做。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -45,6 +45,7 @@
     "fixtures/e2e/simple-animal/visual-review.json",
     "references/gallery-template-compiler.md",
     "references/replacement-spec.md",
+    "references/template-image-gate.md",
     "references/vertical-slice-runtime.md",
     "release.json",
     "requirements.txt",
@@ -65,6 +66,7 @@
     "specs/版本治理与发布规范.md",
     "tests/test_issue_2_vertical_slice.py",
     "tests/test_issue_3_replacement_strategy.py",
+    "tests/test_issue_4_template_image_gate.py",
     "tests/test_repository_contract.py"
   ]
 }

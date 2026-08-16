@@ -25,7 +25,9 @@ class WorkflowAdapters(Protocol):
         self, source_image: Path, replacement_strategy: dict[str, Any] | None
     ) -> dict[str, Any]: ...
     def generate(self, source_image: Path, generation_package: dict[str, Any]) -> dict[str, Any]: ...
-    def inspect_generated(self, generated_image: Path) -> dict[str, Any]: ...
+    def inspect_generated(
+        self, generated_image: Path, review_context: dict[str, str]
+    ) -> dict[str, Any]: ...
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]: ...
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]: ...
     def upload(self, approved_image: Path, object_key: str) -> dict[str, Any]: ...
@@ -174,6 +176,7 @@ def _production_item_integrity_errors(
     for field, expected in expected_identity.items():
         if manifest.get(field) != expected:
             errors.append(f"{field} mismatch")
+    errors.extend(_revision_integrity_errors(manifest))
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, dict):
         return [*errors, "artifact lineage missing"]
@@ -182,7 +185,23 @@ def _production_item_integrity_errors(
             errors.append(f"{required} missing from lineage")
     resolved_root = output_dir.resolve()
     for name, artifact in artifacts.items():
-        artifact_path = (resolved_root / artifact.get("path", name)).resolve()
+        if not isinstance(artifact, dict):
+            errors.append(f"{name} artifact record invalid")
+            continue
+        dependencies = artifact.get("dependsOn")
+        if not isinstance(dependencies, list) or not all(
+            isinstance(dependency, str) and dependency for dependency in dependencies
+        ):
+            errors.append(f"{name} dependencies invalid")
+        else:
+            for dependency in dependencies:
+                if dependency not in artifacts:
+                    errors.append(f"{name} dependency missing: {dependency}")
+        artifact_relative_path = artifact.get("path", name)
+        if not isinstance(artifact_relative_path, str) or not artifact_relative_path:
+            errors.append(f"{name} path invalid")
+            continue
+        artifact_path = (resolved_root / artifact_relative_path).resolve()
         if not artifact_path.is_relative_to(resolved_root):
             errors.append(f"{name} escapes production item")
             continue
@@ -191,6 +210,40 @@ def _production_item_integrity_errors(
             continue
         if _sha_file(artifact_path) != artifact.get("sha256"):
             errors.append(f"{name} digest mismatch")
+    return errors
+
+
+def _revision_integrity_errors(manifest: dict[str, Any]) -> list[str]:
+    revision = manifest.get("revision")
+    artifacts = manifest.get("artifacts")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        return ["manifest revision must be a positive integer"]
+    if not isinstance(artifacts, dict):
+        return []
+    errors: list[str] = []
+    artifact_revisions: list[int] = []
+    revisioned_name_pattern = re.compile(r"-r([1-9][0-9]*)$")
+    revision_one_names = re.compile(
+        r"^(?:generation-package|visual-review|evidence/(?:generated-candidate-image|approved-template-image))\.[a-z0-9]+$"
+    )
+    for name, artifact in artifacts.items():
+        artifact_revision = artifact.get("revision") if isinstance(artifact, dict) else None
+        if (
+            not isinstance(artifact_revision, int)
+            or isinstance(artifact_revision, bool)
+            or artifact_revision < 1
+            or artifact_revision > revision
+        ):
+            errors.append(f"{name} artifact revision invalid")
+            continue
+        artifact_revisions.append(artifact_revision)
+        name_revision = revisioned_name_pattern.search(Path(name).stem)
+        if name_revision is not None and int(name_revision.group(1)) != artifact_revision:
+            errors.append(f"{name} filename revision mismatch")
+        if revision_one_names.fullmatch(name) and artifact_revision != 1:
+            errors.append(f"{name} base filename revision mismatch")
+    if artifact_revisions and max(artifact_revisions) != revision:
+        errors.append("manifest revision does not match artifact lineage")
     return errors
 
 
@@ -203,9 +256,145 @@ def _record_artifact(
         "sha256": _sha_file(path),
         "bytes": path.stat().st_size,
         "phase": phase,
-        "revision": 1,
+        "revision": manifest["revision"],
         "dependsOn": dependencies,
     }
+
+
+def _artifact_descendants(manifest: dict[str, Any], root_name: str) -> list[str]:
+    descendants: set[str] = set()
+    artifacts = manifest.get("artifacts", {})
+    changed = True
+    while changed:
+        changed = False
+        for name, artifact in artifacts.items():
+            if not isinstance(artifact, dict):
+                continue
+            raw_dependencies = artifact.get("dependsOn")
+            if not isinstance(raw_dependencies, list) or not all(
+                isinstance(dependency, str) for dependency in raw_dependencies
+            ):
+                continue
+            dependencies = set(raw_dependencies)
+            if name not in descendants and (root_name in dependencies or dependencies & descendants):
+                descendants.add(name)
+                changed = True
+    return sorted(descendants)
+
+
+def _revision_image_artifacts(
+    manifest: dict[str, Any], role: str, revision: int
+) -> list[str]:
+    pattern = re.compile(rf"^evidence/{re.escape(role)}(?:-r[1-9][0-9]*)?\.[a-z0-9]+$")
+    return sorted(
+        name
+        for name, artifact in manifest.get("artifacts", {}).items()
+        if pattern.fullmatch(name)
+        and isinstance(artifact, dict)
+        and artifact.get("revision") == revision
+    )
+
+
+def _current_p2_artifact_errors(manifest: dict[str, Any]) -> list[str]:
+    revision = manifest.get("revision")
+    artifacts = manifest.get("artifacts")
+    if not isinstance(revision, int) or isinstance(revision, bool) or not isinstance(artifacts, dict):
+        return []
+    errors: list[str] = []
+    for name in (
+        _revisioned_name("generation-package.json", revision),
+        _revisioned_name("visual-review.json", revision),
+    ):
+        if name not in artifacts:
+            errors.append(f"current P2 artifact missing: {name}")
+    for role in ("generated-candidate-image", "approved-template-image"):
+        names = _revision_image_artifacts(manifest, role, revision)
+        if len(names) != 1:
+            errors.append(f"current P2 {role} count must be one")
+    return errors
+
+
+def _changed_lineage_artifacts(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    names: list[str],
+) -> list[str]:
+    changed: list[str] = []
+    for name in names:
+        artifact = manifest.get("artifacts", {}).get(name)
+        if not isinstance(artifact, dict):
+            continue
+        artifact_relative_path = artifact.get("path", name)
+        if not isinstance(artifact_relative_path, str) or not artifact_relative_path:
+            continue
+        artifact_path = output_dir / artifact_relative_path
+        if not artifact_path.is_file() or _sha_file(artifact_path) != artifact.get("sha256"):
+            changed.append(name)
+    return changed
+
+
+def _append_invalidation_event(
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+    *,
+    reason_key: str,
+    superseded_artifact: str,
+    invalidated_artifacts: list[str],
+    invalidated_from_phase: str,
+    timestamp: str,
+    observed_sha256: str | None = None,
+    replacement_artifact: str | None = None,
+    replacement_sha256: str | None = None,
+) -> None:
+    phase_index = next(
+        index
+        for index, item in enumerate(rules["productionPhases"])
+        if item["phase"] == invalidated_from_phase
+    )
+    superseded = manifest["artifacts"][superseded_artifact]
+    event: dict[str, Any] = {
+        "revision": manifest["revision"],
+        "reason": rules["invalidationReasons"][reason_key],
+        "invalidatedAt": timestamp,
+        "supersededArtifact": superseded_artifact,
+        "supersededSha256": superseded["sha256"],
+        "invalidatedArtifacts": invalidated_artifacts,
+        "invalidatedPhases": [
+            item["phase"] for item in rules["productionPhases"][phase_index:]
+        ],
+    }
+    if observed_sha256 is not None:
+        event["observedSha256"] = observed_sha256
+    if replacement_artifact is not None and replacement_sha256 is not None:
+        event["replacementArtifact"] = replacement_artifact
+        event["replacementSha256"] = replacement_sha256
+    events = manifest.setdefault("invalidationEvents", [])
+    identity = (
+        event["revision"],
+        event["reason"],
+        event["supersededArtifact"],
+        event.get("observedSha256"),
+        event.get("replacementSha256"),
+    )
+    if not any(
+        (
+            item.get("revision"),
+            item.get("reason"),
+            item.get("supersededArtifact"),
+            item.get("observedSha256"),
+            item.get("replacementSha256"),
+        )
+        == identity
+        for item in events
+    ):
+        events.append(event)
+
+
+def _revisioned_name(name: str, revision: int) -> str:
+    if revision == 1:
+        return name
+    path = Path(name)
+    return str(path.with_name(f"{path.stem}-r{revision}{path.suffix}"))
 
 
 def _advance(manifest: dict[str, Any], rules: dict[str, Any], phase: str, timestamp: str) -> None:
@@ -661,19 +850,132 @@ def _compile_generation_package(plan: dict[str, Any], source_analysis: dict[str,
     }
 
 
-def _assert_visual_gate(review: dict[str, Any], rules: dict[str, Any]) -> None:
-    failures = [name for name in rules["visualHardGates"] if review.get("hardGates", {}).get(name) is not True]
-    failures.extend(
-        name for name in rules["visualDimensions"] if review.get("visualDimensions", {}).get(name, {}).get("pass") is not True
+def _compile_redo_generation_package(
+    previous_package: dict[str, Any],
+    previous_review: dict[str, Any],
+    revision: int,
+) -> dict[str, Any]:
+    package = copy.deepcopy(previous_package)
+    correction = {
+        "revision": revision,
+        "failedGates": previous_review.get("decisionEvidence", {}).get("failedGates", []),
+        "previousGenerationPackageSha256": _sha_bytes(_canonical_bytes(previous_package)),
+        "previousVisualReviewSha256": _sha_bytes(_canonical_bytes(previous_review)),
+    }
+    package["redo"] = correction
+    package["requestId"] = "gen-" + _sha_bytes(
+        _canonical_bytes({"previousRequestId": previous_package["requestId"], "correction": correction})
+    )[:24]
+    return package
+
+
+def _evaluate_visual_gate(
+    review: Any,
+    rules: dict[str, Any],
+    expected_bindings: dict[str, str],
+) -> WorkflowStop | None:
+    if not isinstance(review, dict):
+        return _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "视觉审核证据必须是对象。",
+            {"actualType": type(review).__name__},
+        )
+    contract = rules["visualReviewContract"]
+    hard_gate_names = set(contract["hardGateRoles"].values())
+    cleanliness_names = set(contract["cleanlinessFindingRoles"].values())
+    ambiguity_names = set(contract["ambiguitySignalRoles"].values())
+    evidence_fields = contract["evidenceFields"]
+    hard_gates = review.get("hardGates")
+    dimensions = review.get("visualDimensions")
+    visible_text = review.get("visibleTextEvidence")
+    cleanliness = review.get("cleanlinessFindings")
+    ambiguities = review.get("ambiguitySignals")
+    bindings = review.get("bindings")
+    method = review.get("method")
+    evidence_payload = (
+        {field: review[field] for field in evidence_fields}
+        if all(field in review for field in evidence_fields)
+        else None
     )
+    contract_valid = bool(
+        review.get("artifactType") == "visual-review"
+        and review.get("schemaVersion") == rules["schemaVersion"]
+        and isinstance(hard_gates, dict)
+        and set(hard_gates) == hard_gate_names
+        and all(isinstance(value, bool) for value in hard_gates.values())
+        and isinstance(dimensions, dict)
+        and set(dimensions) == set(rules["visualDimensions"])
+        and all(
+            isinstance(value, dict)
+            and isinstance(value.get("pass"), bool)
+            and isinstance(value.get("evidence"), str)
+            and value.get("evidence").strip()
+            for value in dimensions.values()
+        )
+        and isinstance(visible_text, dict)
+        and isinstance(visible_text.get("pass"), bool)
+        and isinstance(visible_text.get("evidence"), str)
+        and visible_text.get("evidence").strip()
+        and isinstance(cleanliness, dict)
+        and set(cleanliness) == cleanliness_names
+        and all(isinstance(value, bool) for value in cleanliness.values())
+        and isinstance(ambiguities, dict)
+        and set(ambiguities) == ambiguity_names
+        and all(isinstance(value, bool) for value in ambiguities.values())
+        and isinstance(bindings, dict)
+        and all(bindings.get(key) == value for key, value in expected_bindings.items())
+        and evidence_payload is not None
+        and bindings.get("evidenceSha256") == _sha_bytes(_canonical_bytes(evidence_payload))
+        and isinstance(method, dict)
+        and isinstance(method.get("id"), str)
+        and method.get("id").strip()
+        and isinstance(method.get("version"), str)
+        and method.get("version").strip()
+        and isinstance(review.get("reviewedAt"), str)
+        and review.get("reviewedAt").strip()
+    )
+    if not contract_valid:
+        review["decision"] = contract["decisionValues"]["rejected"]
+        review["decisionEvidence"] = {"contractValid": False}
+        return _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "视觉审核证据合同无效或未绑定当前生图事实。",
+            {"expectedBindings": expected_bindings},
+        )
+    failures = [name for name, passed in hard_gates.items() if passed is not True]
+    failures.extend(name for name, value in dimensions.items() if value["pass"] is not True)
+    failures.extend(name for name, found in cleanliness.items() if found is True)
+    if visible_text["pass"] is not True:
+        failures.append(contract["hardGateRoles"]["visibleText"])
     if failures:
-        raise _stop(
+        failed_gates = sorted(set(failures))
+        review["decision"] = contract["decisionValues"]["rejected"]
+        review["decisionEvidence"] = {"failedGates": failed_gates}
+        return _stop(
             rules,
             "blocked",
             "visualHardFailure",
-            "生成图未通过最小视觉硬门禁，必须修正或重生成。",
-            {"failedGates": failures},
+            "生成图未通过模板图视觉硬门禁，必须修正或重生成。",
+            {"failedGates": failed_gates},
         )
+    review_signals = sorted(name for name, present in ambiguities.items() if present is True)
+    if review_signals:
+        review["decision"] = contract["decisionValues"]["needsReview"]
+        review["decisionEvidence"] = {"reviewSignals": review_signals}
+        return _stop(
+            rules,
+            "needs_input",
+            "riskNeedsReview",
+            "生成图存在歧义、审美风险或证据不足，需要人工复核。",
+            {"reviewSignals": review_signals},
+        )
+    review["decision"] = contract["decisionValues"]["approved"]
+    review["decisionEvidence"] = {"hardGatesPassed": True}
+    return None
 
 
 def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
@@ -1017,8 +1319,10 @@ def _finalize_uploaded_item(
 ) -> ProductionResult:
     draft = _load_json(output_dir / "gallery-template.draft.json")
     receipt = _load_json(output_dir / "asset-receipt.json")
-    approved_names = sorted(
-        name for name in manifest["artifacts"] if name.startswith("evidence/approved-template-image.")
+    approved_names = _revision_image_artifacts(
+        manifest,
+        "approved-template-image",
+        manifest["revision"],
     )
     if len(approved_names) != 1:
         raise _stop(
@@ -1141,6 +1445,11 @@ def run_production(
             message="Production Item 输出目录越出 output root。",
         )
     manifest_path = output_dir / "production-manifest.json"
+    resume_visual = False
+    resumed = False
+    source_analysis: dict[str, Any]
+    plan: dict[str, Any]
+    generation_package: dict[str, Any]
     if manifest_path.exists():
         existing = _load_json(manifest_path)
         completed_artifacts = ("production-pin.json", "gallery-template.json", "final-validation-report.json")
@@ -1153,6 +1462,87 @@ def run_production(
             replacement_strategy_sha256=replacement_strategy_sha,
             required_artifacts=completed_artifacts if existing.get("state") == rules["resultStates"]["completed"] else (),
         )
+        if existing.get("state") == rules["resultStates"]["completed"]:
+            identity_errors.extend(_current_p2_artifact_errors(existing))
+        if existing.get("state") == rules["resultStates"]["completed"]:
+            revision = existing.get("revision")
+            generation_fact_names = [
+                _revisioned_name("generation-package.json", revision),
+                *_revision_image_artifacts(existing, "generated-candidate-image", revision),
+            ]
+            changed_generation_facts = _changed_lineage_artifacts(
+                output_dir,
+                existing,
+                generation_fact_names,
+            )
+            if changed_generation_facts:
+                changed_name = changed_generation_facts[0]
+                changed_path = output_dir / changed_name
+                _append_invalidation_event(
+                    existing,
+                    rules,
+                    reason_key="generationFactsChanged",
+                    superseded_artifact=changed_name,
+                    observed_sha256=_sha_file(changed_path) if changed_path.is_file() else None,
+                    invalidated_artifacts=_artifact_descendants(existing, changed_name),
+                    invalidated_from_phase=p2,
+                    timestamp=timestamp,
+                )
+                existing["phase"] = p1
+                existing["state"] = rules["resultStates"]["blocked"]
+                existing["outcome"] = "blocked"
+                existing["error"] = {
+                    "code": rules["errorCodes"]["productionItemIntegrityFailure"],
+                    "message": "上游生图事实摘要发生变化，P2 及下游产物已失效。",
+                    "evidence": {"artifact": changed_name},
+                }
+                _persist_manifest(output_dir, existing)
+                return ProductionResult(
+                    "blocked",
+                    item_id,
+                    rules["resultStates"]["blocked"],
+                    output_dir,
+                    error_code=rules["errorCodes"]["productionItemIntegrityFailure"],
+                    message=existing["error"]["message"],
+                    resumed=True,
+                )
+            approved_names = _revision_image_artifacts(
+                existing,
+                "approved-template-image",
+                revision,
+            )
+            changed_approved = _changed_lineage_artifacts(output_dir, existing, approved_names)
+            if len(changed_approved) == 1:
+                changed_name = changed_approved[0]
+                changed_path = output_dir / changed_name
+                _append_invalidation_event(
+                    existing,
+                    rules,
+                    reason_key="approvedImageChanged",
+                    superseded_artifact=changed_name,
+                    observed_sha256=_sha_file(changed_path) if changed_path.is_file() else None,
+                    invalidated_artifacts=_artifact_descendants(existing, changed_name),
+                    invalidated_from_phase=p3,
+                    timestamp=timestamp,
+                )
+                existing["phase"] = p2
+                existing["state"] = rules["resultStates"]["blocked"]
+                existing["outcome"] = "blocked"
+                existing["error"] = {
+                    "code": rules["errorCodes"]["productionItemIntegrityFailure"],
+                    "message": "确认模板图摘要发生变化，依赖视觉事实已失效。",
+                    "evidence": {"artifact": changed_name},
+                }
+                _persist_manifest(output_dir, existing)
+                return ProductionResult(
+                    "blocked",
+                    item_id,
+                    rules["resultStates"]["blocked"],
+                    output_dir,
+                    error_code=rules["errorCodes"]["productionItemIntegrityFailure"],
+                    message=existing["error"]["message"],
+                    resumed=True,
+                )
         if existing.get("state") == rules["resultStates"]["completed"] and identity_errors:
             return ProductionResult(
                 "blocked",
@@ -1196,6 +1586,7 @@ def run_production(
                     "asset-receipt.json",
                 ),
             )
+            recovery_errors.extend(_current_p2_artifact_errors(existing))
             if recovery_errors:
                 return ProductionResult(
                     "blocked",
@@ -1225,53 +1616,143 @@ def run_production(
                     message=stop.message,
                     resumed=True,
                 )
-    output_dir.mkdir(parents=True, exist_ok=True)
-    manifest = {
-        "artifactType": "production-manifest",
-        "schemaVersion": rules["schemaVersion"],
-        "productionItemId": item_id,
-        "templateKey": template_key,
-        "revision": 1,
-        "sourceImageSha256": source_sha,
-        "replacementStrategySha256": replacement_strategy_sha,
-        "phase": None,
-        "state": rules["initialState"],
-        "outcome": None,
-        "history": [],
-        "artifacts": {},
-        "historicalExperienceEvidence": rules["historicalExperienceEvidence"],
-    }
+        if existing.get("error", {}).get("code") == rules["errorCodes"]["visualHardFailure"]:
+            previous_revision = existing.get("revision")
+            if not isinstance(previous_revision, int) or previous_revision < 1:
+                recovery_errors = ["manifest revision invalid"]
+            else:
+                previous_package_name = _revisioned_name("generation-package.json", previous_revision)
+                previous_review_name = _revisioned_name("visual-review.json", previous_revision)
+                recovery_errors = _production_item_integrity_errors(
+                    output_dir,
+                    existing,
+                    production_item_id=item_id,
+                    template_key=template_key,
+                    source_sha256=source_sha,
+                    replacement_strategy_sha256=replacement_strategy_sha,
+                    required_artifacts=(
+                        "production-pin.json",
+                        "source-analysis.json",
+                        "replacement-plan.json",
+                        previous_package_name,
+                        previous_review_name,
+                    ),
+                )
+            if recovery_errors:
+                return ProductionResult(
+                    "blocked",
+                    item_id,
+                    rules["resultStates"]["blocked"],
+                    output_dir,
+                    error_code=rules["errorCodes"]["productionItemIntegrityFailure"],
+                    message="P2 重做前的身份或产物谱系校验失败：" + "；".join(recovery_errors),
+                    resumed=True,
+                )
+            manifest = existing
+            source_analysis = _load_json(output_dir / "source-analysis.json")
+            plan = _load_json(output_dir / "replacement-plan.json")
+            previous_package = _load_json(output_dir / previous_package_name)
+            previous_review = _load_json(output_dir / previous_review_name)
+            manifest["revision"] = previous_revision + 1
+            manifest["state"] = next(
+                item["state"] for item in rules["productionPhases"] if item["phase"] == p1
+            )
+            manifest["outcome"] = None
+            manifest.pop("error", None)
+            generation_package = _compile_redo_generation_package(
+                previous_package,
+                previous_review,
+                manifest["revision"],
+            )
+            replacement_package_name = _revisioned_name(
+                "generation-package.json", manifest["revision"]
+            )
+            _append_invalidation_event(
+                manifest,
+                rules,
+                reason_key="generationFactsChanged",
+                superseded_artifact=previous_package_name,
+                replacement_artifact=replacement_package_name,
+                replacement_sha256=_sha_bytes(_json_bytes(generation_package)),
+                invalidated_artifacts=_artifact_descendants(manifest, previous_package_name),
+                invalidated_from_phase=p2,
+                timestamp=timestamp,
+            )
+            resume_visual = True
+            resumed = True
+            _persist_manifest(output_dir, manifest)
+    if not resume_visual:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        manifest = {
+            "artifactType": "production-manifest",
+            "schemaVersion": rules["schemaVersion"],
+            "productionItemId": item_id,
+            "templateKey": template_key,
+            "revision": 1,
+            "sourceImageSha256": source_sha,
+            "replacementStrategySha256": replacement_strategy_sha,
+            "phase": None,
+            "state": rules["initialState"],
+            "outcome": None,
+            "history": [],
+            "artifacts": {},
+            "invalidationEvents": [],
+            "historicalExperienceEvidence": rules["historicalExperienceEvidence"],
+        }
     try:
-        pin = _build_pin(rules, release)
-        _atomic_write_new(output_dir / "production-pin.json", _json_bytes(pin))
-        _record_artifact(manifest, output_dir, "production-pin.json", p0, [])
-        evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
-        _atomic_write_new(evidence_source, source_image.read_bytes())
-        _record_artifact(manifest, output_dir, str(evidence_source.relative_to(output_dir)), p0, [])
-        source_analysis = _adapter_call(
+        if not resume_visual:
+            pin = _build_pin(rules, release)
+            _atomic_write_new(output_dir / "production-pin.json", _json_bytes(pin))
+            _record_artifact(manifest, output_dir, "production-pin.json", p0, [])
+            evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
+            _atomic_write_new(evidence_source, source_image.read_bytes())
+            _record_artifact(manifest, output_dir, str(evidence_source.relative_to(output_dir)), p0, [])
+            source_analysis = _adapter_call(
+                rules,
+                "analyze_source",
+                adapters.analyze_source,
+                source_image,
+                copy.deepcopy(replacement_strategy),
+            )
+            if source_analysis.get("sourceImageSha256") != source_sha:
+                raise _stop(rules, "failed", "externalFailure", "来源分析证据与输入图片 SHA 不一致。", {})
+            _atomic_write_new(output_dir / "source-analysis.json", _json_bytes(source_analysis))
+            _record_artifact(manifest, output_dir, "source-analysis.json", p0, [str(evidence_source.relative_to(output_dir))])
+            _advance(manifest, rules, p0, timestamp)
+            _persist_manifest(output_dir, manifest)
+
+            plan = _plan_replacement(source_analysis, rules, template_key, replacement_strategy)
+            _atomic_write_new(output_dir / "replacement-plan.json", _json_bytes(plan))
+            _record_artifact(manifest, output_dir, "replacement-plan.json", p1, ["source-analysis.json"])
+            _advance(manifest, rules, p1, timestamp)
+            _persist_manifest(output_dir, manifest)
+
+            generation_package = _compile_generation_package(plan, source_analysis)
+        generation_package_name = _revisioned_name("generation-package.json", manifest["revision"])
+        _atomic_write_new(output_dir / generation_package_name, _json_bytes(generation_package))
+        _record_artifact(manifest, output_dir, generation_package_name, p2, ["replacement-plan.json"])
+        generation_request = copy.deepcopy(generation_package)
+        generated = _adapter_call(
             rules,
-            "analyze_source",
-            adapters.analyze_source,
+            "generate",
+            adapters.generate,
             source_image,
-            copy.deepcopy(replacement_strategy),
+            generation_request,
         )
-        if source_analysis.get("sourceImageSha256") != source_sha:
-            raise _stop(rules, "failed", "externalFailure", "来源分析证据与输入图片 SHA 不一致。", {})
-        _atomic_write_new(output_dir / "source-analysis.json", _json_bytes(source_analysis))
-        _record_artifact(manifest, output_dir, "source-analysis.json", p0, [str(evidence_source.relative_to(output_dir))])
-        _advance(manifest, rules, p0, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        plan = _plan_replacement(source_analysis, rules, template_key, replacement_strategy)
-        _atomic_write_new(output_dir / "replacement-plan.json", _json_bytes(plan))
-        _record_artifact(manifest, output_dir, "replacement-plan.json", p1, ["source-analysis.json"])
-        _advance(manifest, rules, p1, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        generation_package = _compile_generation_package(plan, source_analysis)
-        _atomic_write_new(output_dir / "generation-package.json", _json_bytes(generation_package))
-        _record_artifact(manifest, output_dir, "generation-package.json", p2, ["replacement-plan.json"])
-        generated = _adapter_call(rules, "generate", adapters.generate, source_image, generation_package)
+        generated_contract_valid = bool(
+            isinstance(generated, dict)
+            and generation_request == generation_package
+            and generated.get("requestId") == generation_package["requestId"]
+            and isinstance(generated.get("imageBytes"), bytes)
+        )
+        if not generated_contract_valid:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "生成适配器结果未绑定当前 Generation Package request ID 或图片字节。",
+                {},
+            )
         generated_extension = str(generated.get("extension", ""))
         if re.fullmatch(rules["identifiers"]["imageExtensionPattern"], generated_extension) is None:
             raise _stop(
@@ -1281,20 +1762,47 @@ def run_production(
                 "生成适配器返回了不安全的图片扩展名。",
                 {"extension": generated_extension},
             )
-        candidate_rel = f"evidence/generated-candidate-image{generated_extension}"
+        candidate_rel = _revisioned_name(
+            f"evidence/generated-candidate-image{generated_extension}", manifest["revision"]
+        )
         candidate_path = output_dir / candidate_rel
         _atomic_write_new(candidate_path, generated["imageBytes"])
-        _record_artifact(manifest, output_dir, candidate_rel, p2, ["generation-package.json"])
-        review = _adapter_call(rules, "inspect_generated", adapters.inspect_generated, candidate_path)
-        if review.get("generatedImageSha256") != _sha_file(candidate_path):
-            raise _stop(rules, "failed", "externalFailure", "视觉审核证据与生成图 SHA 不一致。", {})
-        _atomic_write_new(output_dir / "visual-review.json", _json_bytes(review))
-        _record_artifact(manifest, output_dir, "visual-review.json", p2, [candidate_rel, "generation-package.json"])
-        _assert_visual_gate(review, rules)
-        approved_rel = f"evidence/approved-template-image{generated_extension}"
+        _record_artifact(manifest, output_dir, candidate_rel, p2, [generation_package_name])
+        review_bindings = {
+            "generatedImageSha256": _sha_file(candidate_path),
+            "generationPackageSha256": _sha_bytes(_canonical_bytes(generation_package)),
+        }
+        review = _adapter_call(
+            rules,
+            "inspect_generated",
+            adapters.inspect_generated,
+            candidate_path,
+            copy.deepcopy(review_bindings),
+        )
+        candidate_unchanged = _sha_file(candidate_path) == review_bindings["generatedImageSha256"]
+        gate_stop = _evaluate_visual_gate(review, rules, review_bindings)
+        if not candidate_unchanged:
+            if isinstance(review, dict):
+                review["decision"] = rules["visualReviewContract"]["decisionValues"]["rejected"]
+                review["decisionEvidence"] = {"candidateBytesUnchanged": False}
+            gate_stop = _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "视觉审核期间候选图字节发生变化，审核绑定已失效。",
+                {"path": candidate_rel},
+            )
+        review_name = _revisioned_name("visual-review.json", manifest["revision"])
+        _atomic_write_new(output_dir / review_name, _json_bytes(review))
+        _record_artifact(manifest, output_dir, review_name, p2, [candidate_rel, generation_package_name])
+        if gate_stop is not None:
+            raise gate_stop
+        approved_rel = _revisioned_name(
+            f"evidence/approved-template-image{generated_extension}", manifest["revision"]
+        )
         approved_path = output_dir / approved_rel
         _atomic_write_new(approved_path, candidate_path.read_bytes())
-        _record_artifact(manifest, output_dir, approved_rel, p2, [candidate_rel, "visual-review.json"])
+        _record_artifact(manifest, output_dir, approved_rel, p2, [candidate_rel, review_name])
         _advance(manifest, rules, p2, timestamp)
         _persist_manifest(output_dir, manifest)
 
@@ -1302,7 +1810,7 @@ def run_production(
         if analysis.get("visualFactSourceSha256") != _sha_file(approved_path):
             raise _stop(rules, "failed", "externalFailure", "模板分析未绑定当前确认模板图。", {})
         _atomic_write_new(output_dir / "template-analysis.json", _json_bytes(analysis))
-        _record_artifact(manifest, output_dir, "template-analysis.json", p3, [approved_rel, "visual-review.json"])
+        _record_artifact(manifest, output_dir, "template-analysis.json", p3, [approved_rel, review_name])
         _advance(manifest, rules, p3, timestamp)
         _persist_manifest(output_dir, manifest)
 
@@ -1343,7 +1851,7 @@ def run_production(
             output_dir,
             "validation-report.json",
             p6,
-            ["gallery-template.draft.json", "visual-review.json", "semantic-audit.json"],
+            ["gallery-template.draft.json", review_name, "semantic-audit.json"],
         )
         if not validation["pass"]:
             raise _stop(rules, "blocked", "contractFailure", "四层静态验收未通过。", validation)
@@ -1398,10 +1906,19 @@ def run_production(
             rules["resultStates"]["completed"],
             output_dir,
             output_dir / "gallery-template.json",
+            resumed=resumed,
         )
     except WorkflowStop as stop:
         manifest["state"] = stop.state
         manifest["outcome"] = stop.outcome
         manifest["error"] = {"code": stop.error_code, "message": stop.message, "evidence": stop.evidence}
         _persist_manifest(output_dir, manifest)
-        return ProductionResult(stop.outcome, item_id, stop.state, output_dir, error_code=stop.error_code, message=stop.message)
+        return ProductionResult(
+            stop.outcome,
+            item_id,
+            stop.state,
+            output_dir,
+            error_code=stop.error_code,
+            message=stop.message,
+            resumed=resumed,
+        )
