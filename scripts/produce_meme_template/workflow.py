@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -20,7 +21,9 @@ RELEASE_PATH = REPO_ROOT / "release.json"
 
 
 class WorkflowAdapters(Protocol):
-    def analyze_source(self, source_image: Path) -> dict[str, Any]: ...
+    def analyze_source(
+        self, source_image: Path, replacement_strategy: dict[str, Any] | None
+    ) -> dict[str, Any]: ...
     def generate(self, source_image: Path, generation_package: dict[str, Any]) -> dict[str, Any]: ...
     def inspect_generated(self, generated_image: Path) -> dict[str, Any]: ...
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]: ...
@@ -158,6 +161,7 @@ def _production_item_integrity_errors(
     production_item_id: str,
     template_key: str,
     source_sha256: str,
+    replacement_strategy_sha256: str,
     required_artifacts: tuple[str, ...] = (),
 ) -> list[str]:
     errors: list[str] = []
@@ -165,6 +169,7 @@ def _production_item_integrity_errors(
         "productionItemId": production_item_id,
         "templateKey": template_key,
         "sourceImageSha256": source_sha256,
+        "replacementStrategySha256": replacement_strategy_sha256,
     }
     for field, expected in expected_identity.items():
         if manifest.get(field) != expected:
@@ -230,6 +235,53 @@ def _adapter_call(rules: dict[str, Any], operation: str, function: Callable[...,
         ) from exc
 
 
+def _replacement_strategy_errors(request: dict[str, Any], rules: dict[str, Any]) -> list[str]:
+    if "replacementStrategy" not in request:
+        return []
+    strategy = request["replacementStrategy"]
+    contract = rules["replacementStrategyContract"]
+    if not isinstance(strategy, dict):
+        return ["replacementStrategy must be an object"]
+    errors = [
+        f"replacementStrategy.{field} is not allowed"
+        for field in sorted(set(strategy) - set(contract["allowedFields"]))
+    ]
+    for left, right in contract["pairedFields"]:
+        if (strategy.get(left) is None) != (strategy.get(right) is None):
+            errors.append(f"replacementStrategy.{left} and {right} must be provided together")
+    for field in contract["listFields"]:
+        if field not in strategy:
+            continue
+        values = strategy[field]
+        if (
+            not isinstance(values, list)
+            or not values
+            or not all(isinstance(value, str) and value.strip() for value in values)
+            or len(values) != len(set(values))
+        ):
+            errors.append(f"replacementStrategy.{field} must be a non-empty unique string list")
+    if not any(strategy.get(field) for field in contract["actionFields"]):
+        errors.append("replacementStrategy must declare at least one action")
+    category = strategy.get("replacementCategory")
+    if category is not None and category not in rules["sourceCategories"].values():
+        errors.append("replacementStrategy.replacementCategory is unknown")
+    for field in ("policyId", "policyVersion", "replacementValue"):
+        if field in strategy and (not isinstance(strategy[field], str) or not strategy[field].strip()):
+            errors.append(f"replacementStrategy.{field} must be a non-empty string")
+    return errors
+
+
+def _normalize_replacement_strategy(request: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any] | None:
+    strategy = request.get("replacementStrategy")
+    if strategy is None:
+        return None
+    normalized = dict(strategy)
+    for field in rules["replacementStrategyContract"]["listFields"]:
+        if field in normalized:
+            normalized[field] = sorted(normalized[field])
+    return normalized
+
+
 def _build_pin(rules: dict[str, Any], release: dict[str, Any]) -> dict[str, Any]:
     contract_bytes = GALLERY_SCHEMA_PATH.read_bytes()
     skill_manifest_path = REPO_ROOT / "skill-manifest.json"
@@ -259,9 +311,16 @@ def _build_pin(rules: dict[str, Any], release: dict[str, Any]) -> dict[str, Any]
     }
 
 
-def _plan_replacement(source_analysis: dict[str, Any], rules: dict[str, Any], template_key: str) -> dict[str, Any]:
+def _plan_replacement(
+    source_analysis: dict[str, Any],
+    rules: dict[str, Any],
+    template_key: str,
+    replacement_strategy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     category = source_analysis["target"]["category"]
-    if category == "unknown" or category not in rules["sourceCategories"]:
+    categories = rules["sourceCategories"]
+    category_values = set(categories.values())
+    if category == categories["unknownCategory"] or category not in category_values:
         raise _stop(
             rules,
             "needs_input",
@@ -269,37 +328,275 @@ def _plan_replacement(source_analysis: dict[str, Any], rules: dict[str, Any], te
             "来源主体类别无法支持自主替换，需要补充识别。",
             {"category": category},
         )
-    candidates = [
-        candidate
-        for candidate in source_analysis.get("replacementPool", [])
-        if candidate.get("category") == category
-        and candidate.get("semanticCompatible") is True
-        and candidate.get("visualCompatible") is True
-        and candidate.get("rightsAndSafety") == "pass"
-    ]
-    if not candidates:
+    eligibility = source_analysis.get("targetEligibility", {})
+    if not isinstance(eligibility, dict):
         raise _stop(
             rules,
-            "blocked",
-            "noCompatibleReplacement",
-            "没有通过同类、视觉与权利硬过滤的自主替换值。",
-            {"category": category},
+            "failed",
+            "externalFailure",
+            "来源分析的 targetEligibility 必须是对象。",
+            {"actualType": type(eligibility).__name__},
         )
-    selected = sorted(candidates, key=lambda item: (-float(item["score"]), item["value"]))[0]
     closure = source_analysis.get("dependencyClosure", [])
+    if not isinstance(closure, list) or not all(
+        isinstance(item, dict)
+        and isinstance(item.get("type"), str)
+        and item.get("type").strip()
+        and isinstance(item.get("value"), str)
+        and item.get("value").strip()
+        for item in closure
+    ):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "来源分析的 dependencyClosure 必须是包含非空 type/value 的对象列表。",
+            {"actualType": type(closure).__name__},
+        )
     if not closure:
         raise _stop(
             rules,
-            "blocked",
-            "noCompatibleReplacement",
-            "主要替换目标缺少依赖闭包。",
+            "needs_input",
+            "riskNeedsReview",
+            "主要替换目标的依赖范围尚无法可靠判定，需要复核。",
             {"category": category},
         )
+    explicit_text_authorization = bool(
+        replacement_strategy
+        and replacement_strategy.get("replacementValue")
+        and replacement_strategy.get("replacementCategory") == categories["textContent"]
+    )
+    if category == categories["textContent"] and not (
+        explicit_text_authorization or eligibility.get("textRewriteRequiredByMechanism") is True
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "noCompatibleReplacement",
+            "原图文字未获显式替换授权，且画面机制不要求等价重写。",
+            {"category": category},
+        )
+    explicit_scene_authorization = bool(
+        replacement_strategy
+        and replacement_strategy.get("replacementValue")
+        and replacement_strategy.get("replacementCategory") == categories["sceneAttribute"]
+    )
+    autonomous_scene_eligible = bool(
+        eligibility.get("primarySubjectHasReplacementValue") is False
+        and eligibility.get("sceneChangeCreatesStableTemplateValue") is True
+    )
+    if category == categories["sceneAttribute"] and not (
+        explicit_scene_authorization or autonomous_scene_eligible
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "noCompatibleReplacement",
+            "场景替换仅在主体缺少替换价值且场景变化能形成稳定模板价值时启用。",
+            {"category": category, "targetEligibility": eligibility},
+        )
+
+    def compatible_candidate(candidate: Any) -> bool:
+        return bool(
+            isinstance(candidate, dict)
+            and isinstance(candidate.get("value"), str)
+            and candidate.get("value").strip()
+            and candidate.get("category") == category
+            and candidate.get("semanticCompatible") is True
+            and candidate.get("visualCompatible") is True
+            and isinstance(candidate.get("rightsAndSafety"), str)
+            and isinstance(candidate.get("reason"), str)
+            and candidate.get("reason").strip()
+            and isinstance(candidate.get("score"), (int, float))
+            and not isinstance(candidate.get("score"), bool)
+        )
+
+    def hard_valid(candidate: Any) -> bool:
+        return compatible_candidate(candidate) and candidate.get("rightsAndSafety") == "pass"
+
+    replacement_pool = source_analysis.get("replacementPool", [])
+    if not isinstance(replacement_pool, list):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "来源分析的 replacementPool 必须是列表。",
+            {"actualType": type(replacement_pool).__name__},
+        )
+    candidates = [
+        candidate
+        for candidate in replacement_pool
+        if hard_valid(candidate)
+    ]
+    review_candidates = [
+        candidate
+        for candidate in replacement_pool
+        if compatible_candidate(candidate) and candidate.get("rightsAndSafety") == "review"
+    ]
+    strategy_sources = rules["strategySources"]
+    autonomous_source = strategy_sources["autonomousDecision"]
+    per_image_source = strategy_sources["perImageDecision"]
+    decision_source = autonomous_source
+    strategy = {"source": autonomous_source, "decisionSource": autonomous_source}
+    preserve_values: list[str] = []
+    if replacement_strategy:
+        forbidden_values = {
+            value for value in replacement_strategy.get("forbidValues", []) if isinstance(value, str) and value
+        }
+        preserve_values = sorted(
+            value for value in replacement_strategy.get("preserve", []) if isinstance(value, str) and value
+        )
+        candidates = [candidate for candidate in candidates if candidate["value"] not in forbidden_values]
+        review_candidates = [
+            candidate for candidate in review_candidates if candidate["value"] not in forbidden_values
+        ]
+        strategy = {
+            "source": per_image_source,
+            "decisionSource": per_image_source,
+            **{
+                key: replacement_strategy[key]
+                for key in ("policyId", "policyVersion")
+                if replacement_strategy.get(key) is not None
+            },
+            **({"forbidValues": sorted(forbidden_values)} if forbidden_values else {}),
+            **({"preserve": preserve_values} if preserve_values else {}),
+        }
+        if not candidates and replacement_strategy.get("replacementValue") is None:
+            if review_candidates:
+                raise _stop(
+                    rules,
+                    "needs_input",
+                    "riskNeedsReview",
+                    "单图策略过滤后只剩权利或安全风险待判断的候选，需要复核。",
+                    {"category": category, "candidateValues": [item["value"] for item in review_candidates]},
+                )
+            raise _stop(
+                rules,
+                "blocked",
+                "noCompatibleReplacement",
+                "单图策略过滤后没有兼容的替换值。",
+                {"category": category, "forbidValues": sorted(forbidden_values)},
+            )
+    if replacement_strategy and replacement_strategy.get("replacementValue") is not None:
+        requested_value = replacement_strategy["replacementValue"]
+        requested_category = replacement_strategy["replacementCategory"]
+        selected = source_analysis.get("explicitReplacementEvaluation")
+        exact_evaluation = bool(
+            compatible_candidate(selected)
+            and selected.get("value") == requested_value
+            and selected.get("category") == requested_category
+            and requested_value not in forbidden_values
+        )
+        if exact_evaluation and selected.get("rightsAndSafety") == "review":
+            raise _stop(
+                rules,
+                "needs_input",
+                "riskNeedsReview",
+                "单图显式替换值的权利或安全风险仍待判断，需要复核。",
+                {"replacementValue": requested_value, "replacementCategory": requested_category},
+            )
+        if not (
+            exact_evaluation and selected.get("rightsAndSafety") == "pass"
+        ):
+            raise _stop(
+                rules,
+                "blocked",
+                "explicitStrategyConflict",
+                "单图显式替换值没有通过类别、视觉或权利硬过滤。",
+                {
+                    "replacementValue": requested_value,
+                    "replacementCategory": requested_category,
+                },
+            )
+        decision_source = per_image_source
+    else:
+        if not candidates:
+            if review_candidates:
+                raise _stop(
+                    rules,
+                    "needs_input",
+                    "riskNeedsReview",
+                    "只有权利或安全风险待判断的同类候选，需要复核后继续。",
+                    {"category": category, "candidateValues": [item["value"] for item in review_candidates]},
+                )
+            raise _stop(
+                rules,
+                "blocked",
+                "noCompatibleReplacement",
+                "没有通过同类、视觉与权利硬过滤的自主替换值。",
+                {"category": category},
+            )
+        selected = sorted(candidates, key=lambda item: (-float(item["score"]), item["value"]))[0]
+    changed_components = {
+        "primary-role": source_analysis["target"]["role"],
+        "primary-identity": source_analysis["target"]["identity"],
+        **{
+            f"dependency-{index}-{item['type']}": item["value"]
+            for index, item in enumerate(closure)
+        },
+    }
+    changed_component_ids = set(changed_components)
+    changed_values = set(changed_components.values())
+    preserve_evaluations = source_analysis.get("preserveConflictEvaluations", [])
+
+    def preserve_evaluation_valid(item: Any) -> bool:
+        if not isinstance(item, dict):
+            return False
+        component_ids = item.get("changedComponentIds")
+        conflict = item.get("conflictsWithChangedSet")
+        preserve_value = item.get("preserveValue")
+        return bool(
+            isinstance(preserve_value, str)
+            and preserve_value
+            and isinstance(conflict, bool)
+            and isinstance(component_ids, list)
+            and all(isinstance(value, str) and value for value in component_ids)
+            and len(component_ids) == len(set(component_ids))
+            and set(component_ids) <= changed_component_ids
+            and conflict is bool(component_ids)
+            and (preserve_value not in changed_values or conflict)
+        )
+
+    evaluations_valid = (
+        isinstance(preserve_evaluations, list)
+        and len(preserve_evaluations) == len(preserve_values)
+        and {item.get("preserveValue") for item in preserve_evaluations if isinstance(item, dict)}
+        == set(preserve_values)
+        and all(preserve_evaluation_valid(item) for item in preserve_evaluations)
+    )
+    if preserve_values and not evaluations_valid:
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "来源分析没有为全部冻结项提供有效的变更集冲突证据。",
+            {"preserveValues": preserve_values},
+        )
+    preserve_conflicts = sorted(
+        set(preserve_values) & changed_values
+        | {
+            item["preserveValue"]
+            for item in preserve_evaluations
+            if item["conflictsWithChangedSet"] is True
+        }
+    )
+    if preserve_conflicts:
+        raise _stop(
+            rules,
+            "blocked",
+            "explicitStrategyConflict",
+            "单图策略要求同时冻结和重绘同一内容，无法安全消解。",
+            {"conflictingValues": preserve_conflicts},
+        )
+    frozen_decision_sources = {
+        value: autonomous_source for value in source_analysis["frozenSet"]
+    }
+    frozen_decision_sources.update({value: per_image_source for value in preserve_values})
     return {
         "artifactType": "replacement-plan",
         "schemaVersion": rules["schemaVersion"],
         "templateKey": template_key,
-        "strategy": {"source": "autonomous", "decisionSource": "autonomous"},
+        "strategy": strategy,
         "mechanism": source_analysis["mechanism"],
         "primaryTargets": [
             {
@@ -310,18 +607,30 @@ def _plan_replacement(source_analysis: dict[str, Any], rules: dict[str, Any], te
                 "replacementCategory": selected["category"],
                 "reason": selected["reason"],
                 "confidence": selected["score"],
-                "decisionSource": "autonomous",
+                "decisionSource": decision_source,
             }
         ],
-        "dependencyClosure": closure,
+        "dependencyClosure": [
+            {**item, "decisionSource": autonomous_source}
+            for item in closure
+        ],
         "changedSet": [
-            {"kind": "primary", "value": source_analysis["target"]["role"], "decisionSource": "autonomous"},
+            {"kind": "primary", "value": source_analysis["target"]["role"], "decisionSource": decision_source},
             *[
-                {"kind": "dependency", "value": item["value"], "dependencyType": item["type"], "decisionSource": "autonomous"}
+                {
+                    "kind": "dependency",
+                    "value": item["value"],
+                    "dependencyType": item["type"],
+                    "decisionSource": autonomous_source,
+                }
                 for item in closure
             ],
         ],
-        "frozenSet": source_analysis["frozenSet"],
+        "frozenSet": list(frozen_decision_sources),
+        "frozenSetDecisions": [
+            {"value": value, "decisionSource": source}
+            for value, source in frozen_decision_sources.items()
+        ],
         "replacementPool": candidates,
         "languagePolicy": source_analysis.get("languagePolicy", "preserve_source_language"),
         "rightsReview": "pass",
@@ -385,6 +694,24 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             "contractFailure",
             "画面存在明显主体，但高价值槽位没有主体入口。",
             {},
+        )
+    def suggestions_are_valid(slot: dict[str, Any]) -> bool:
+        suggestions = slot.get("suggestions")
+        return bool(
+            isinstance(suggestions, list)
+            and all(isinstance(value, str) and value.strip() for value in suggestions)
+            and len(suggestions) == len(set(suggestions))
+            and slot.get("defaultValue") not in suggestions
+        )
+
+    invalid_suggestion_slots = sorted(slot["id"] for slot in slots if not suggestions_are_valid(slot))
+    if invalid_suggestion_slots:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "槽位推荐项包含空值、重复值或默认值。",
+            {"slotIds": invalid_suggestion_slots},
         )
     missing_semantic_guards = sorted(
         slot["id"]
@@ -764,9 +1091,9 @@ def run_production(
 ) -> ProductionResult:
     """Run one independent Production Item through P0-P8.
 
-    The request accepts one source image and no shared state. In this Issue #2 slice,
-    replacement strategy is intentionally autonomous; explicit and batch strategies
-    are reserved for later tickets.
+    The request accepts one source image and optional per-image replacementStrategy.
+    Uncovered decisions use the default route, and no state is shared across Production Items.
+    Shared batch strategy is reserved for a later ticket.
     """
 
     rules = _load_json(RULES_PATH)
@@ -785,19 +1112,23 @@ def run_production(
         invalid_identifiers.append("templateKey")
     if production_item_id is not None and re.fullmatch(item_pattern, str(production_item_id)) is None:
         invalid_identifiers.append("productionItemId")
-    if invalid_identifiers:
+    strategy_errors = _replacement_strategy_errors(request, rules)
+    if invalid_identifiers or strategy_errors:
+        details = [*(f"非法标识符：{field}" for field in invalid_identifiers), *strategy_errors]
         return ProductionResult(
             "needs_input",
             str(production_item_id or "invalid-production-item"),
             rules["resultStates"]["needs_input"],
             output_root_path,
             error_code=rules["errorCodes"]["invalidProductionRequest"],
-            message=f"生产请求包含非法标识符：{', '.join(invalid_identifiers)}",
+            message="生产请求预检失败：" + "；".join(details),
         )
+    replacement_strategy = _normalize_replacement_strategy(request, rules)
     source_image = Path(request["sourceImage"]).resolve()
     if not source_image.is_file():
         raise FileNotFoundError(source_image)
     source_sha = _sha_file(source_image)
+    replacement_strategy_sha = _sha_bytes(_canonical_bytes(replacement_strategy))
     item_id = str(production_item_id or f"{template_key}-{source_sha[:12]}")
     output_dir = (output_root_path / item_id).resolve()
     if not output_dir.is_relative_to(output_root_path) or output_dir.parent != output_root_path:
@@ -819,6 +1150,7 @@ def run_production(
             production_item_id=item_id,
             template_key=template_key,
             source_sha256=source_sha,
+            replacement_strategy_sha256=replacement_strategy_sha,
             required_artifacts=completed_artifacts if existing.get("state") == rules["resultStates"]["completed"] else (),
         )
         if existing.get("state") == rules["resultStates"]["completed"] and identity_errors:
@@ -856,6 +1188,7 @@ def run_production(
                 production_item_id=item_id,
                 template_key=template_key,
                 source_sha256=source_sha,
+                replacement_strategy_sha256=replacement_strategy_sha,
                 required_artifacts=(
                     "production-pin.json",
                     "gallery-template.draft.json",
@@ -900,6 +1233,7 @@ def run_production(
         "templateKey": template_key,
         "revision": 1,
         "sourceImageSha256": source_sha,
+        "replacementStrategySha256": replacement_strategy_sha,
         "phase": None,
         "state": rules["initialState"],
         "outcome": None,
@@ -914,7 +1248,13 @@ def run_production(
         evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
         _atomic_write_new(evidence_source, source_image.read_bytes())
         _record_artifact(manifest, output_dir, str(evidence_source.relative_to(output_dir)), p0, [])
-        source_analysis = _adapter_call(rules, "analyze_source", adapters.analyze_source, source_image)
+        source_analysis = _adapter_call(
+            rules,
+            "analyze_source",
+            adapters.analyze_source,
+            source_image,
+            copy.deepcopy(replacement_strategy),
+        )
         if source_analysis.get("sourceImageSha256") != source_sha:
             raise _stop(rules, "failed", "externalFailure", "来源分析证据与输入图片 SHA 不一致。", {})
         _atomic_write_new(output_dir / "source-analysis.json", _json_bytes(source_analysis))
@@ -922,7 +1262,7 @@ def run_production(
         _advance(manifest, rules, p0, timestamp)
         _persist_manifest(output_dir, manifest)
 
-        plan = _plan_replacement(source_analysis, rules, template_key)
+        plan = _plan_replacement(source_analysis, rules, template_key, replacement_strategy)
         _atomic_write_new(output_dir / "replacement-plan.json", _json_bytes(plan))
         _record_artifact(manifest, output_dir, "replacement-plan.json", p1, ["source-analysis.json"])
         _advance(manifest, rules, p1, timestamp)

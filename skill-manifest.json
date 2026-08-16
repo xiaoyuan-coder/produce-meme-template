@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "updated_at": "2026-08-16",
-  "description": "实现 Issue #2 单图自主换图到正式 JSON 的 P0–P8 最小纵向切片。",
+  "description": "实现 Issue #3 单图显式/自主替换策略、类别路由与两类值池隔离。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -64,6 +64,7 @@
     "specs/正式JSON字段消费与旧流程字段审计.md",
     "specs/版本治理与发布规范.md",
     "tests/test_issue_2_vertical_slice.py",
+    "tests/test_issue_3_replacement_strategy.py",
     "tests/test_repository_contract.py"
   ]
 }

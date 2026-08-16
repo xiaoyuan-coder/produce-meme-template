@@ -2,9 +2,9 @@
 
 ## 1. 公共工作流
 
-Issue #2 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey` 和一个 `sourceImage`，输出属于一个独立 Production Item。来源/模板分析、生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+Issue #2–#3 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey`、一个 `sourceImage` 和可选的单图 `replacementStrategy`，输出属于一个独立 Production Item。来源/模板分析、生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
-机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。代码、测试和 fixture 不再维护第二份枚举。
+机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。类别与策略来源使用“具名领域角色 → 机器值”映射，代码不依赖 JSON 成员顺序。代码、测试和 fixture 不再维护第二份枚举。
 
 ## 2. P0–P8 产物
 
@@ -20,13 +20,17 @@ Issue #2 只通过 `run_production(request, output_root, adapters)` 暴露正式
 | P7 | `ASSET_UPLOADED` | `asset-receipt.json` |
 | P8 | `FINALIZED` | `final-validation-report.json`、`gallery-template.json` |
 
-`production-manifest.json` 记录每个阶段、产物 SHA、依赖、revision 和外部结果。除 manifest 外，revision 产物使用原子排他创建；相同 Production Item 内容不一致时返回稳定的不可变冲突。请求标识符在落盘前通过格式检查，解析后的 Production Item 真实路径还必须是 `output_root` 的直接子目录；预置符号链接不能把写入引向根外。相同来源图和 key 已完成后再次调用，需要先验证请求身份、pin 和全部产物摘要，再复用最终产物。
+`production-manifest.json` 记录每个阶段、产物 SHA、依赖、revision 和外部结果，并把规范化单图策略 SHA 纳入 Production Item 身份。除 manifest 外，revision 产物使用原子排他创建；相同 Production Item 内容不一致时返回稳定的不可变冲突。请求标识符与策略结构在落盘前通过检查，解析后的 Production Item 真实路径还必须是 `output_root` 的直接子目录；预置符号链接不能把写入引向根外。相同来源图、key 和策略已完成后再次调用，需要先验证请求身份、pin 和全部产物摘要，再复用最终产物。
 
 ## 3. 适配器门禁
 
 - 来源分析证据必须绑定 Source Web Image SHA。
+- 来源分析 adapter 同时接收规范化后单图策略的隔离副本，不能修改工作流用于身份摘要与规划的原始快照。指定值通过独立 `explicitReplacementEvaluation` 证据执行同类、语义、视觉、权利与安全硬过滤，无需进入自主替换池。
+- 文字与自主场景目标必须提供 `targetEligibility` 前置条件证据；显式场景值依据策略优先级直接进入硬过滤。冻结项通过绑定策略值和变更组件 ID 的 `preserveConflictEvaluations` 做语义冲突判定，与主要目标或依赖闭包重叠时在 P1 前阻断。
+- 权利或安全证据仍为 `review` 的显式值，以及没有 pass 候选但存在 review 候选的自主路由，统一返回 `needs_input / NEEDS_REVIEW`，不与确定不兼容混为同一阻断结果。
+- `dependencyClosure` 结构损坏时返回稳定外部分析失败；闭包为空、替换范围无法可靠判定时返回 `needs_input / NEEDS_REVIEW`。两条路径都不调用生成或上传 adapter。
 - 视觉审核与模板分析必须分别绑定当前生成图 SHA。
-- 语义审计必须绑定标题、Prompt、隐藏层、自由内容和全部槽位值的规范摘要，并通过机器规则声明的完整审计项。
+- 语义审计必须绑定标题、Prompt、隐藏层、自由内容和全部槽位值的规范摘要，并通过机器规则声明的完整审计项；推荐项的同轴、同颗粒度和可生成性属于该独立语义审计。
 - 生成结果先以 `generated-candidate-image` 保存；只有六维视觉合同和全部硬门禁通过后，才能登记为 Approved Template Image。
 - 硬失败停止在 P2，人工意见不能绕过门禁。
 - P7 adapter 只能接收当前 Approved Template Image；Asset Receipt 的图片 SHA 必须一致，URL 必须为 HTTPS。
@@ -35,8 +39,8 @@ Issue #2 只通过 `run_production(request, output_root, adapters)` 暴露正式
 
 ## 4. 版本 pin
 
-每个 Production Item 单独保存 Skill 行为版本、Artifact Schema 版本、完整 tracked-file release digest、机器规则 SHA、Gallery Contract 快照 SHA 和上游来源 SHA。运行中的 pin 不读取未来安装版本。Issue #2 只创建 revision 1；后续 ticket 将扩展跨 revision 的恢复与精确失效。
+每个 Production Item 单独保存 Skill 行为版本、Artifact Schema 版本、完整 tracked-file release digest、机器规则 SHA、Gallery Contract 快照 SHA 和上游来源 SHA。运行中的 pin 不读取未来安装版本。Issue #2–#3 只创建 revision 1；后续 ticket 将扩展跨 revision 的恢复与精确失效。
 
 ## 5. 迁移证据
 
-确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`。测试方法按 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38 命名或分组，保证 Issue #2 指定经验都有规则与外部验收落点。
+确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 的策略、类别路由和值池隔离测试继续覆盖 E05、E06、E07、E10 和 E25。

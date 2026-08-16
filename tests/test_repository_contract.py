@@ -49,20 +49,41 @@ class RepositoryContractTest(unittest.TestCase):
 
     def test_issue_2_experience_ids_are_machine_traceable(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E01", "E04", "E05", "E07", "E10", "E11", "E19", "E21", "E27", "E35", "E36", "E38"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_issue_3_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E05", "E06", "E07", "E10", "E25"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_replacement_enums_expose_named_domain_roles(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+
+        self.assertIsInstance(rules["sourceCategories"], dict)
+        self.assertIsInstance(rules["strategySources"], dict)
+        self.assertIn("unknownCategory", rules["sourceCategories"])
+        self.assertIn("textContent", rules["sourceCategories"])
+        self.assertIn("sceneAttribute", rules["sourceCategories"])
         self.assertEqual(
-            {"E01", "E04", "E05", "E07", "E10", "E11", "E19", "E21", "E27", "E35", "E36", "E38"},
-            set(rules["historicalExperienceEvidence"]),
+            {"perImageDecision", "batchDecision", "autonomousDecision"},
+            set(rules["strategySources"]),
         )
 
     def test_workflow_consumes_machine_states_and_error_codes_without_copying_values(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
-        sources = [
-            (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8"),
-            (ROOT / "tests" / "test_issue_2_vertical_slice.py").read_text(encoding="utf-8"),
-        ]
+        workflow_source = (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8")
+        test_sources = [path.read_text(encoding="utf-8") for path in sorted((ROOT / "tests").glob("test_issue_*.py"))]
+        sources = [workflow_source, *test_sources]
         machine_values = [rules["initialState"], *rules["resultStates"].values()]
         machine_values.extend(item["state"] for item in rules["productionPhases"])
         machine_values.extend(rules["errorCodes"].values())
+        machine_values.extend(rules["sourceCategories"].values())
+        machine_values.extend(rules["strategySources"].values())
 
         string_literals = [
             {node.value for node in ast.walk(ast.parse(source)) if isinstance(node, ast.Constant) and isinstance(node.value, str)}
@@ -72,10 +93,11 @@ class RepositoryContractTest(unittest.TestCase):
             for literals in string_literals:
                 self.assertNotIn(value, literals)
 
-        workflow_literals, test_literals = string_literals
+        workflow_literals, *test_literal_sets = string_literals
         for phase in rules["productionPhases"]:
             self.assertNotIn(phase["phase"], workflow_literals)
-            self.assertNotIn(phase["phase"], test_literals)
+            for test_literals in test_literal_sets:
+                self.assertNotIn(phase["phase"], test_literals)
 
 
 if __name__ == "__main__":

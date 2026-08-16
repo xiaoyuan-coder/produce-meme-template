@@ -3,12 +3,30 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _semantic_overlap(left: str, right: str) -> bool:
+    def normalize(value: str) -> str:
+        normalized = re.sub(r"[\s，。！？；、,.!?;:]", "", value)
+        for prefix in ("保持", "保留", "维持", "固定"):
+            if normalized.startswith(prefix):
+                normalized = normalized[len(prefix) :]
+        return normalized
+
+    normalized_left = normalize(left)
+    normalized_right = normalize(right)
+    return bool(
+        normalized_left
+        and normalized_right
+        and (normalized_left in normalized_right or normalized_right in normalized_left)
+    )
 
 
 class DeterministicFixtureAdapters:
@@ -23,9 +41,52 @@ class DeterministicFixtureAdapters:
         self.generate_calls: list[dict[str, Any]] = []
         self.upload_calls: list[dict[str, Any]] = []
 
-    def analyze_source(self, source_image: Path) -> dict[str, Any]:
+    def analyze_source(
+        self, source_image: Path, replacement_strategy: dict[str, Any] | None
+    ) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "source-analysis.json")
         result["sourceImageSha256"] = hashlib.sha256(source_image.read_bytes()).hexdigest()
+        if replacement_strategy and replacement_strategy.get("replacementValue") is not None:
+            requested_value = replacement_strategy["replacementValue"]
+            requested_category = replacement_strategy["replacementCategory"]
+            matching = next(
+                (
+                    candidate
+                    for candidate in result.get("replacementPool", [])
+                    if candidate.get("value") == requested_value
+                    and candidate.get("category") == requested_category
+                ),
+                None,
+            )
+            if matching is not None:
+                result["explicitReplacementEvaluation"] = copy.deepcopy(matching)
+        if replacement_strategy and replacement_strategy.get("preserve"):
+            changed_components = [
+                {"componentId": "primary-role", "value": result["target"]["role"]},
+                {"componentId": "primary-identity", "value": result["target"]["identity"]},
+                *[
+                    {
+                        "componentId": f"dependency-{index}-{item['type']}",
+                        "value": item["value"],
+                    }
+                    for index, item in enumerate(result.get("dependencyClosure", []))
+                ],
+            ]
+            result["preserveConflictEvaluations"] = [
+                {
+                    "preserveValue": preserve_value,
+                    "conflictsWithChangedSet": any(
+                        _semantic_overlap(preserve_value, component["value"])
+                        for component in changed_components
+                    ),
+                    "changedComponentIds": [
+                        component["componentId"]
+                        for component in changed_components
+                        if _semantic_overlap(preserve_value, component["value"])
+                    ],
+                }
+                for preserve_value in replacement_strategy["preserve"]
+            ]
         return result
 
     def generate(self, source_image: Path, generation_package: dict[str, Any]) -> dict[str, Any]:

@@ -26,6 +26,17 @@
 
 策略只覆盖其明确声明的范围。指定了替换值但没有声明重复实例、接触边界和去水印时，Skill 继续依据单图默认规范补齐；跨图去重和组合分配只在显式共享批次策略中补齐。`ReplacementPlan` 的每个关键决定都记录 `decisionSource`，支持 `per_image`、`batch` 和 `autonomous` 混合出现。
 
+单图请求通过可选的 `replacementStrategy` 表达当前 Production Item 的显式策略。字段白名单和结构约束读取 `contracts/machine-rules.json`：
+
+- `replacementValue` 与 `replacementCategory` 成对出现。来源分析 adapter 接收规范化后的单图策略，对指定值单独产生 `explicitReplacementEvaluation`；该值无需预先存在自主 `replacementPool`，仍必须通过类别、语义、视觉、权利和安全硬过滤；
+- `forbidValues` 排除不允许选择的值，剩余目标继续由自主规则稳定选择；
+- `preserve` 追加用户明确冻结的文字、关系、构图或文化锚点；
+- `policyId` 与 `policyVersion` 只提供策略追踪，不单独构成执行动作。
+
+策略列表先规范化排序再计算 Production Item 身份摘要。语义相同但列表顺序不同的请求可以幂等复用；同一 Production Item 改变策略内容时按身份冲突阻断。
+
+`preserve` 与主要目标或依赖闭包重叠时，同一内容会被同时要求冻结和重绘。来源分析 adapter 为每个冻结值返回绑定策略原文的 `preserveConflictEvaluations`，其中使用组件 ID 记录与变更集的语义冲突。工作流校验每个 ID 都属于当前 changed set、布尔值与 ID 列表是否一致，以及证据是否覆盖全部策略值，再于生图前阻断冲突；证据不完整或内部矛盾时按外部分析失败停止。
+
 ## 3. 自主替换的决策流程
 
 ### 3.1 先抽取原图机制
@@ -49,6 +60,7 @@
 - 经典艺术作品主体。
 - 明确角色/IP。
 - 通用人物、动物、物体或食物。
+- 承担主要画面职责的文字内容。
 - 场景、背景或非文字视觉属性。
 - 未知。
 
@@ -64,6 +76,8 @@
 
 原图文字默认冻结。只有显式策略授权，或笑点公式要求等价重写时，文字才进入替换集合。重写必须保持语义角色、时序和语言策略。
 
+来源分析通过 `targetEligibility.textRewriteRequiredByMechanism` 记录笑点机制是否要求等价重写。缺少显式文字替换值且该证据不为 `true` 时，文字路由阻断。
+
 ### 3.4 生成替换值候选
 
 候选值依次经过四道硬过滤：
@@ -75,6 +89,8 @@
 
 过滤后再做多样性分配，顺序不能颠倒。多样性不能牺牲笑点和画面关系。
 
+权利或安全证据为 `review` 表示尚无法可靠判定。如果显式指定值仍为 `review`，或自主路由只剩该类候选，返回 `needs_input / NEEDS_REVIEW`；只有确定不兼容、被禁止或风险不通过时才使用阻断结果。
+
 ### 3.5 自主策略的类别规则
 
 - 普通真人：由图片模型生成同年龄阶段、性别呈现、人数、关系和角色功能的新真人身份，并对完整人物及关联区域统一重绘。身份资产只在真人感、多人一致性或特定身份稳定性确有收益时作为可选辅助。
@@ -85,6 +101,8 @@
 - 文字：保持文字功能和语义类型。身份绑定文字随新身份更新、删除或中性化；普通装饰文字默认保持或锁定。
 - 场景或视觉属性：只有主体缺少有效替换价值，且改变该属性能形成稳定模板价值时使用。
 - 未知：阻断自动生成。
+
+自主场景路由把上述两个前置条件分别记录为 `targetEligibility.primarySubjectHasReplacementValue=false` 和 `targetEligibility.sceneChangeCreatesStableTemplateValue=true`；任一条缺失或不成立都在生图前阻断。单图策略明确指定场景替换值时，按策略优先级跳过该自主价值判断，指定值仍需通过完整硬过滤。
 
 这里的“资产”指额外提供给模型的身份参考图。它是可选生成辅助，不是自主替换值的唯一来源。`prompt_only` 可以直接生成新的普通真人或可准确描述的同类主体。执行时必须完成完整身份替换和整图媒介统一，局部贴脸、旧身体残留或多人串脸均判失败。
 
@@ -114,6 +132,8 @@ seed = batchId + templateKey + sourceIdentity
 - 镜像、倒影、影子、屏幕内容和海报内嵌图。
 - 与目标相接的手、爪、衣领、帽子、容器边缘和遮挡边界。
 - 因替换而失效的文字标签、名字或身份符号。
+
+`dependencyClosure` 必须是包含非空 `type` 和 `value` 的对象列表。结构损坏表示外部分析证据无效，返回稳定 `externalFailure`；列表为空表示替换范围尚无法可靠判定，返回 `needs_input / NEEDS_REVIEW`。
 
 身份替换时，姓名、英文名、团名、称谓、号码、识别色和身份徽标进入同一依赖闭包。自主模式优先在模板图中删除或中性化这些身份文字；批次策略明确要求保留具体身份表达时，文字必须与新身份一致。后续开放主体槽时，如果确认模板图仍含具体身份文字，模板退回本阶段生成中性版本。
 
@@ -169,12 +189,15 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
 ```json
 {
   "artifactType": "replacement-plan",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "0.3.0",
   "templateKey": "example-key",
   "strategy": {
     "source": "per_image | batch | autonomous",
+    "decisionSource": "per_image | batch | autonomous",
     "policyId": "optional-policy-id",
-    "policyVersion": "optional-version"
+    "policyVersion": "optional-version",
+    "forbidValues": ["optional-forbidden-value"],
+    "preserve": ["optional-preserved-content"]
   },
   "mechanism": {
     "setup": "...",
@@ -182,22 +205,38 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
     "payoff": "...",
     "tone": "..."
   },
-  "target": {
-    "sourceCategory": "generic_animal",
-    "sourceRole": "画面主主体",
-    "replacementValue": "水豚",
-    "reason": "姿态与笑点角色兼容，且符合批次多样性",
-    "confidence": 0.93
-  },
-  "changedSet": ["主主体及全部重复实例", "对应影子", "身份相关颜色"],
+  "primaryTargets": [
+    {
+      "sourceCategory": "generic_animal",
+      "sourceRole": "画面主主体",
+      "sourceIdentity": "橘猫",
+      "replacementValue": "水豚",
+      "replacementCategory": "generic_animal",
+      "reason": "姿态与笑点角色兼容",
+      "confidence": 0.93,
+      "decisionSource": "per_image"
+    }
+  ],
+  "dependencyClosure": [
+    {"type": "shadow", "value": "对应接触阴影", "decisionSource": "autonomous"}
+  ],
+  "changedSet": [
+    {"kind": "primary", "value": "画面主主体", "decisionSource": "per_image"}
+  ],
   "frozenSet": ["两格版式", "中文文字", "动作与因果方向"],
+  "frozenSetDecisions": [
+    {"value": "中文文字", "decisionSource": "per_image"}
+  ],
+  "replacementPool": [
+    {"value": "水豚", "category": "generic_animal", "semanticCompatible": true, "visualCompatible": true, "rightsAndSafety": "pass", "score": 0.93, "reason": "姿态兼容"}
+  ],
   "languagePolicy": "preserve_source_language",
   "rightsReview": "pass | review | blocked",
   "humanReviewRequired": false
 }
 ```
 
-正式实现时由 JSON Schema 定义字段、枚举和条件约束；文档示例不充当机器事实源。
+机器枚举、请求字段白名单和条件约束读取 `contracts/machine-rules.json`；文档示例只解释字段职责。
 
 ## 8. 阻断条件
 

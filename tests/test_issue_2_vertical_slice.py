@@ -49,10 +49,11 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         item = result.output_dir
         manifest = load_json(item / "production-manifest.json")
         pin = load_json(item / "production-pin.json")
+        release = load_json(ROOT / "release.json")
         self.assertEqual(PHASE_NAMES, [entry["phase"] for entry in manifest["history"]])
         self.assertEqual(1, manifest["revision"])
-        self.assertEqual("0.2.0", pin["skill"]["version"])
-        self.assertEqual("0.2.0", pin["artifactSchemaVersion"])
+        self.assertEqual(release["skillVersion"], pin["skill"]["version"])
+        self.assertEqual(release["artifactSchemaVersion"], pin["artifactSchemaVersion"])
         self.assertEqual(64, len(pin["galleryContract"]["sha256"]))
         self.assertEqual(64, len(pin["releaseSha256"]))
         release_json_sha = hashlib.sha256((ROOT / "release.json").read_bytes()).hexdigest()
@@ -72,7 +73,7 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         result, _ = self.run_fixture()
         plan = load_json(result.output_dir / "replacement-plan.json")
 
-        self.assertEqual("autonomous", plan["strategy"]["source"])
+        self.assertEqual(RULES["strategySources"]["autonomousDecision"], plan["strategy"]["source"])
         self.assertEqual(1, len(plan["primaryTargets"]))
         target = plan["primaryTargets"][0]
         self.assertEqual(target["sourceCategory"], target["replacementCategory"])

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.2.0",
+  "schemaVersion": "0.3.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -18,20 +18,38 @@
     "blocked": "BLOCKED",
     "failed": "FAILED"
   },
-  "sourceCategories": [
-    "ordinary_person",
-    "public_figure",
-    "historical_figure",
-    "classic_art_subject",
-    "known_character_ip",
-    "generic_person",
-    "generic_animal",
-    "generic_object",
-    "generic_food",
-    "scene_attribute",
-    "unknown"
-  ],
-  "strategySources": ["per_image", "batch", "autonomous"],
+  "sourceCategories": {
+    "ordinaryPerson": "ordinary_person",
+    "publicFigure": "public_figure",
+    "historicalFigure": "historical_figure",
+    "classicArtSubject": "classic_art_subject",
+    "knownCharacterIp": "known_character_ip",
+    "genericPerson": "generic_person",
+    "genericAnimal": "generic_animal",
+    "genericObject": "generic_object",
+    "genericFood": "generic_food",
+    "textContent": "text_content",
+    "sceneAttribute": "scene_attribute",
+    "unknownCategory": "unknown"
+  },
+  "strategySources": {
+    "perImageDecision": "per_image",
+    "batchDecision": "batch",
+    "autonomousDecision": "autonomous"
+  },
+  "replacementStrategyContract": {
+    "allowedFields": [
+      "policyId",
+      "policyVersion",
+      "replacementValue",
+      "replacementCategory",
+      "preserve",
+      "forbidValues"
+    ],
+    "pairedFields": [["replacementValue", "replacementCategory"]],
+    "listFields": ["preserve", "forbidValues"],
+    "actionFields": ["replacementValue", "preserve", "forbidValues"]
+  },
   "visualDimensions": ["medium", "form", "edge", "colorAndShading", "surface", "composition"],
   "visualHardGates": [
     "replacementComplete",
@@ -74,7 +92,8 @@
   "semanticAuditChecks": [
     "promptResolutionsNatural",
     "hiddenOpenAxesRemainEditable",
-    "titleSurvivesMaximumDifference"
+    "titleSurvivesMaximumDifference",
+    "slotSuggestionsSameAxisAndGranularity"
   ],
   "slotBudget": {"minimum": 2, "normal": 3, "maximum": 5, "singleSlotRequiresEvidence": true},
   "identifiers": {
@@ -84,6 +103,8 @@
   "errorCodes": {
     "invalidProductionRequest": "INVALID_PRODUCTION_REQUEST",
     "productionItemIntegrityFailure": "PRODUCTION_ITEM_INTEGRITY_FAILURE",
+    "explicitStrategyConflict": "EXPLICIT_STRATEGY_CONFLICT",
+    "riskNeedsReview": "NEEDS_REVIEW",
     "unknownCategory": "AUTONOMOUS_TARGET_UNKNOWN",
     "noCompatibleReplacement": "NO_COMPATIBLE_REPLACEMENT",
     "visualHardFailure": "VISUAL_HARD_FAILURE",
@@ -91,5 +112,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E07", "E10", "E11", "E19", "E21", "E27", "E35", "E36", "E38"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E19", "E21", "E25", "E27", "E35", "E36", "E38"]
 }
