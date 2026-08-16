@@ -53,11 +53,19 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         approved = result.output_dir / "evidence" / "approved-template-image.ppm"
         evidence_payload = {
             field: review[field]
-            for field in contract["evidenceFields"]
+            for field in contract["evidenceFieldRoles"].values()
         }
-        self.assertEqual(set(contract["hardGateRoles"].values()), set(review["hardGates"]))
-        self.assertEqual(set(RULES["visualDimensions"]), set(review["visualDimensions"]))
-        self.assertEqual(set(contract["cleanlinessFindingRoles"].values()), set(review["cleanlinessFindings"]))
+        evidence_fields = contract["evidenceFieldRoles"]
+        self.assertEqual(
+            set(contract["hardGateRoles"].values()), set(review[evidence_fields["hardGates"]])
+        )
+        self.assertEqual(
+            set(RULES["visualDimensions"]), set(review[evidence_fields["visualDimensions"]])
+        )
+        self.assertEqual(
+            set(contract["cleanlinessFindingRoles"].values()),
+            set(review[evidence_fields["cleanliness"]]),
+        )
         self.assertEqual(contract["decisionValues"]["approved"], review["decision"])
         self.assertEqual(hashlib.sha256(candidate.read_bytes()).hexdigest(), review["bindings"]["generatedImageSha256"])
         self.assertEqual(canonical_sha(package), review["bindings"]["generationPackageSha256"])
@@ -262,6 +270,193 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
         self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
         self.assertEqual([], adapters.upload_calls)
+
+    def test_template_analysis_cannot_change_the_approved_image_after_visual_review(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        analyze = adapters.analyze_approved
+
+        def mutate_approved(approved_image: Path) -> dict:
+            approved_image.write_bytes(approved_image.read_bytes() + b"changed-during-analysis")
+            return analyze(approved_image)
+
+        adapters.analyze_approved = mutate_approved
+        result = run_production(
+            {**self.request, "productionItemId": "approved-image-mutated-by-analysis"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["failed"], result.state)
+        self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "template-analysis.json").exists())
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_object_adapter_seams_reject_non_object_results_stably(self) -> None:
+        mutations = {
+            "source": lambda adapters: setattr(adapters, "analyze_source", lambda *_args: []),
+            "approved": lambda adapters: setattr(adapters, "analyze_approved", lambda *_args: []),
+            "semantic-audit": lambda adapters: setattr(adapters, "audit_semantics", lambda *_args: []),
+            "upload": lambda adapters: setattr(adapters, "upload", lambda *_args: []),
+        }
+
+        for name, mutate in mutations.items():
+            with self.subTest(adapter=name):
+                adapters = DeterministicFixtureAdapters(FIXTURE)
+                mutate(adapters)
+                result = run_production(
+                    {**self.request, "productionItemId": f"non-object-{name}-adapter"},
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RULES["resultStates"]["failed"], result.state)
+                self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+                self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_source_read_adapters_receive_read_only_snapshots(self) -> None:
+        original_source = Path(self.request["sourceImage"])
+        original_bytes = original_source.read_bytes()
+
+        for operation in ("analyze_source", "generate"):
+            with self.subTest(adapter=operation):
+                adapters = DeterministicFixtureAdapters(FIXTURE)
+                original_method = getattr(adapters, operation)
+
+                def mutate_source(source_image: Path, payload: dict, method=original_method) -> dict:
+                    source_image.write_bytes(source_image.read_bytes() + b"adapter-mutation")
+                    return method(source_image, payload)
+
+                setattr(adapters, operation, mutate_source)
+                result = run_production(
+                    {
+                        **self.request,
+                        "productionItemId": f"readonly-source-{operation.replace('_', '-')}",
+                    },
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RULES["resultStates"]["failed"], result.state)
+                self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+                self.assertEqual(original_bytes, original_source.read_bytes())
+                self.assertEqual([], adapters.upload_calls)
+
+    def test_upload_cannot_change_the_approved_image_after_validation(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        upload = adapters.upload
+
+        def mutate_approved(approved_image: Path, object_key: str) -> dict:
+            approved_image.write_bytes(approved_image.read_bytes() + b"upload-mutation")
+            return upload(approved_image, object_key)
+
+        adapters.upload = mutate_approved
+        result = run_production(
+            {**self.request, "productionItemId": "readonly-approved-upload"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["failed"], result.state)
+        self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_image_adapters_cannot_delete_core_artifacts_through_snapshot_paths(self) -> None:
+        operations = ("inspect_generated", "analyze_approved", "upload")
+        for operation in operations:
+            with self.subTest(adapter=operation):
+                adapters = DeterministicFixtureAdapters(FIXTURE)
+
+                def delete_snapshot(image_path: Path, *_args) -> dict:
+                    image_path.unlink()
+                    return {}
+
+                setattr(adapters, operation, delete_snapshot)
+                result = run_production(
+                    {
+                        **self.request,
+                        "productionItemId": f"delete-snapshot-{operation.replace('_', '-')}",
+                    },
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RULES["resultStates"]["failed"], result.state)
+                self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+                self.assertFalse((result.output_dir / "gallery-template.json").exists())
+                candidate = result.output_dir / "evidence" / "generated-candidate-image.ppm"
+                if candidate.exists():
+                    self.assertTrue(candidate.is_file())
+                approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+                if approved.exists():
+                    self.assertTrue(approved.is_file())
+
+    def test_image_adapter_snapshot_cannot_be_replaced_with_a_symlink(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+
+        def replace_snapshot(image_path: Path) -> dict:
+            image_path.unlink()
+            image_path.symlink_to(FIXTURE / "source-image.ppm")
+            return {}
+
+        adapters.analyze_approved = replace_snapshot
+        result = run_production(
+            {**self.request, "productionItemId": "symlinked-approved-snapshot"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["failed"], result.state)
+        self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+        approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+        self.assertTrue(approved.is_file())
+        self.assertFalse(approved.is_symlink())
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_image_adapter_cannot_delete_the_core_path_captured_outside_its_snapshot(self) -> None:
+        for operation in (
+            "analyze_source",
+            "generate",
+            "inspect_generated",
+            "analyze_approved",
+            "upload",
+        ):
+            with self.subTest(adapter=operation):
+                item_id = f"delete-core-{operation.replace('_', '-')}"
+                caller_source = self.output_root / f"{item_id}.ppm"
+                caller_source.write_bytes(Path(self.request["sourceImage"]).read_bytes())
+                request = {**self.request, "productionItemId": item_id, "sourceImage": str(caller_source)}
+                output_dir = self.output_root / item_id
+                if operation in {"analyze_source", "generate"}:
+                    core_path = caller_source
+                elif operation == "inspect_generated":
+                    core_path = output_dir / "evidence" / "generated-candidate-image.ppm"
+                else:
+                    core_path = output_dir / "evidence" / "approved-template-image.ppm"
+                adapters = DeterministicFixtureAdapters(FIXTURE)
+                original_method = getattr(adapters, operation)
+
+                def delete_core_path(snapshot: Path, *args, method=original_method) -> dict:
+                    core_path.unlink()
+                    return method(snapshot, *args)
+
+                setattr(adapters, operation, delete_core_path)
+                result = run_production(
+                    request,
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RULES["resultStates"]["failed"], result.state)
+                self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+                self.assertFalse((result.output_dir / "gallery-template.json").exists())
 
     def test_changed_approved_image_invalidates_every_dependent_visual_fact(self) -> None:
         request = {**self.request, "productionItemId": "changed-approved-image"}

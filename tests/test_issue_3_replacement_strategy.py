@@ -21,6 +21,12 @@ def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def canonical_sha(value: object) -> str:
+    return hashlib.sha256(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
 RULES = load_json(ROOT / "contracts" / "machine-rules.json")
 RESULT_COMPLETED = next(iter(RULES["resultStates"]))
 RESULT_BLOCKED = tuple(RULES["resultStates"])[2]
@@ -32,17 +38,37 @@ SUGGESTION_AUDIT_CHECK = RULES["semanticAuditChecks"]["slotSuggestions"]["check"
 
 
 class ScenarioAdapters(DeterministicFixtureAdapters):
-    def __init__(self, source_transform, approved_transform, failed_semantic_checks=()):
+    def __init__(
+        self,
+        source_transform,
+        approved_transform,
+        failed_semantic_checks=(),
+        identity_text_applicable=False,
+    ):
         super().__init__(FIXTURE)
         self.source_transform = source_transform
         self.approved_transform = approved_transform
         self.failed_semantic_checks = set(failed_semantic_checks)
+        self.identity_text_applicable = identity_text_applicable
 
     def analyze_source(self, source_image: Path, replacement_strategy: dict | None) -> dict:
         return self.source_transform(super().analyze_source(source_image, replacement_strategy))
 
     def analyze_approved(self, approved_image: Path) -> dict:
         return self.approved_transform(super().analyze_approved(approved_image))
+
+    def inspect_generated(self, generated_image: Path, review_context: dict[str, str]) -> dict:
+        result = super().inspect_generated(generated_image, review_context)
+        contract = RULES["visualReviewContract"]
+        evidence_fields = contract["identityTextEvidenceFields"]
+        identity_text = result[contract["evidenceFieldRoles"]["identityText"]]
+        identity_text[evidence_fields["applicability"]] = self.identity_text_applicable
+        evidence_payload = {
+            field: result[field]
+            for field in contract["evidenceFieldRoles"].values()
+        }
+        result["bindings"]["evidenceSha256"] = canonical_sha(evidence_payload)
+        return result
 
     def audit_semantics(self, content: dict) -> dict:
         digest = hashlib.sha256(
@@ -54,6 +80,17 @@ class ScenarioAdapters(DeterministicFixtureAdapters):
         result["checks"] = {
             contract["check"]: contract["check"] not in self.failed_semantic_checks
             for contract in RULES["semanticAuditChecks"].values()
+        }
+        neutrality_contract = RULES["semanticAuditChecks"]["identityNeutrality"]
+        neutrality_fields = RULES["identityReplacementContract"]["neutralityAuditFields"]
+        subject_upload_type = RULES["slotCompilationContract"]["slotTypes"]["primarySubjectUpload"]
+        neutrality_applicable = self.identity_text_applicable and any(
+            slot["type"] == subject_upload_type for slot in content["slots"]
+        )
+        result["evidence"][neutrality_contract["evidence"]] = {
+            neutrality_fields["applicability"]: neutrality_applicable,
+            neutrality_fields["specificIdentityDetected"]: False,
+            neutrality_fields["explanation"]: "逐项核对开放身份默认内容与非主体固定文案",
         }
         return result
 
@@ -93,7 +130,92 @@ def source_scenario(
         analysis["dependencyClosure"] = [
             {"type": "full_region", "value": f"{role}及其边缘、阴影和重复区域"}
         ]
+        identity_contract = RULES["identityReplacementContract"]
+        identity_route = next(
+            (
+                route
+                for route in identity_contract["routes"].values()
+                if category == RULES["sourceCategories"][route["sourceCategoryRole"]]
+            ),
+            None,
+        )
+        if identity_route is not None:
+            distinct_field = identity_contract["candidateFields"]["distinctIdentityEvidence"]
+            distinct_fields = identity_contract["distinctIdentityEvidenceFields"]
+            for candidate in analysis["replacementPool"]:
+                if candidate["category"] == category:
+                    candidate[distinct_field] = {
+                        distinct_fields["sourceIdentity"]: identity,
+                        distinct_fields["candidateIdentity"]: candidate["value"],
+                        distinct_fields["distinct"]: True,
+                        distinct_fields["explanation"]: "确认候选与来源身份不同且保持同类语境",
+                    }
+            dependency_fields = identity_contract["dependencyFields"]
+            dependency_types = identity_contract["dependencyTypes"]
+            component_field = dependency_fields["componentIdentity"]
+            type_field = dependency_fields["dependencyType"]
+            value_field = dependency_fields["description"]
+            analysis["dependencyClosure"] = [
+                {
+                    component_field: "primary-identity-body",
+                    type_field: dependency_types["fullBody"],
+                    value_field: f"{identity}的完整人物区域",
+                },
+                {
+                    component_field: "primary-identity-text",
+                    type_field: dependency_types["identityText"],
+                    value_field: f"{identity}的身份文字",
+                },
+            ]
+            route_fields = identity_contract["routeEvidenceFields"]
+            analysis[identity_contract["sourceFields"]["routeEvidence"]] = {
+                route_fields["mode"]: identity_route["mode"],
+                route_fields["localAssetRequirement"]: identity_route["localAssetRequired"],
+                route_fields["completeRedraw"]: True,
+                route_fields["explanation"]: "完整身份与依赖区域统一重绘",
+            }
+            topology_fields = identity_contract["topologyFields"]
+            analysis[identity_contract["sourceFields"]["topology"]] = {
+                topology_fields["requiredComponents"]: [
+                    "primary-identity-body",
+                    "primary-identity-text",
+                ],
+                topology_fields["identityTextComponents"]: ["primary-identity-text"],
+                topology_fields["explanation"]: "主体与身份文字均属于变更集",
+            }
+            decision_fields = identity_contract["identityTextDecisionFields"]
+            analysis[identity_contract["sourceFields"]["textDecisions"]] = [
+                {
+                    decision_fields["componentIdentity"]: "primary-identity-text",
+                    decision_fields["sourceText"]: identity,
+                    decision_fields["action"]: identity_contract["identityTextActions"]["remove"],
+                    decision_fields["result"]: "",
+                    decision_fields["basis"]: "开放主体不保留具体身份文字",
+                }
+            ]
+            if identity_route["candidateCardRequired"]:
+                card_field = identity_contract["candidateFields"]["card"]
+                card_fields = identity_contract["candidateCardFields"]
+                for candidate in analysis["replacementPool"]:
+                    if candidate["category"] == category:
+                        candidate[card_field] = {
+                            card_fields["anchors"]: ["新角色轮廓", "新角色配色"],
+                            card_fields["antiAnchors"]: ["不残留旧角色特征"],
+                            card_fields["playFusion"]: ["保持桌边姿态和媒介"],
+                        }
         analysis["frozenSet"] = ["构图骨架", "核心关系", "原有媒介"]
+        if identity_route is not None:
+            source_fields = identity_contract["sourceFields"]
+            frozen_fields = identity_contract["frozenConflictEvaluationFields"]
+            analysis[source_fields["frozenConflictEvaluations"]] = [
+                {
+                    frozen_fields["frozenValue"]: value,
+                    frozen_fields["conflict"]: False,
+                    frozen_fields["componentIdentities"]: [],
+                    frozen_fields["explanation"]: "逐项对照身份拓扑后未发现冲突",
+                }
+                for value in analysis["frozenSet"]
+            ]
         if target_eligibility is not None:
             analysis["targetEligibility"] = target_eligibility
         return analysis
@@ -874,6 +996,10 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
                         subject_suggestions=scenario["suggestions"],
                         subject_role=scenario["subjectRole"],
                     ),
+                    identity_text_applicable=scenario["category"] in {
+                        RULES["sourceCategories"]["ordinaryPerson"],
+                        RULES["sourceCategories"]["knownCharacterIp"],
+                    },
                 )
                 request = {**self.request, "productionItemId": scenario["itemId"]}
 

@@ -16,7 +16,10 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _visual_evidence_sha(review: dict[str, Any], contract: dict[str, Any]) -> str:
-    evidence_payload = {field: review[field] for field in contract["evidenceFields"]}
+    evidence_payload = {
+        field: review[field]
+        for field in contract["evidenceFieldRoles"].values()
+    }
     return hashlib.sha256(
         json.dumps(
             evidence_payload,

@@ -1,6 +1,6 @@
 {
   "artifactType": "visual-review",
-  "schemaVersion": "0.6.0",
+  "schemaVersion": "0.7.0",
   "hardGates": {
     "replacementComplete": true,
     "dependencyClosureComplete": true,
@@ -23,6 +23,12 @@
   "visibleTextEvidence": {
     "pass": true,
     "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "identityTextEvidence": {
+    "applicable": false,
+    "sourceIdentityTermsAbsent": true,
+    "replacementIdentityTextConsistent": true,
+    "evidence": "通用动物场景没有现实人物或角色身份文字依赖"
   },
   "cleanlinessFindings": {
     "ghostTextDetected": false,

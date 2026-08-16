@@ -1,0 +1,49 @@
+{
+  "ordinary": {
+    "routeRole": "ordinaryPerson",
+    "sourceIdentity": "MAYA",
+    "replacementValue": "一位全新短发青年",
+    "subjectDefault": "短发青年",
+    "subjectSuggestions": ["卷发青年", "眼镜青年", "长发青年"],
+    "identityTextActionRole": "remove",
+    "identityTextRelationshipRole": null,
+    "identityTextResult": "",
+    "dependencyTypeRoles": ["fullBody", "repeatedInstance", "shadow", "identityText"],
+    "omitSubject": false,
+    "exposeText": false
+  },
+  "public": {
+    "routeRole": "publicFigure",
+    "sourceIdentity": "周杰伦",
+    "replacementValue": "林俊杰",
+    "subjectDefault": "中央人物",
+    "subjectSuggestions": ["舞台歌手", "短发演员", "长发音乐人"],
+    "identityTextActionRole": "synchronize",
+    "identityTextRelationshipRole": "directName",
+    "identityTextResult": "林俊杰",
+    "dependencyTypeRoles": ["fullBody", "repeatedInstance", "reflection", "identityBadge", "identityText"],
+    "omitSubject": true,
+    "exposeText": false
+  },
+  "ip": {
+    "routeRole": "knownCharacterIp",
+    "sourceIdentity": "哆啦A梦",
+    "replacementValue": "皮卡丘",
+    "subjectDefault": "皮卡丘",
+    "subjectSuggestions": ["伊布", "索尼克", "星之卡比"],
+    "identityTextActionRole": "exposeNeutralSlot",
+    "identityTextRelationshipRole": null,
+    "identityTextResult": "PORTRAIT",
+    "dependencyTypeRoles": [
+      "fullBody",
+      "repeatedInstance",
+      "shadow",
+      "reflection",
+      "framedPortrait",
+      "identityBadge",
+      "identityText"
+    ],
+    "omitSubject": false,
+    "exposeText": true
+  }
+}

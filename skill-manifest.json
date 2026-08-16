@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "updated_at": "2026-08-16",
-  "description": "实现 Issue #6 冻结 Gallery Contract、严格白名单投影、样例迁移与 sidecar 隔离。",
+  "description": "实现 Issue #7 普通真人、公众人物与知名 IP 身份路由、候选卡、依赖闭包和身份文字硬门禁。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -39,6 +39,8 @@
     "fixtures/contracts/latest-gallery-samples/heart.input.json",
     "fixtures/contracts/latest-gallery-samples/wedding.expected.json",
     "fixtures/contracts/latest-gallery-samples/wedding.input.json",
+    "fixtures/e2e/identity-routes/README.md",
+    "fixtures/e2e/identity-routes/scenarios.json",
     "fixtures/e2e/simple-animal/README.md",
     "fixtures/e2e/simple-animal/approved-analysis.json",
     "fixtures/e2e/simple-animal/approved-template-image.ppm",
@@ -74,6 +76,7 @@
     "tests/test_issue_4_template_image_gate.py",
     "tests/test_issue_5_editable_prompt_compiler.py",
     "tests/test_issue_6_formal_gallery_contract.py",
+    "tests/test_issue_7_identity_replacement.py",
     "tests/test_repository_contract.py"
   ]
 }

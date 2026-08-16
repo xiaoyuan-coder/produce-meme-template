@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-`0.6.0` 已提供 Issue #2–#6 的单图纵向切片：普通真人、知名 IP、动物、物体、文字或场景来源图可通过同一公共工作流完成 P0–P8；P2 执行完整视觉门禁与不可变重做，P3–P4 编译高价值槽位和统一 resolved Prompt，P8 依据冻结 Gallery Contract 执行严格白名单投影、sidecar 隔离与同一模板图 URL 回填。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
+当前已提供 Issue #2–#7 的单图纵向切片：普通真人可以 prompt-only 生成新身份，公众人物和知名 IP 通过含身份锚点、反锚点和玩法融合要求的同类候选卡替换，重复实例、影子、倒影、相框、徽章和身份文字统一进入依赖闭包。P2 执行视觉与身份文字硬门禁，P3–P6 编译高价值槽位、中性默认内容和统一 resolved Prompt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 回填。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
 
 ## 开始工作
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.6.0",
+  "schemaVersion": "0.7.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -74,17 +74,147 @@
       "evidenceInsufficient": "evidenceInsufficient",
       "alternativesClose": "validAlternativesClose"
     },
-    "evidenceFields": [
-      "hardGates",
-      "visualDimensions",
-      "visibleTextEvidence",
-      "cleanlinessFindings",
-      "ambiguitySignals"
-    ],
+    "evidenceFieldRoles": {
+      "hardGates": "hardGates",
+      "visualDimensions": "visualDimensions",
+      "visibleText": "visibleTextEvidence",
+      "cleanliness": "cleanlinessFindings",
+      "ambiguity": "ambiguitySignals",
+      "identityText": "identityTextEvidence"
+    },
+    "identityTextEvidenceFields": {
+      "applicability": "applicable",
+      "legacyTermsAbsent": "sourceIdentityTermsAbsent",
+      "replacementConsistency": "replacementIdentityTextConsistent",
+      "explanation": "evidence"
+    },
     "decisionValues": {
       "approved": "approved",
       "needsReview": "needs_review",
       "rejected": "rejected"
+    }
+  },
+  "identityReplacementContract": {
+    "planFields": {
+      "route": "identityRoute",
+      "topology": "identityTopology",
+      "textDecisions": "identityTextDecisions",
+      "neutralityTerms": "identityNeutralityTerms"
+    },
+    "sourceFields": {
+      "routeEvidence": "identityRouteEvidence",
+      "topology": "identityTopology",
+      "textDecisions": "identityTextDecisions",
+      "frozenConflictEvaluations": "identityFrozenConflictEvaluations"
+    },
+    "candidateFields": {
+      "card": "identityCandidateCard",
+      "distinctIdentityEvidence": "distinctIdentityEvidence"
+    },
+    "generationSectionRoles": {
+      "route": "identityRoute",
+      "identityText": "identityText"
+    },
+    "routes": {
+      "ordinaryPerson": {
+        "sourceCategoryRole": "ordinaryPerson",
+        "mode": "prompt_only_new_identity",
+        "candidateCardRequired": false,
+        "localAssetRequired": false
+      },
+      "publicFigure": {
+        "sourceCategoryRole": "publicFigure",
+        "mode": "same_class_public_figure",
+        "candidateCardRequired": true,
+        "localAssetRequired": false
+      },
+      "knownCharacterIp": {
+        "sourceCategoryRole": "knownCharacterIp",
+        "mode": "same_class_known_ip",
+        "candidateCardRequired": true,
+        "localAssetRequired": false
+      }
+    },
+    "routeEvidenceFields": {
+      "mode": "mode",
+      "localAssetRequirement": "localAssetRequired",
+      "completeRedraw": "completeIdentityRedraw",
+      "explanation": "evidence"
+    },
+    "candidateCardFields": {
+      "anchors": "identityAnchors",
+      "antiAnchors": "antiAnchors",
+      "playFusion": "playFusionRequirements"
+    },
+    "distinctIdentityEvidenceFields": {
+      "sourceIdentity": "sourceIdentity",
+      "candidateIdentity": "candidateIdentity",
+      "distinct": "distinctIdentity",
+      "explanation": "evidence"
+    },
+    "identityEquivalenceModifiers": {
+      "selfReference": "本人",
+      "selfHonorific": "本尊",
+      "originalEdition": "原版",
+      "officialEnglish": "official",
+      "originalEnglish": "original"
+    },
+    "dependencyTypes": {
+      "fullBody": "full_body",
+      "repeatedInstance": "repeated_instance",
+      "shadow": "shadow",
+      "reflection": "reflection",
+      "framedPortrait": "framed_portrait",
+      "identityBadge": "identity_badge",
+      "identityText": "identity_text",
+      "identityMark": "identity_mark",
+      "contactBoundary": "contact_boundary"
+    },
+    "topologyFields": {
+      "requiredComponents": "requiredComponentIds",
+      "identityTextComponents": "identityTextComponentIds",
+      "explanation": "evidence"
+    },
+    "dependencyFields": {
+      "componentIdentity": "componentId",
+      "dependencyType": "type",
+      "description": "value"
+    },
+    "identityTextActions": {
+      "remove": "remove",
+      "neutralize": "neutralize",
+      "exposeNeutralSlot": "expose_neutral_slot",
+      "synchronize": "synchronize"
+    },
+    "identityTextRelationshipTypes": {
+      "directName": "direct_name",
+      "englishName": "english_name",
+      "groupName": "group_name",
+      "title": "title",
+      "number": "number",
+      "recognitionColor": "recognition_color",
+      "badge": "badge"
+    },
+    "identityTextDecisionFields": {
+      "componentIdentity": "componentId",
+      "sourceText": "sourceValue",
+      "action": "action",
+      "result": "result",
+      "basis": "basis",
+      "highValueEvidence": "highValueEvidence",
+      "relationshipType": "identityRelationship",
+      "replacementIdentity": "replacementIdentity"
+    },
+    "frozenConflictEvaluationFields": {
+      "frozenValue": "frozenValue",
+      "conflict": "conflictsWithIdentityChange",
+      "componentIdentities": "conflictingComponentIds",
+      "explanation": "evidence"
+    },
+    "neutralityAuditFields": {
+      "applicability": "applicable",
+      "specificIdentityDetected": "identitySpecificDefaultDetected",
+      "explanation": "evidence"
     }
   },
   "invalidationReasons": {
@@ -186,13 +316,21 @@
     "hiddenLayerResponsibilities": {
       "check": "hiddenLayersResponsibilitiesSeparated",
       "evidence": "hiddenLayerResponsibilityReview"
+    },
+    "identityNeutrality": {
+      "check": "identityNeutralDefaultsValid",
+      "evidence": "identityNeutralityReview"
     }
   },
   "slotBudget": {"minimum": 2, "normal": 3, "maximum": 5, "singleSlotRequiresEvidence": true},
   "slotCompilationContract": {
     "subjectKinds": {"humanSubject": "person", "nonHumanSubject": "non_person"},
-    "semanticRoles": {"primarySubject": "subject"},
-    "slotTypes": {"visibleTextPrompt": "text"},
+    "semanticRoles": {"primarySubject": "subject", "identityText": "identity_text"},
+    "slotTypes": {
+      "primarySubjectUpload": "subject",
+      "visibleTextPrompt": "text",
+      "freePrompt": "prompt"
+    },
     "valueGateRoles": {
       "userDemand": "userMotivation",
       "visualVisibility": "visuallyVisible",
@@ -246,5 +384,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E12", "E13", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
 }

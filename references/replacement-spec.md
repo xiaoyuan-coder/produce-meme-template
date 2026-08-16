@@ -137,6 +137,12 @@ seed = batchId + templateKey + sourceIdentity
 
 身份替换时，姓名、英文名、团名、称谓、号码、识别色和身份徽标进入同一依赖闭包。自主模式优先在模板图中删除或中性化这些身份文字；批次策略明确要求保留具体身份表达时，文字必须与新身份一致。后续开放主体槽时，如果确认模板图仍含具体身份文字，模板退回本阶段生成中性版本。
 
+来源分析使用机器规则中的具名身份路由合同。普通真人记录 prompt-only 新身份与完整重绘依据；公众人物和知名 IP 的同类候选额外记录身份锚点、反锚点和玩法融合要求。每个身份候选提供与来源值、候选值双向绑定的 `distinctIdentity` 结论和依据；确定性门禁继续执行 NFKC、空白/标点折叠、大小写归一化和同一性修饰词清理，归一后来源值与候选值都必须非空且互不相同。`identityTopology` 精确列出 `dependencyClosure` 的全部身份组件，至少包含一个 `full_body`，组件 ID 必须唯一；文字组件 ID 还必须精确对应 `identity_text` 依赖。每个身份文字组件都需要 `remove`、`neutralize`、`exposeNeutralSlot` 或 `synchronize` 决策，并保存原值、结果、依据和高价值文字槽证据。`synchronize` 额外保存与选中身份双向绑定的关系类型，可表达直接姓名、英文名、团名、称谓、号码、识别色或徽标，无需把结果限制为候选全名原字符串。
+
+身份路由对每个自主冻结项提供与当前拓扑绑定的冲突结论和组件依据。冻结项涉及新旧身份、身份文字或本次重绘组件时在 P1 阻断，Generation Package 不接收互斥的替换与保留命令。
+
+身份文字决策继续接受 P2 视觉事实复核。视觉证据明确声明当前路由是否适用，同时确认旧身份文字已消失且新身份文字与替换值一致；任一确认失败都会派生为视觉硬失败。主体槽开放由机器规则声明的 subject 上传控件判定，控件 type 与 primary-subject semantic role 必须双向一致。主体开放时，标题、描述、自由内容、隐藏层、固定 Prompt 片段和非主体槽的 label、placeholder、默认值与推荐项保持身份中性；独立语义审计绑定这些完整文案并判定中性结果。`exposeNeutralSlot` 只对应机器规则声明的文字 prompt 控件。主体固定且身份文字已同步时，描述和固定 Prompt 可以使用新身份，标题继续服从当前标题合同。
+
 `frozenSet` 包含未获授权改变的内容：
 
 - 构图、镜头、版式和主体数量。
@@ -189,7 +195,7 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
 ```json
 {
   "artifactType": "replacement-plan",
-  "schemaVersion": "0.6.0",
+  "schemaVersion": "0.7.0",
   "templateKey": "example-key",
   "strategy": {
     "source": "per_image | batch | autonomous",

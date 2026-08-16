@@ -211,8 +211,11 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         self.assertNotIn("coverUrl", json.dumps(record, ensure_ascii=False))
         self.assertNotIn("replacementPool", json.dumps(record, ensure_ascii=False))
         self.assertNotIn("visualDimensions", json.dumps(record, ensure_ascii=False))
-        uploaded = Path(adapters.upload_calls[0]["approvedImage"])
-        self.assertEqual(result.output_dir / "evidence" / "approved-template-image.ppm", uploaded)
+        approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+        self.assertEqual(
+            hashlib.sha256(approved.read_bytes()).hexdigest(),
+            adapters.upload_calls[0]["imageSha256"],
+        )
         self.assertTrue(load_json(result.output_dir / "final-validation-report.json")["pass"])
 
     def test_repeat_is_idempotent_and_reuses_finalized_item(self) -> None:

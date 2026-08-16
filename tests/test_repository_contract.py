@@ -36,6 +36,10 @@ class RepositoryContractTest(unittest.TestCase):
 
         self.assertEqual(release["skillVersion"], manifest["version"])
         self.assertEqual(release["artifactSchemaVersion"], rules["schemaVersion"])
+        self.assertNotIn(
+            release["skillVersion"],
+            (ROOT / "SKILL.md").read_text(encoding="utf-8"),
+        )
 
     def test_formal_projection_and_schema_share_one_field_set(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
@@ -81,6 +85,13 @@ class RepositoryContractTest(unittest.TestCase):
         rules = load(ROOT / "contracts" / "machine-rules.json")
         self.assertTrue(
             {"E30", "E31", "E35", "E36", "E38", "E39"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_issue_7_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E06", "E07", "E08", "E09", "E19", "E20", "E26", "E28"}
             <= set(rules["historicalExperienceEvidence"])
         )
 
@@ -146,6 +157,86 @@ class RepositoryContractTest(unittest.TestCase):
         }
 
         self.assertTrue(machine_values.isdisjoint(literals))
+
+    def test_issue_7_workflow_and_test_consume_identity_values_without_copying_them(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        identity_contract = rules["identityReplacementContract"]
+        contract_role_names = set()
+
+        def collect_role_names(value: object) -> None:
+            if isinstance(value, dict):
+                contract_role_names.update(value)
+                for nested in value.values():
+                    collect_role_names(nested)
+
+        collect_role_names(identity_contract)
+        machine_values = set()
+        for field in (
+            "planFields",
+            "sourceFields",
+            "candidateFields",
+            "generationSectionRoles",
+            "routeEvidenceFields",
+            "candidateCardFields",
+            "distinctIdentityEvidenceFields",
+            "dependencyTypes",
+            "topologyFields",
+            "dependencyFields",
+            "identityTextActions",
+            "identityTextRelationshipTypes",
+            "identityTextDecisionFields",
+            "frozenConflictEvaluationFields",
+            "neutralityAuditFields",
+        ):
+            machine_values.update(identity_contract[field].values())
+        for route in identity_contract["routes"].values():
+            machine_values.add(route["mode"])
+        machine_values.update(identity_contract["identityEquivalenceModifiers"].values())
+        # Equal-name mapping keys are stable role names used to look up the
+        # current value. Generic adapter fields are shared by older contracts.
+        machine_values -= contract_role_names | {"evidence", "type", "value"}
+
+        sources = [
+            (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8"),
+            (ROOT / "tests" / "test_issue_7_identity_replacement.py").read_text(encoding="utf-8"),
+        ]
+        for source in sources:
+            literals = {
+                node.value
+                for node in ast.walk(ast.parse(source))
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            }
+            self.assertTrue(machine_values.isdisjoint(literals))
+
+    def test_visual_review_fields_are_read_through_machine_roles(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        evidence_fields = set(rules["visualReviewContract"]["evidenceFieldRoles"].values())
+        workflow = ast.parse(
+            (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8")
+        )
+        direct_review_fields = set()
+        for node in ast.walk(workflow):
+            if (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "review"
+                and isinstance(node.slice, ast.Constant)
+                and isinstance(node.slice.value, str)
+            ):
+                direct_review_fields.add(node.slice.value)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "review"
+                and node.func.attr == "get"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                direct_review_fields.add(node.args[0].value)
+
+        self.assertTrue(evidence_fields.isdisjoint(direct_review_fields))
 
 
 if __name__ == "__main__":

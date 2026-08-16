@@ -6,6 +6,7 @@ import ipaddress
 import json
 import os
 import re
+import tempfile
 import unicodedata
 import uuid
 from dataclasses import dataclass
@@ -106,6 +107,46 @@ def _sha_bytes(value: bytes) -> str:
 
 def _sha_file(path: Path) -> str:
     return _sha_bytes(path.read_bytes())
+
+
+def _file_matches_sha(path: Path, expected_sha256: str) -> bool:
+    try:
+        return path.is_file() and _sha_file(path) == expected_sha256
+    except OSError:
+        return False
+
+
+def _normalized_identity(value: str, modifiers: list[str]) -> str:
+    normalized = "".join(
+        character
+        for character in unicodedata.normalize("NFKC", value).casefold()
+        if not character.isspace()
+        and not unicodedata.category(character).startswith(("P", "S", "Z"))
+    )
+    normalized_modifiers = sorted(
+        {
+            "".join(
+                character
+                for character in unicodedata.normalize("NFKC", modifier).casefold()
+                if not character.isspace()
+                and not unicodedata.category(character).startswith(("P", "S", "Z"))
+            )
+            for modifier in modifiers
+        },
+        key=len,
+        reverse=True,
+    )
+    changed = True
+    while changed and normalized:
+        changed = False
+        for modifier in normalized_modifiers:
+            if modifier and normalized.startswith(modifier):
+                normalized = normalized[len(modifier):]
+                changed = True
+            if modifier and normalized.endswith(modifier):
+                normalized = normalized[:-len(modifier)]
+                changed = True
+    return normalized
 
 
 def _json_bytes(value: Any) -> bytes:
@@ -511,6 +552,97 @@ def _adapter_call(rules: dict[str, Any], operation: str, function: Callable[...,
         ) from exc
 
 
+def _adapter_object_call(
+    rules: dict[str, Any], operation: str, function: Callable[..., Any], *args: Any
+) -> dict[str, Any]:
+    result = _adapter_call(rules, operation, function, *args)
+    if not isinstance(result, dict):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            f"外部适配器必须返回对象：{operation}",
+            {"operation": operation, "actualType": type(result).__name__},
+        )
+    return result
+
+
+def _adapter_readonly_image_object_call(
+    rules: dict[str, Any],
+    operation: str,
+    function: Callable[..., Any],
+    image_path: Path,
+    expected_sha256: str,
+    *args: Any,
+) -> dict[str, Any]:
+    if not _file_matches_sha(image_path, expected_sha256):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            f"外部适配器输入图片摘要已失效：{operation}",
+            {"operation": operation, "expectedImageSha256": expected_sha256},
+        )
+    original_mode = image_path.stat().st_mode & 0o777
+    image_path.chmod(original_mode & ~0o222)
+    try:
+        result = _adapter_object_call(rules, operation, function, image_path, *args)
+    finally:
+        if image_path.is_file() and not image_path.is_symlink():
+            image_path.chmod(original_mode)
+    if (
+        not image_path.is_file()
+        or image_path.is_symlink()
+        or _sha_file(image_path) != expected_sha256
+    ):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            f"外部适配器修改了只读图片：{operation}",
+            {"operation": operation, "expectedImageSha256": expected_sha256},
+        )
+    return result
+
+
+def _adapter_snapshot_image_object_call(
+    rules: dict[str, Any],
+    operation: str,
+    function: Callable[..., Any],
+    source_image: Path,
+    expected_sha256: str,
+    *args: Any,
+) -> dict[str, Any]:
+    if not _file_matches_sha(source_image, expected_sha256):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            f"外部适配器调用前来源图片摘要已失效：{operation}",
+            {"operation": operation, "expectedImageSha256": expected_sha256},
+        )
+    with tempfile.TemporaryDirectory(prefix=f"{operation}-image-") as adapter_directory:
+        snapshot = Path(adapter_directory) / source_image.name
+        snapshot.write_bytes(source_image.read_bytes())
+        result = _adapter_readonly_image_object_call(
+            rules,
+            operation,
+            function,
+            snapshot,
+            expected_sha256,
+            *args,
+        )
+    if not _file_matches_sha(source_image, expected_sha256):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            f"外部适配器调用期间来源图片摘要发生变化：{operation}",
+            {"operation": operation, "expectedImageSha256": expected_sha256},
+        )
+    return result
+
+
 def _replacement_strategy_errors(request: dict[str, Any], rules: dict[str, Any]) -> list[str]:
     if "replacementStrategy" not in request:
         return []
@@ -613,13 +745,19 @@ def _plan_replacement(
             "来源分析的 targetEligibility 必须是对象。",
             {"actualType": type(eligibility).__name__},
         )
+    identity_contract = rules["identityReplacementContract"]
+    identity_modifiers = list(identity_contract["identityEquivalenceModifiers"].values())
+    dependency_fields = identity_contract["dependencyFields"]
+    component_field = dependency_fields["componentIdentity"]
+    type_field = dependency_fields["dependencyType"]
+    value_field = dependency_fields["description"]
     closure = source_analysis.get("dependencyClosure", [])
     if not isinstance(closure, list) or not all(
         isinstance(item, dict)
-        and isinstance(item.get("type"), str)
-        and item.get("type").strip()
-        and isinstance(item.get("value"), str)
-        and item.get("value").strip()
+        and isinstance(item.get(type_field), str)
+        and item[type_field].strip()
+        and isinstance(item.get(value_field), str)
+        and item[value_field].strip()
         for item in closure
     ):
         raise _stop(
@@ -637,6 +775,132 @@ def _plan_replacement(
             "主要替换目标的依赖范围尚无法可靠判定，需要复核。",
             {"category": category},
         )
+    identity_route_role = next(
+        (
+            role
+            for role, route in identity_contract["routes"].items()
+            if category == categories[route["sourceCategoryRole"]]
+        ),
+        None,
+    )
+    identity_route = (
+        identity_contract["routes"][identity_route_role]
+        if identity_route_role is not None
+        else None
+    )
+    identity_context: dict[str, Any] | None = None
+    if identity_route is not None:
+        identity_target_valid = bool(
+            isinstance(source_analysis.get("target"), dict)
+            and isinstance(source_analysis["target"].get("role"), str)
+            and source_analysis["target"]["role"].strip()
+            and isinstance(source_analysis["target"].get("identity"), str)
+            and source_analysis["target"]["identity"].strip()
+            and _normalized_identity(
+                source_analysis["target"]["identity"], identity_modifiers
+            )
+        )
+        if not identity_target_valid:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "身份路由的来源角色与来源身份必须是非空字符串。",
+                {"identityRouteRole": identity_route_role},
+            )
+        source_fields = identity_contract["sourceFields"]
+        route_evidence_fields = identity_contract["routeEvidenceFields"]
+        route_evidence = source_analysis.get(source_fields["routeEvidence"])
+        route_evidence_valid = bool(
+            isinstance(route_evidence, dict)
+            and set(route_evidence) == set(route_evidence_fields.values())
+            and route_evidence.get(route_evidence_fields["mode"]) == identity_route["mode"]
+            and route_evidence.get(route_evidence_fields["localAssetRequirement"])
+            is identity_route["localAssetRequired"]
+            and route_evidence.get(route_evidence_fields["completeRedraw"]) is True
+            and isinstance(route_evidence.get(route_evidence_fields["explanation"]), str)
+            and route_evidence[route_evidence_fields["explanation"]].strip()
+        )
+        dependency_types = set(identity_contract["dependencyTypes"].values())
+        closure_components_valid = bool(
+            all(
+                isinstance(item.get(component_field), str)
+                and item[component_field].strip()
+                and item.get(type_field) in dependency_types
+                and isinstance(item.get(value_field), str)
+                and item[value_field].strip()
+                for item in closure
+            )
+            and len({item[component_field] for item in closure}) == len(closure)
+        )
+        topology_fields = identity_contract["topologyFields"]
+        topology = source_analysis.get(source_fields["topology"])
+        closure_component_ids = (
+            {item[component_field] for item in closure}
+            if closure_components_valid
+            else set()
+        )
+        closure_identity_text_ids = (
+            {
+                item[component_field]
+                for item in closure
+                if item[type_field] == identity_contract["dependencyTypes"]["identityText"]
+            }
+            if closure_components_valid
+            else set()
+        )
+        closure_full_body_ids = (
+            {
+                item[component_field]
+                for item in closure
+                if item[type_field] == identity_contract["dependencyTypes"]["fullBody"]
+            }
+            if closure_components_valid
+            else set()
+        )
+        topology_valid = bool(
+            isinstance(topology, dict)
+            and set(topology) == set(topology_fields.values())
+            and isinstance(topology.get(topology_fields["requiredComponents"]), list)
+            and topology[topology_fields["requiredComponents"]]
+            and all(
+                isinstance(value, str) and value.strip()
+                for value in topology[topology_fields["requiredComponents"]]
+            )
+            and len(topology[topology_fields["requiredComponents"]])
+            == len(set(topology[topology_fields["requiredComponents"]]))
+            and set(topology[topology_fields["requiredComponents"]]) == closure_component_ids
+            and closure_full_body_ids
+            and closure_full_body_ids
+            <= set(topology[topology_fields["requiredComponents"]])
+            and isinstance(topology.get(topology_fields["identityTextComponents"]), list)
+            and all(
+                isinstance(value, str) and value.strip()
+                for value in topology[topology_fields["identityTextComponents"]]
+            )
+            and len(topology[topology_fields["identityTextComponents"]])
+            == len(set(topology[topology_fields["identityTextComponents"]]))
+            and set(topology[topology_fields["identityTextComponents"]])
+            == closure_identity_text_ids
+            and closure_identity_text_ids
+            <= set(topology[topology_fields["requiredComponents"]])
+            and isinstance(topology.get(topology_fields["explanation"]), str)
+            and topology[topology_fields["explanation"]].strip()
+        )
+        if not (route_evidence_valid and closure_components_valid and topology_valid):
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "身份路由、依赖组件或身份拓扑证据无效。",
+                {"identityRouteRole": identity_route_role},
+            )
+        identity_context = {
+            "routeEvidence": copy.deepcopy(route_evidence),
+            "topology": copy.deepcopy(topology),
+            "textComponentIds": set(topology[topology_fields["identityTextComponents"]]),
+            "closureByComponent": {item[component_field]: item for item in closure},
+        }
     explicit_text_authorization = bool(
         replacement_strategy
         and replacement_strategy.get("replacementValue")
@@ -672,6 +936,36 @@ def _plan_replacement(
             {"category": category, "targetEligibility": eligibility},
         )
 
+    distinct_identity_field = identity_contract["candidateFields"]["distinctIdentityEvidence"]
+    distinct_identity_fields = identity_contract["distinctIdentityEvidenceFields"]
+
+    def distinct_identity_evidence_shape_valid(candidate: Any) -> bool:
+        evidence = (
+            candidate.get(distinct_identity_field) if isinstance(candidate, dict) else None
+        )
+        return bool(
+            isinstance(evidence, dict)
+            and set(evidence) == set(distinct_identity_fields.values())
+            and evidence.get(distinct_identity_fields["sourceIdentity"])
+            == source_analysis["target"]["identity"]
+            and evidence.get(distinct_identity_fields["candidateIdentity"])
+            == candidate.get("value")
+            and isinstance(evidence.get(distinct_identity_fields["distinct"]), bool)
+            and isinstance(evidence.get(distinct_identity_fields["explanation"]), str)
+            and evidence[distinct_identity_fields["explanation"]].strip()
+        )
+
+    def identity_candidate_is_semantically_new(candidate: dict[str, Any]) -> bool:
+        normalized_source = _normalized_identity(
+            source_analysis["target"]["identity"], identity_modifiers
+        )
+        normalized_candidate = _normalized_identity(candidate["value"], identity_modifiers)
+        return bool(
+            normalized_source
+            and normalized_candidate
+            and normalized_candidate != normalized_source
+        )
+
     def compatible_candidate(candidate: Any) -> bool:
         return bool(
             isinstance(candidate, dict)
@@ -685,6 +979,17 @@ def _plan_replacement(
             and candidate.get("reason").strip()
             and isinstance(candidate.get("score"), (int, float))
             and not isinstance(candidate.get("score"), bool)
+            and (
+                identity_route is None
+                or (
+                    distinct_identity_evidence_shape_valid(candidate)
+                    and candidate[distinct_identity_field][
+                        distinct_identity_fields["distinct"]
+                    ]
+                    is True
+                    and identity_candidate_is_semantically_new(candidate)
+                )
+            )
         )
 
     def hard_valid(candidate: Any) -> bool:
@@ -699,6 +1004,55 @@ def _plan_replacement(
             "来源分析的 replacementPool 必须是列表。",
             {"actualType": type(replacement_pool).__name__},
         )
+    if identity_route is not None:
+        malformed_distinct_identity_candidates = [
+            candidate
+            for candidate in replacement_pool
+            if isinstance(candidate, dict)
+            and candidate.get("category") == category
+            and not distinct_identity_evidence_shape_valid(candidate)
+        ]
+        if malformed_distinct_identity_candidates:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "身份候选缺少与来源值、候选值双向绑定的 distinctIdentity 证据。",
+                {"identityRouteRole": identity_route_role},
+            )
+    if identity_route is not None and identity_route["candidateCardRequired"]:
+        candidate_card_field = identity_contract["candidateFields"]["card"]
+        candidate_card_fields = identity_contract["candidateCardFields"]
+
+        def candidate_card_valid(candidate: Any) -> bool:
+            card = candidate.get(candidate_card_field) if isinstance(candidate, dict) else None
+            return bool(
+                isinstance(card, dict)
+                and set(card) == set(candidate_card_fields.values())
+                and all(
+                    isinstance(card.get(field), list)
+                    and card[field]
+                    and all(isinstance(value, str) and value.strip() for value in card[field])
+                    and len(card[field]) == len(set(card[field]))
+                    for field in candidate_card_fields.values()
+                )
+            )
+
+        malformed_identity_candidates = [
+            candidate
+            for candidate in replacement_pool
+            if isinstance(candidate, dict)
+            and candidate.get("category") == category
+            and not candidate_card_valid(candidate)
+        ]
+        if malformed_identity_candidates:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "公众人物或知名 IP 候选卡缺少身份锚点、反锚点或玩法融合要求。",
+                {"identityRouteRole": identity_route_role},
+            )
     candidates = [
         candidate
         for candidate in replacement_pool
@@ -757,6 +1111,14 @@ def _plan_replacement(
         requested_value = replacement_strategy["replacementValue"]
         requested_category = replacement_strategy["replacementCategory"]
         selected = source_analysis.get("explicitReplacementEvaluation")
+        if identity_route is not None and not distinct_identity_evidence_shape_valid(selected):
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "显式身份替换值缺少双向绑定的 distinctIdentity 证据。",
+                {"identityRouteRole": identity_route_role},
+            )
         exact_evaluation = bool(
             compatible_candidate(selected)
             and selected.get("value") == requested_value
@@ -803,11 +1165,216 @@ def _plan_replacement(
                 {"category": category},
             )
         selected = sorted(candidates, key=lambda item: (-float(item["score"]), item["value"]))[0]
+    if (
+        identity_route is not None
+        and identity_route["candidateCardRequired"]
+        and not candidate_card_valid(selected)
+    ):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "选中的公众人物或知名 IP 替换值没有完整身份候选卡。",
+            {"identityRouteRole": identity_route_role},
+        )
+    identity_text_decisions: list[dict[str, Any]] = []
+    if identity_context is not None:
+        source_fields = identity_contract["sourceFields"]
+        decision_fields = identity_contract["identityTextDecisionFields"]
+        actions = identity_contract["identityTextActions"]
+        raw_decisions = source_analysis.get(source_fields["textDecisions"])
+        required_decision_fields = {
+            decision_fields["componentIdentity"],
+            decision_fields["sourceText"],
+            decision_fields["action"],
+            decision_fields["result"],
+            decision_fields["basis"],
+        }
+        optional_evidence_field = decision_fields["highValueEvidence"]
+        relationship_field = decision_fields["relationshipType"]
+        replacement_identity_field = decision_fields["replacementIdentity"]
+        synchronization_fields = {relationship_field, replacement_identity_field}
+        relationship_types = identity_contract["identityTextRelationshipTypes"]
+
+        def identity_text_decision_valid(decision: Any) -> bool:
+            if not isinstance(decision, dict):
+                return False
+            action = decision.get(decision_fields["action"])
+            component_id = decision.get(decision_fields["componentIdentity"])
+            source_value = decision.get(decision_fields["sourceText"])
+            result = decision.get(decision_fields["result"])
+            closure_item = identity_context["closureByComponent"].get(component_id)
+            fields_valid = bool(
+                required_decision_fields <= set(decision)
+                and set(decision)
+                <= required_decision_fields | {optional_evidence_field} | synchronization_fields
+                and component_id in identity_context["textComponentIds"]
+                and isinstance(source_value, str)
+                and source_value.strip()
+                and isinstance(closure_item, dict)
+                and source_value in closure_item[identity_contract["dependencyFields"]["description"]]
+                and action in set(actions.values())
+                and isinstance(result, str)
+                and isinstance(decision.get(decision_fields["basis"]), str)
+                and decision[decision_fields["basis"]].strip()
+            )
+            if not fields_valid:
+                return False
+            if action == actions["remove"]:
+                return bool(
+                    result == ""
+                    and optional_evidence_field not in decision
+                    and synchronization_fields.isdisjoint(decision)
+                )
+            if action == actions["synchronize"]:
+                relationship = decision.get(relationship_field)
+                normalized_result = _normalized_identity(result, identity_modifiers)
+                synchronized_result_valid = bool(
+                    result.strip()
+                    and normalized_result
+                    and normalized_result
+                    != _normalized_identity(source_value, identity_modifiers)
+                    and decision.get(replacement_identity_field) == selected["value"]
+                    and relationship in set(relationship_types.values())
+                    and optional_evidence_field not in decision
+                )
+                if relationship == relationship_types["directName"]:
+                    synchronized_result_valid = bool(
+                        synchronized_result_valid
+                        and _normalized_identity(result, identity_modifiers)
+                        == _normalized_identity(selected["value"], identity_modifiers)
+                    )
+                return synchronized_result_valid
+            neutral_result = bool(
+                result.strip()
+                and result not in {source_value, selected["value"]}
+                and synchronization_fields.isdisjoint(decision)
+            )
+            if action == actions["neutralize"]:
+                return neutral_result and optional_evidence_field not in decision
+            return bool(
+                action == actions["exposeNeutralSlot"]
+                and neutral_result
+                and isinstance(decision.get(optional_evidence_field), str)
+                and decision[optional_evidence_field].strip()
+            )
+
+        decisions_valid = bool(
+            isinstance(raw_decisions, list)
+            and len(raw_decisions) == len(identity_context["textComponentIds"])
+            and {
+                item.get(decision_fields["componentIdentity"])
+                for item in raw_decisions
+                if isinstance(item, dict)
+            }
+            == identity_context["textComponentIds"]
+            and all(identity_text_decision_valid(item) for item in raw_decisions)
+        )
+        if not decisions_valid:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "身份文字处理决定未完整覆盖拓扑，或动作、默认结果与依据不一致。",
+                {"identityRouteRole": identity_route_role},
+            )
+        identity_text_decisions = copy.deepcopy(raw_decisions)
+        frozen_values = source_analysis.get("frozenSet")
+        frozen_evaluation_field = source_fields["frozenConflictEvaluations"]
+        raw_frozen_evaluations = source_analysis.get(frozen_evaluation_field)
+        frozen_fields = identity_contract["frozenConflictEvaluationFields"]
+        required_frozen_fields = set(frozen_fields.values())
+        topology_component_ids = set(
+            identity_context["topology"][
+                identity_contract["topologyFields"]["requiredComponents"]
+            ]
+        )
+
+        def frozen_evaluation_valid(evaluation: Any) -> bool:
+            if not isinstance(evaluation, dict) or set(evaluation) != required_frozen_fields:
+                return False
+            component_ids = evaluation.get(frozen_fields["componentIdentities"])
+            conflict = evaluation.get(frozen_fields["conflict"])
+            return bool(
+                isinstance(evaluation.get(frozen_fields["frozenValue"]), str)
+                and evaluation[frozen_fields["frozenValue"]].strip()
+                and isinstance(conflict, bool)
+                and isinstance(component_ids, list)
+                and all(isinstance(value, str) and value for value in component_ids)
+                and len(component_ids) == len(set(component_ids))
+                and set(component_ids) <= topology_component_ids
+                and conflict is bool(component_ids)
+                and isinstance(evaluation.get(frozen_fields["explanation"]), str)
+                and evaluation[frozen_fields["explanation"]].strip()
+            )
+
+        frozen_evaluations_valid = bool(
+            isinstance(frozen_values, list)
+            and all(isinstance(value, str) and value.strip() for value in frozen_values)
+            and len(frozen_values) == len(set(frozen_values))
+            and isinstance(raw_frozen_evaluations, list)
+            and len(raw_frozen_evaluations) == len(frozen_values)
+            and {
+                item.get(frozen_fields["frozenValue"])
+                for item in raw_frozen_evaluations
+                if isinstance(item, dict)
+            }
+            == set(frozen_values)
+            and all(frozen_evaluation_valid(item) for item in raw_frozen_evaluations)
+        )
+        if not frozen_evaluations_valid:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "身份路由没有为全部冻结项提供与身份拓扑绑定的冲突证据。",
+                {"identityRouteRole": identity_route_role},
+            )
+        identity_term_keys = {
+            _normalized_identity(value, identity_modifiers)
+            for value in [
+                source_analysis["target"]["identity"],
+                selected["value"],
+                *[
+                    decision[decision_fields["sourceText"]]
+                    for decision in identity_text_decisions
+                ],
+                *[
+                    decision[decision_fields["result"]]
+                    for decision in identity_text_decisions
+                    if decision[decision_fields["result"]]
+                ],
+            ]
+            if isinstance(value, str) and value.strip()
+        }
+        frozen_identity_conflicts = sorted(
+            {
+                evaluation[frozen_fields["frozenValue"]]
+                for evaluation in raw_frozen_evaluations
+                if evaluation[frozen_fields["conflict"]] is True
+            }
+            | {
+                value
+                for value in frozen_values
+                if any(
+                    term in _normalized_identity(value, identity_modifiers)
+                    for term in identity_term_keys
+                )
+            }
+        )
+        if frozen_identity_conflicts:
+            raise _stop(
+                rules,
+                "blocked",
+                "explicitStrategyConflict",
+                "身份替换的冻结项与身份拓扑、身份文字或新旧身份发生冲突。",
+                {"conflictingValues": frozen_identity_conflicts},
+            )
     changed_components = {
         "primary-role": source_analysis["target"]["role"],
         "primary-identity": source_analysis["target"]["identity"],
         **{
-            f"dependency-{index}-{item['type']}": item["value"]
+            f"dependency-{index}-{item[type_field]}": item[value_field]
             for index, item in enumerate(closure)
         },
     }
@@ -868,6 +1435,27 @@ def _plan_replacement(
         value: autonomous_source for value in source_analysis["frozenSet"]
     }
     frozen_decision_sources.update({value: per_image_source for value in preserve_values})
+    plan_fields = identity_contract["planFields"]
+    candidate_card_field = identity_contract["candidateFields"]["card"]
+    identity_plan_fields = (
+        {
+            plan_fields["route"]: identity_context["routeEvidence"],
+            plan_fields["topology"]: identity_context["topology"],
+            plan_fields["textDecisions"]: identity_text_decisions,
+            plan_fields["neutralityTerms"]: sorted(
+                {
+                    source_analysis["target"]["identity"],
+                    selected["value"],
+                    *(
+                        decision[identity_contract["identityTextDecisionFields"]["sourceText"]]
+                        for decision in identity_text_decisions
+                    ),
+                }
+            ),
+        }
+        if identity_context is not None
+        else {}
+    )
     return {
         "artifactType": "replacement-plan",
         "schemaVersion": rules["schemaVersion"],
@@ -884,6 +1472,11 @@ def _plan_replacement(
                 "reason": selected["reason"],
                 "confidence": selected["score"],
                 "decisionSource": decision_source,
+                **(
+                    {candidate_card_field: copy.deepcopy(selected[candidate_card_field])}
+                    if identity_route is not None and identity_route["candidateCardRequired"]
+                    else {}
+                ),
             }
         ],
         "dependencyClosure": [
@@ -895,8 +1488,8 @@ def _plan_replacement(
             *[
                 {
                     "kind": "dependency",
-                    "value": item["value"],
-                    "dependencyType": item["type"],
+                    "value": item[value_field],
+                    "dependencyType": item[type_field],
                     "decisionSource": autonomous_source,
                 }
                 for item in closure
@@ -911,21 +1504,55 @@ def _plan_replacement(
         "languagePolicy": source_analysis.get("languagePolicy", "preserve_source_language"),
         "rightsReview": "pass",
         "humanReviewRequired": False,
+        **identity_plan_fields,
     }
 
 
-def _compile_generation_package(plan: dict[str, Any], source_analysis: dict[str, Any]) -> dict[str, Any]:
+def _compile_generation_package(
+    plan: dict[str, Any], source_analysis: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
     target = plan["primaryTargets"][0]
+    dependency_value_field = rules["identityReplacementContract"]["dependencyFields"][
+        "description"
+    ]
     sections = {
         "task": "基于参考资产完成整图重构，输出一张可独立使用的新模板图。",
         "replacementTarget": f"将{target['sourceRole']}完整替换为{target['replacementValue']}。",
-        "dependencyClosure": "；".join(item["value"] for item in plan["dependencyClosure"]),
+        "dependencyClosure": "；".join(
+            item[dependency_value_field] for item in plan["dependencyClosure"]
+        ),
         "frozenSet": "；".join(plan["frozenSet"]),
         "mediumContract": "；".join(f"{key}: {value}" for key, value in source_analysis["visualContract"].items()),
         "residueCleanup": "清理旧身份特征、旧轮廓、水印、签名、平台标和账户标。",
         "spatialRelations": "；".join(source_analysis["spatialRelations"]),
         "output": "保持完整画布与原比例，清晰输出，不新增文字。",
     }
+    identity_contract = rules["identityReplacementContract"]
+    plan_fields = identity_contract["planFields"]
+    if plan_fields["route"] in plan:
+        section_roles = identity_contract["generationSectionRoles"]
+        route_evidence = plan[plan_fields["route"]]
+        card = target.get(identity_contract["candidateFields"]["card"])
+        route_parts = [
+            f"mode: {route_evidence[identity_contract['routeEvidenceFields']['mode']]}",
+            "完整重绘人物与全部身份依赖",
+        ]
+        if isinstance(card, dict):
+            card_fields = identity_contract["candidateCardFields"]
+            route_parts.extend(
+                [
+                    "身份锚点: " + "、".join(card[card_fields["anchors"]]),
+                    "反锚点: " + "、".join(card[card_fields["antiAnchors"]]),
+                    "玩法融合: " + "、".join(card[card_fields["playFusion"]]),
+                ]
+            )
+        sections[section_roles["route"]] = "；".join(route_parts)
+        decision_fields = identity_contract["identityTextDecisionFields"]
+        sections[section_roles["identityText"]] = "；".join(
+            f"{item[decision_fields['sourceText']]} -> "
+            f"{item[decision_fields['action']]} -> {item[decision_fields['result']]}"
+            for item in plan[plan_fields["textDecisions"]]
+        )
     request_id = "gen-" + _sha_bytes(_canonical_bytes({"plan": plan, "sections": sections}))[:24]
     return {
         "artifactType": "generation-package",
@@ -960,6 +1587,7 @@ def _evaluate_visual_gate(
     review: Any,
     rules: dict[str, Any],
     expected_bindings: dict[str, str],
+    identity_text_required: bool,
 ) -> WorkflowStop | None:
     if not isinstance(review, dict):
         return _stop(
@@ -973,17 +1601,20 @@ def _evaluate_visual_gate(
     hard_gate_names = set(contract["hardGateRoles"].values())
     cleanliness_names = set(contract["cleanlinessFindingRoles"].values())
     ambiguity_names = set(contract["ambiguitySignalRoles"].values())
-    evidence_fields = contract["evidenceFields"]
-    hard_gates = review.get("hardGates")
-    dimensions = review.get("visualDimensions")
-    visible_text = review.get("visibleTextEvidence")
-    cleanliness = review.get("cleanlinessFindings")
-    ambiguities = review.get("ambiguitySignals")
+    evidence_fields = contract["evidenceFieldRoles"]
+    hard_gates = review.get(evidence_fields["hardGates"])
+    dimensions = review.get(evidence_fields["visualDimensions"])
+    visible_text = review.get(evidence_fields["visibleText"])
+    cleanliness = review.get(evidence_fields["cleanliness"])
+    ambiguities = review.get(evidence_fields["ambiguity"])
+    identity_text_field = evidence_fields["identityText"]
+    identity_text = review.get(identity_text_field)
+    identity_text_fields = contract["identityTextEvidenceFields"]
     bindings = review.get("bindings")
     method = review.get("method")
     evidence_payload = (
-        {field: review[field] for field in evidence_fields}
-        if all(field in review for field in evidence_fields)
+        {field: review[field] for field in evidence_fields.values()}
+        if all(field in review for field in evidence_fields.values())
         else None
     )
     contract_valid = bool(
@@ -1011,6 +1642,13 @@ def _evaluate_visual_gate(
         and isinstance(ambiguities, dict)
         and set(ambiguities) == ambiguity_names
         and all(isinstance(value, bool) for value in ambiguities.values())
+        and isinstance(identity_text, dict)
+        and set(identity_text) == set(identity_text_fields.values())
+        and identity_text.get(identity_text_fields["applicability"]) is identity_text_required
+        and isinstance(identity_text.get(identity_text_fields["legacyTermsAbsent"]), bool)
+        and isinstance(identity_text.get(identity_text_fields["replacementConsistency"]), bool)
+        and isinstance(identity_text.get(identity_text_fields["explanation"]), str)
+        and identity_text[identity_text_fields["explanation"]].strip()
         and isinstance(bindings, dict)
         and all(bindings.get(key) == value for key, value in expected_bindings.items())
         and evidence_payload is not None
@@ -1038,6 +1676,12 @@ def _evaluate_visual_gate(
     failures.extend(name for name, found in cleanliness.items() if found is True)
     if visible_text["pass"] is not True:
         failures.append(contract["hardGateRoles"]["visibleText"])
+    if identity_text_required and (
+        identity_text[identity_text_fields["legacyTermsAbsent"]] is not True
+        or identity_text[identity_text_fields["replacementConsistency"]] is not True
+    ):
+        failures.append(contract["hardGateRoles"]["visibleText"])
+        failures.append(contract["hardGateRoles"]["legacyIdentityAbsence"])
     if failures:
         failed_gates = sorted(set(failures))
         review["decision"] = contract["decisionValues"]["rejected"]
@@ -1065,9 +1709,13 @@ def _evaluate_visual_gate(
     return None
 
 
-def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
+def _compile_editable_spec(
+    analysis: dict[str, Any], rules: dict[str, Any], plan: dict[str, Any]
+) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
     value_gate_roles = tuple(slot_contract["valueGateRoles"].values())
+    subject_role = slot_contract["semanticRoles"]["primarySubject"]
+    subject_upload_type = slot_contract["slotTypes"]["primarySubjectUpload"]
     slot_candidates = analysis.get("slotCandidates")
     slot_candidates_valid = bool(
         isinstance(slot_candidates, list)
@@ -1077,6 +1725,9 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             and SLOT_ID.fullmatch(slot["id"])
             and isinstance(slot.get("semanticRole"), str)
             and slot["semanticRole"].strip()
+            and slot.get("type") in set(slot_contract["slotTypes"].values())
+            and (slot["type"] == subject_upload_type)
+            is (slot["semanticRole"] == subject_role)
             and isinstance(slot.get("valueGates"), dict)
             and set(slot["valueGates"]) == set(value_gate_roles)
             and all(isinstance(slot["valueGates"][role], bool) for role in value_gate_roles)
@@ -1093,6 +1744,43 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             {},
         )
     slots = [slot for slot in slot_candidates if all(slot["valueGates"][role] for role in value_gate_roles)]
+    identity_contract = rules["identityReplacementContract"]
+    identity_plan_fields = identity_contract["planFields"]
+    if identity_plan_fields["route"] in plan:
+        decision_fields = identity_contract["identityTextDecisionFields"]
+        actions = identity_contract["identityTextActions"]
+        identity_text_role = slot_contract["semanticRoles"]["identityText"]
+        exposed_defaults = {
+            decision[decision_fields["result"]]
+            for decision in plan[identity_plan_fields["textDecisions"]]
+            if decision[decision_fields["action"]] == actions["exposeNeutralSlot"]
+        }
+        exposed_slots = [
+            slot for slot in slots if slot.get("semanticRole") == identity_text_role
+        ]
+        exposed_slot_defaults = {slot.get("defaultValue") for slot in exposed_slots}
+        exposed_slots_are_text = all(
+            slot.get("type") == slot_contract["slotTypes"]["visibleTextPrompt"]
+            for slot in exposed_slots
+        )
+        synchronized_text_present = any(
+            decision[decision_fields["action"]] == actions["synchronize"]
+            for decision in plan[identity_plan_fields["textDecisions"]]
+        )
+        subject_open = any(
+            slot.get("semanticRole") == slot_contract["semanticRoles"]["primarySubject"]
+            for slot in slots
+        )
+        if not exposed_slots_are_text or exposed_defaults != exposed_slot_defaults or (
+            synchronized_text_present and subject_open
+        ):
+            raise _stop(
+                rules,
+                "blocked",
+                "contractFailure",
+                "身份文字的中性文字槽与 Replacement Plan 不一致，或具体身份文字与开放主体同时存在。",
+                {},
+            )
     budget = rules["slotBudget"]
     has_primary_subject = analysis.get("hasPrimarySubject")
     subject_kind = analysis.get("subjectKind")
@@ -1133,7 +1821,6 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             "高价值槽位数量不在常态预算内。",
             {"slotCount": len(slots)},
         )
-    subject_role = slot_contract["semanticRoles"]["primarySubject"]
     if has_primary_subject and not any(slot["semanticRole"] == subject_role for slot in slots):
         omission = analysis.get("subjectSlotOmissionEvidence")
         omission_valid = bool(
@@ -1172,10 +1859,8 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             and all(
                 assessment["includedAsSlot"]
                 == all(assessment[gate] for gate in value_gate_roles)
-                and (
-                    not assessment["includedAsSlot"]
-                    or any(slot.get("semanticRole") == role for slot in slots)
-                )
+                and assessment["includedAsSlot"]
+                == (sum(slot.get("semanticRole") == role for slot in slots) == 1)
                 for role, assessment in assessments.items()
             )
         )
@@ -1404,11 +2089,12 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
     return editable
 
 
-def _slot_to_input(slot: dict[str, Any]) -> dict[str, Any]:
-    if slot["type"] == "subject":
+def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
+    slot_types = rules["slotCompilationContract"]["slotTypes"]
+    if slot["type"] == slot_types["primarySubjectUpload"]:
         return {
             "id": slot["id"],
-            "type": "subject",
+            "type": slot_types["primarySubjectUpload"],
             "label": slot["label"],
             "required": False,
             "resolutionStrategy": "image_over_text",
@@ -1432,7 +2118,7 @@ def _slot_to_input(slot: dict[str, Any]) -> dict[str, Any]:
         }
     return {
         "id": slot["id"],
-        "type": "prompt",
+        "type": slot_types["freePrompt"],
         "label": slot["label"],
         "placeholder": slot["placeholder"],
         "required": False,
@@ -1481,7 +2167,7 @@ def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rul
         "artifactType": "hidden-template-spec",
         "schemaVersion": rules["schemaVersion"],
         "visualFactSourceSha256": analysis["visualFactSourceSha256"],
-        "inputSchema": [_slot_to_input(slot) for slot in editable["slots"]],
+        "inputSchema": [_slot_to_input(slot, rules) for slot in editable["slots"]],
         "promptEnhancement": {
             "stageKey": "gallery.prompt_rewrite",
             "instruction": instruction,
@@ -1539,7 +2225,10 @@ def _semantic_audit_payload(
         "slots": [
             {
                 "id": slot["id"],
+                "type": slot["type"],
                 "semanticRole": slot["semanticRole"],
+                "label": slot["label"],
+                "placeholder": slot["placeholder"],
                 "defaultValue": slot["defaultValue"],
                 "suggestions": slot["suggestions"],
             }
@@ -1551,6 +2240,7 @@ def _semantic_audit_payload(
 def _validation_report(
     draft: dict[str, Any],
     editable: dict[str, Any],
+    plan: dict[str, Any],
     source_analysis: dict[str, Any],
     review: dict[str, Any],
     semantic_audit: dict[str, Any],
@@ -1561,6 +2251,7 @@ def _validation_report(
     prompt_field = top_level["userPromptTemplate"]
     input_schema_field = top_level["userInputSchema"]
     prompt_enhancement_field = top_level["hiddenPromptEnhancement"]
+    description_field = top_level["userDescription"]
     schema = _load_json(GALLERY_SCHEMA_PATH)
     errors = sorted(
         Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(draft), key=lambda item: list(item.path)
@@ -1623,6 +2314,49 @@ def _validation_report(
         for token in slot.get("titleForbiddenTokens", [])
         if token in draft[title_field]
     )
+    identity_contract = rules["identityReplacementContract"]
+    identity_plan_fields = identity_contract["planFields"]
+    planned_identity_terms = plan.get(identity_plan_fields["neutralityTerms"], [])
+    primary_subject_role = rules["slotCompilationContract"]["semanticRoles"]["primarySubject"]
+    subject_upload_type = rules["slotCompilationContract"]["slotTypes"][
+        "primarySubjectUpload"
+    ]
+    subject_slot_ids = {
+        slot["id"]
+        for slot in editable["slots"]
+        if slot.get("type") == subject_upload_type
+    }
+    identity_terms = planned_identity_terms if subject_slot_ids else []
+    non_identity_prompt_content = PLACEHOLDER_WITH_DEFAULT.sub(
+        lambda match: "" if match.group(1) in subject_slot_ids else match.group(0),
+        draft[prompt_field],
+    )
+    identity_neutrality_texts = [
+        draft[title_field],
+        draft[description_field],
+        non_identity_prompt_content,
+        *_deep_strings(draft[prompt_enhancement_field]),
+        *editable.get("freeEditableContent", []),
+        *[
+            value
+            for slot in editable["slots"]
+            if slot.get("semanticRole") != primary_subject_role
+            for value in [
+                slot.get("label", ""),
+                slot.get("placeholder", ""),
+                slot.get("defaultValue", ""),
+                *slot.get("suggestions", []),
+            ]
+            if isinstance(value, str)
+        ],
+    ]
+    identity_neutrality_leaks = sorted(
+        term
+        for term in identity_terms
+        if isinstance(term, str)
+        and term
+        and any(term in text for text in identity_neutrality_texts)
+    )
     audited_content_sha = _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable, rules)))
     semantic_audit_roles = rules["semanticAuditChecks"]
     semantic_audit_requirements = tuple(semantic_audit_roles.values())
@@ -1646,12 +2380,15 @@ def _validation_report(
     suggestion_reviews_field = semantic_audit_roles["slotSuggestions"]["evidence"]
     instruction_scope_field = semantic_audit_roles["instructionScope"]["evidence"]
     hidden_responsibility_field = semantic_audit_roles["hiddenLayerResponsibilities"]["evidence"]
+    identity_neutrality_field = semantic_audit_roles["identityNeutrality"]["evidence"]
     resolved_cases = evidence.get(resolved_cases_field)
     reviewed_open_axes = evidence.get(open_axes_field)
     maximum_difference_inputs = evidence.get(maximum_difference_field)
     suggestion_reviews = evidence.get(suggestion_reviews_field)
     instruction_scope_review = evidence.get(instruction_scope_field)
     hidden_responsibility_review = evidence.get(hidden_responsibility_field)
+    identity_neutrality_review = evidence.get(identity_neutrality_field)
+    identity_neutrality_fields = identity_contract["neutralityAuditFields"]
     expected_resolved_cases = {label for label, _ in resolved_prompts}
     expected_open_axes = {slot["semanticRole"] for slot in editable["slots"]}
     expected_slot_ids = {slot["id"] for slot in editable["slots"]}
@@ -1689,6 +2426,18 @@ def _validation_report(
         and hidden_responsibility_review.get("overlapDetected") is False
         and isinstance(hidden_responsibility_review.get("evidence"), str)
         and hidden_responsibility_review["evidence"].strip()
+        and isinstance(identity_neutrality_review, dict)
+        and set(identity_neutrality_review) == set(identity_neutrality_fields.values())
+        and identity_neutrality_review.get(identity_neutrality_fields["applicability"])
+        is bool(identity_terms)
+        and identity_neutrality_review.get(
+            identity_neutrality_fields["specificIdentityDetected"]
+        )
+        is False
+        and isinstance(
+            identity_neutrality_review.get(identity_neutrality_fields["explanation"]), str
+        )
+        and identity_neutrality_review[identity_neutrality_fields["explanation"]].strip()
     )
 
     semantic_audit_contract_valid = (
@@ -1710,6 +2459,7 @@ def _validation_report(
         for contract in semantic_audit_requirements
     }
     semantic_audit_passed = semantic_audit_bound and all(semantic_audit_checks.values())
+    visual_evidence_fields = rules["visualReviewContract"]["evidenceFieldRoles"]
     layers = {
         "schema": {"pass": not errors, "evidence": [error.message for error in errors]},
         "semantic": {
@@ -1720,6 +2470,7 @@ def _validation_report(
             and not unnatural_resolved_prompts
             and not title_slot_leaks
             and not title_forbidden_tokens
+            and not identity_neutrality_leaks
             and semantic_audit_passed,
             "evidence": {
                 "sourceLeaks": source_leaks,
@@ -1729,6 +2480,7 @@ def _validation_report(
                 "unnaturalResolvedPrompts": unnatural_resolved_prompts,
                 "titleSlotLeaks": title_slot_leaks,
                 "titleForbiddenTokens": title_forbidden_tokens,
+                "identityNeutralityLeaks": identity_neutrality_leaks,
                 "semanticAudit": {
                     "contractValid": semantic_audit_contract_valid,
                     "contentBound": semantic_audit_bound,
@@ -1738,8 +2490,11 @@ def _validation_report(
             },
         },
         "visualContract": {
-            "pass": all(review["hardGates"].values())
-            and all(item["pass"] for item in review["visualDimensions"].values()),
+            "pass": all(review[visual_evidence_fields["hardGates"]].values())
+            and all(
+                item["pass"]
+                for item in review[visual_evidence_fields["visualDimensions"]].values()
+            ),
             "evidence": {"reviewSha256": _sha_bytes(_json_bytes(review))},
         },
         "galleryContract": {
@@ -2292,11 +3047,12 @@ def run_production(
             evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
             _atomic_write_new(evidence_source, source_image.read_bytes())
             _record_artifact(manifest, output_dir, str(evidence_source.relative_to(output_dir)), p0, [])
-            source_analysis = _adapter_call(
+            source_analysis = _adapter_snapshot_image_object_call(
                 rules,
                 "analyze_source",
                 adapters.analyze_source,
                 source_image,
+                source_sha,
                 copy.deepcopy(replacement_strategy),
             )
             if source_analysis.get("sourceImageSha256") != source_sha:
@@ -2312,16 +3068,17 @@ def run_production(
             _advance(manifest, rules, p1, timestamp)
             _persist_manifest(output_dir, manifest)
 
-            generation_package = _compile_generation_package(plan, source_analysis)
+            generation_package = _compile_generation_package(plan, source_analysis, rules)
         generation_package_name = _revisioned_name("generation-package.json", manifest["revision"])
         _atomic_write_new(output_dir / generation_package_name, _json_bytes(generation_package))
         _record_artifact(manifest, output_dir, generation_package_name, p2, ["replacement-plan.json"])
         generation_request = copy.deepcopy(generation_package)
-        generated = _adapter_call(
+        generated = _adapter_snapshot_image_object_call(
             rules,
             "generate",
             adapters.generate,
             source_image,
+            source_sha,
             generation_request,
         )
         generated_contract_valid = bool(
@@ -2357,15 +3114,23 @@ def run_production(
             "generatedImageSha256": _sha_file(candidate_path),
             "generationPackageSha256": _sha_bytes(_canonical_bytes(generation_package)),
         }
-        review = _adapter_call(
+        review = _adapter_snapshot_image_object_call(
             rules,
             "inspect_generated",
             adapters.inspect_generated,
             candidate_path,
+            review_bindings["generatedImageSha256"],
             copy.deepcopy(review_bindings),
         )
         candidate_unchanged = _sha_file(candidate_path) == review_bindings["generatedImageSha256"]
-        gate_stop = _evaluate_visual_gate(review, rules, review_bindings)
+        gate_stop = _evaluate_visual_gate(
+            review,
+            rules,
+            review_bindings,
+            identity_text_required=(
+                rules["identityReplacementContract"]["planFields"]["route"] in plan
+            ),
+        )
         if not candidate_unchanged:
             if isinstance(review, dict):
                 review["decision"] = rules["visualReviewContract"]["decisionValues"]["rejected"]
@@ -2391,15 +3156,28 @@ def run_production(
         _advance(manifest, rules, p2, timestamp)
         _persist_manifest(output_dir, manifest)
 
-        analysis = _adapter_call(rules, "analyze_approved", adapters.analyze_approved, approved_path)
-        if analysis.get("visualFactSourceSha256") != _sha_file(approved_path):
-            raise _stop(rules, "failed", "externalFailure", "模板分析未绑定当前确认模板图。", {})
+        approved_sha = _sha_file(approved_path)
+        analysis = _adapter_snapshot_image_object_call(
+            rules,
+            "analyze_approved",
+            adapters.analyze_approved,
+            approved_path,
+            approved_sha,
+        )
+        if analysis.get("visualFactSourceSha256") != approved_sha:
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "模板分析修改了确认模板图或未绑定视觉审核通过的图片摘要。",
+                {"approvedImageSha256": approved_sha},
+            )
         _atomic_write_new(output_dir / "template-analysis.json", _json_bytes(analysis))
         _record_artifact(manifest, output_dir, "template-analysis.json", p3, [approved_rel, review_name])
         _advance(manifest, rules, p3, timestamp)
         _persist_manifest(output_dir, manifest)
 
-        editable = _compile_editable_spec(analysis, rules)
+        editable = _compile_editable_spec(analysis, rules, plan)
         _atomic_write_new(output_dir / "editable-template-spec.json", _json_bytes(editable))
         _record_artifact(manifest, output_dir, "editable-template-spec.json", p4, ["template-analysis.json"])
         _advance(manifest, rules, p4, timestamp)
@@ -2424,7 +3202,7 @@ def run_production(
         compiled_content_sha = _sha_bytes(_canonical_bytes(semantic_audit_content))
         semantic_audit_request = copy.deepcopy(semantic_audit_content)
         audit_request_sha = _sha_bytes(_canonical_bytes(semantic_audit_request))
-        semantic_audit = _adapter_call(
+        semantic_audit = _adapter_object_call(
             rules,
             "audit_semantics",
             adapters.audit_semantics,
@@ -2456,7 +3234,15 @@ def run_production(
             p6,
             ["gallery-template.draft.json", "editable-template-spec.json"],
         )
-        validation = _validation_report(draft, editable, source_analysis, review, semantic_audit, rules)
+        validation = _validation_report(
+            draft,
+            editable,
+            plan,
+            source_analysis,
+            review,
+            semantic_audit,
+            rules,
+        )
         _atomic_write_new(output_dir / "validation-report.json", _json_bytes(validation))
         _record_artifact(
             manifest,
@@ -2492,8 +3278,16 @@ def run_production(
                     {"path": str(receipt_path)},
                 )
         else:
-            receipt = _adapter_call(rules, "upload", adapters.upload, approved_path, object_key)
-            if receipt.get("imageSha256") != _sha_file(approved_path) or not _is_valid_https_url(receipt.get("url")):
+            approved_sha = _sha_file(approved_path)
+            receipt = _adapter_snapshot_image_object_call(
+                rules,
+                "upload",
+                adapters.upload,
+                approved_path,
+                approved_sha,
+                object_key,
+            )
+            if receipt.get("imageSha256") != approved_sha or not _is_valid_https_url(receipt.get("url")):
                 raise _stop(rules, "failed", "externalFailure", "上传凭证与确认模板图不一致。", receipt)
             receipt = {"artifactType": "asset-receipt", "schemaVersion": rules["schemaVersion"], **receipt}
             _atomic_write_new(receipt_path, _json_bytes(receipt))
