@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import ipaddress
 import json
 import os
 import re
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
+from urllib.parse import urlsplit
 
 from jsonschema import Draft202012Validator, FormatChecker
 
@@ -158,12 +161,86 @@ def _deep_strings(value: Any) -> list[str]:
     return []
 
 
+def _deep_string_items(value: Any, path: tuple[Any, ...] = ()) -> list[tuple[tuple[Any, ...], str]]:
+    if isinstance(value, str):
+        return [(path, value)]
+    if isinstance(value, dict):
+        result: list[tuple[tuple[Any, ...], str]] = []
+        for key, child in value.items():
+            result.extend(_deep_string_items(child, (*path, key)))
+        return result
+    if isinstance(value, list):
+        result = []
+        for index, child in enumerate(value):
+            result.extend(_deep_string_items(child, (*path, index)))
+        return result
+    return []
+
+
 def _deep_keys(value: Any) -> set[str]:
     if isinstance(value, dict):
         return set(value) | set().union(*(_deep_keys(v) for v in value.values()), set())
     if isinstance(value, list):
         return set().union(*(_deep_keys(v) for v in value), set())
     return set()
+
+
+def _is_valid_https_url(value: Any) -> bool:
+    if not isinstance(value, str) or any(
+        character.isspace() or unicodedata.category(character).startswith("C")
+        for character in value
+    ):
+        return False
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return False
+    host_valid = False
+    if hostname:
+        try:
+            ipaddress.ip_address(hostname)
+            host_valid = True
+        except ValueError:
+            try:
+                ascii_hostname = hostname.encode("idna").decode("ascii").removesuffix(".")
+            except UnicodeError:
+                ascii_hostname = ""
+            host_valid = bool(
+                ascii_hostname
+                and len(ascii_hostname) <= 253
+                and all(
+                    len(label) <= 63
+                    and re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", label)
+                    for label in ascii_hostname.split(".")
+                )
+            )
+    return bool(
+        parsed.scheme == "https"
+        and host_valid
+        and parsed.netloc
+        and port != 0
+        and parsed.username is None
+        and parsed.password is None
+    )
+
+
+def _forbidden_formal_values(record: dict[str, Any], rules: dict[str, Any]) -> list[str]:
+    contract = rules["formalProjection"]
+    patterns = contract["forbiddenValuePatterns"].values()
+    top_level = contract["topLevel"]
+    asset_fields = {top_level["coverAsset"], top_level["referenceAsset"]}
+    return sorted(
+        value
+        for path, value in _deep_string_items(record)
+        if not (
+            len(path) == 1
+            and path[0] in asset_fields
+            and _is_valid_https_url(value)
+        )
+        and any(re.search(pattern, value) for pattern in patterns)
+    )
 
 
 def _production_item_integrity_errors(
@@ -1281,6 +1358,18 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
             "高价值槽位缺少隐藏约束冲突词或最大差异标题禁用词。",
             {"slotIds": missing_semantic_guards},
         )
+    review_field = rules["formalProjection"]["metadata"]["reviewReason"]
+    needs_review = analysis.get(review_field)
+    if needs_review is not None and (
+        not isinstance(needs_review, str) or not needs_review.strip()
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "needsReview 仅在确有人工复核原因时保留非空字符串。",
+            {},
+        )
     default_slot_values = {slot["id"]: slot["defaultValue"] for slot in slots}
     editable = {
         "artifactType": "editable-template-spec",
@@ -1310,6 +1399,8 @@ def _compile_editable_spec(analysis: dict[str, Any], rules: dict[str, Any]) -> d
     editable["assetUnitAnalysis"] = asset_units
     if preference_exceptions:
         editable["defaultValuePreferenceExceptionEvidence"] = preference_exceptions
+    if needs_review is not None:
+        editable[review_field] = needs_review.strip()
     return editable
 
 
@@ -1402,17 +1493,30 @@ def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rul
     }
 
 
-def _compile_draft(template_key: str, image_size: str, editable: dict[str, Any], hidden: dict[str, Any]) -> dict[str, Any]:
+def _compile_draft(
+    template_key: str,
+    image_size: str,
+    editable: dict[str, Any],
+    hidden: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    formal_contract = rules["formalProjection"]
+    top_level = formal_contract["topLevel"]
+    tags_field = formal_contract["metadata"]["classificationTags"]
+    review_field = formal_contract["metadata"]["reviewReason"]
+    metadata = {tags_field: editable["tags"]}
+    if review_field in editable:
+        metadata[review_field] = editable[review_field]
     return {
-        "key": template_key,
-        "status": "DRAFT",
-        "title": editable["title"],
-        "description": editable["description"],
-        "imageSize": image_size,
-        "promptTemplate": editable["promptTemplate"],
-        "inputSchema": hidden["inputSchema"],
-        "promptEnhancement": hidden["promptEnhancement"],
-        "metadata": {"tags": editable["tags"]},
+        top_level["templateKey"]: template_key,
+        top_level["lifecycleStatus"]: formal_contract["statusValues"]["draft"],
+        top_level["userTitle"]: editable["title"],
+        top_level["userDescription"]: editable["description"],
+        top_level["outputImageSize"]: image_size,
+        top_level["userPromptTemplate"]: editable["promptTemplate"],
+        top_level["userInputSchema"]: hidden["inputSchema"],
+        top_level["hiddenPromptEnhancement"]: hidden["promptEnhancement"],
+        top_level["formalMetadata"]: metadata,
     }
 
 
@@ -1423,11 +1527,14 @@ def _resolve_prompt(prompt_template: str, values: dict[str, str]) -> str:
     return PLACEHOLDER.sub(lambda match: values.get(match.group(1), match.group(0)), prompt_template)
 
 
-def _semantic_audit_payload(draft: dict[str, Any], editable: dict[str, Any]) -> dict[str, Any]:
+def _semantic_audit_payload(
+    draft: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
+    top_level = rules["formalProjection"]["topLevel"]
     return copy.deepcopy({
-        "title": draft["title"],
-        "promptTemplate": draft["promptTemplate"],
-        "promptEnhancement": draft["promptEnhancement"],
+        top_level["userTitle"]: draft[top_level["userTitle"]],
+        top_level["userPromptTemplate"]: draft[top_level["userPromptTemplate"]],
+        top_level["hiddenPromptEnhancement"]: draft[top_level["hiddenPromptEnhancement"]],
         "freeEditableContent": editable["freeEditableContent"],
         "slots": [
             {
@@ -1449,24 +1556,29 @@ def _validation_report(
     semantic_audit: dict[str, Any],
     rules: dict[str, Any],
 ) -> dict[str, Any]:
+    top_level = rules["formalProjection"]["topLevel"]
+    title_field = top_level["userTitle"]
+    prompt_field = top_level["userPromptTemplate"]
+    input_schema_field = top_level["userInputSchema"]
+    prompt_enhancement_field = top_level["hiddenPromptEnhancement"]
     schema = _load_json(GALLERY_SCHEMA_PATH)
     errors = sorted(
         Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(draft), key=lambda item: list(item.path)
     )
-    input_ids = {item["id"] for item in draft["inputSchema"]}
-    referenced_ids = set(PLACEHOLDER.findall(draft["promptTemplate"]))
+    input_ids = {item["id"] for item in draft[input_schema_field]}
+    referenced_ids = set(PLACEHOLDER.findall(draft[prompt_field]))
     missing_placeholders = sorted(input_ids - referenced_ids)
     unknown_placeholders = sorted(referenced_ids - input_ids)
     missing_free_editable_content = sorted(
-        value for value in editable.get("freeEditableContent", []) if value not in draft["promptTemplate"]
+        value for value in editable.get("freeEditableContent", []) if value not in draft[prompt_field]
     )
     default_values = {slot["id"]: slot["defaultValue"] for slot in editable["slots"]}
-    resolved_prompts = [("defaults", _resolve_prompt(draft["promptTemplate"], default_values))]
+    resolved_prompts = [("defaults", _resolve_prompt(draft[prompt_field], default_values))]
     for slot in editable["slots"]:
         for suggestion in slot.get("suggestions", []):
             scenario_values = {**default_values, slot["id"]: suggestion}
             resolved_prompts.append(
-                (f"{slot['id']}={suggestion}", _resolve_prompt(draft["promptTemplate"], scenario_values))
+                (f"{slot['id']}={suggestion}", _resolve_prompt(draft[prompt_field], scenario_values))
             )
     unnatural_resolved_prompts = sorted(
         label
@@ -1478,7 +1590,10 @@ def _validation_report(
         for claim in source_analysis.get("forbiddenLegacyClaims", [])
         if any(claim in text for text in _deep_strings(draft))
     )
-    forbidden_keys = sorted(_deep_keys(draft) & set(rules["formalProjection"]["forbiddenKeys"]))
+    forbidden_keys = sorted(
+        _deep_keys(draft) & set(rules["formalProjection"]["forbiddenKeys"].values())
+    )
+    forbidden_values = _forbidden_formal_values(draft, rules)
     production_terms = sorted(
         term
         for term in rules["prompt"]["forbiddenProductionTerms"]
@@ -1491,7 +1606,7 @@ def _validation_report(
         if value
     }
     free_editable_values = {value for value in editable.get("freeEditableContent", []) if value}
-    hidden_text = " ".join(_deep_strings(draft["promptEnhancement"]))
+    hidden_text = " ".join(_deep_strings(draft[prompt_enhancement_field]))
     open_content_conflicts = sorted(
         value for value in slot_values | free_editable_values if value in hidden_text
     )
@@ -1501,14 +1616,14 @@ def _validation_report(
         for token in slot.get("hiddenConflictTokens", [])
         if token in hidden_text
     )
-    title_slot_leaks = sorted(value for value in slot_values if value in draft["title"])
+    title_slot_leaks = sorted(value for value in slot_values if value in draft[title_field])
     title_forbidden_tokens = sorted(
         token
         for slot in editable["slots"]
         for token in slot.get("titleForbiddenTokens", [])
-        if token in draft["title"]
+        if token in draft[title_field]
     )
-    audited_content_sha = _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable)))
+    audited_content_sha = _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable, rules)))
     semantic_audit_roles = rules["semanticAuditChecks"]
     semantic_audit_requirements = tuple(semantic_audit_roles.values())
     required_check_fields = {contract["check"] for contract in semantic_audit_requirements}
@@ -1629,11 +1744,13 @@ def _validation_report(
         },
         "galleryContract": {
             "pass": not forbidden_keys
+            and not forbidden_values
             and not production_terms
             and not open_content_conflicts
             and not open_axis_conflicts,
             "evidence": {
                 "forbiddenKeys": forbidden_keys,
+                "forbiddenValues": forbidden_values,
                 "productionTerms": production_terms,
                 "openContentConflicts": open_content_conflicts,
                 "openAxisConflicts": open_axis_conflicts,
@@ -1649,26 +1766,119 @@ def _validation_report(
 
 
 def _formal_projection(draft: dict[str, Any], url: str, rules: dict[str, Any]) -> dict[str, Any]:
-    complete = dict(draft)
-    complete["cover"] = url
-    complete["referenceImage"] = url
-    projection = {key: complete[key] for key in rules["formalProjection"]["topLevel"] if key in complete}
-    projection["metadata"] = {
-        key: complete["metadata"][key]
-        for key in rules["formalProjection"]["metadata"]
-        if key in complete["metadata"]
+    contract = rules["formalProjection"]
+    top_level = contract["topLevel"]
+    metadata_field = top_level["formalMetadata"]
+    cover_field = top_level["coverAsset"]
+    reference_field = top_level["referenceAsset"]
+    review_field = contract["metadata"]["reviewReason"]
+    allowed_top_level = set(contract["topLevel"].values())
+    unexpected_top_level = sorted(set(draft) - allowed_top_level)
+    metadata = draft.get(metadata_field)
+    allowed_metadata = set(contract["metadata"].values())
+    recognized_sidecars = set(contract["recognizedMetadataSidecars"].values())
+    unexpected_metadata = sorted(
+        set(metadata) - allowed_metadata - recognized_sidecars
+        if isinstance(metadata, dict)
+        else []
+    )
+    needs_review = metadata.get(review_field) if isinstance(metadata, dict) else None
+    source_valid = bool(
+        not unexpected_top_level
+        and isinstance(metadata, dict)
+        and not unexpected_metadata
+        and (
+            review_field not in metadata
+            or (isinstance(needs_review, str) and needs_review.strip())
+        )
+        and _is_valid_https_url(url)
+    )
+    if not source_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "正式投影源包含未知字段、无效复核原因或非 HTTPS 模板图 URL。",
+            {
+                "unexpectedTopLevel": unexpected_top_level,
+                "unexpectedMetadata": unexpected_metadata,
+            },
+        )
+    complete = copy.deepcopy(draft)
+    complete[cover_field] = url
+    complete[reference_field] = url
+    projection = {
+        key: complete[key]
+        for key in contract["topLevel"].values()
+        if key in complete
+    }
+    projection[metadata_field] = {
+        key: complete[metadata_field][key]
+        for key in contract["metadata"].values()
+        if key in complete[metadata_field]
     }
     return projection
 
 
 def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
     schema = _load_json(GALLERY_SCHEMA_PATH)
+    contract = rules["formalProjection"]
+    top_level = contract["topLevel"]
+    metadata_field = top_level["formalMetadata"]
+    status_field = top_level["lifecycleStatus"]
+    cover_field = top_level["coverAsset"]
+    reference_field = top_level["referenceAsset"]
+    review_field = contract["metadata"]["reviewReason"]
     errors = sorted(
         Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(record), key=lambda item: list(item.path)
     )
-    forbidden_keys = sorted(_deep_keys(record) & set(rules["formalProjection"]["forbiddenKeys"]))
-    top_level_extra = sorted(set(record) - set(rules["formalProjection"]["topLevel"]))
-    passed = not errors and not forbidden_keys and not top_level_extra and record.get("cover") == record.get("referenceImage")
+    forbidden_keys = sorted(_deep_keys(record) & set(contract["forbiddenKeys"].values()))
+    expected_top_level = set(contract["topLevel"].values())
+    top_level_extra = sorted(set(record) - expected_top_level)
+    top_level_missing = sorted(expected_top_level - set(record))
+    metadata = record.get(metadata_field)
+    metadata_extra = sorted(
+        set(metadata) - set(contract["metadata"].values())
+        if isinstance(metadata, dict)
+        else []
+    )
+    forbidden_values = _forbidden_formal_values(record, rules)
+    production_terms = sorted(
+        term
+        for term in rules["prompt"]["forbiddenProductionTerms"]
+        if any(term in value for value in _deep_strings(record))
+    )
+    needs_review = metadata.get(review_field) if isinstance(metadata, dict) else None
+    needs_review_valid = bool(
+        isinstance(metadata, dict)
+        and (
+            review_field not in metadata
+            or (
+                isinstance(needs_review, str)
+                and needs_review.strip()
+                and record.get(status_field) == contract["statusValues"]["draft"]
+            )
+        )
+    )
+    cover = record.get(cover_field)
+    reference_image = record.get(reference_field)
+    cover_matches_reference = cover == reference_image
+    asset_urls_valid = bool(
+        _is_valid_https_url(cover)
+        and _is_valid_https_url(reference_image)
+    )
+    passed = bool(
+        not errors
+        and not forbidden_keys
+        and not top_level_extra
+        and not top_level_missing
+        and not metadata_extra
+        and not forbidden_values
+        and not production_terms
+        and needs_review_valid
+        and cover_matches_reference
+        and asset_urls_valid
+    )
     return {
         "artifactType": "final-validation-report",
         "schemaVersion": rules["schemaVersion"],
@@ -1676,7 +1886,13 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
         "schemaErrors": [error.message for error in errors],
         "forbiddenKeys": forbidden_keys,
         "topLevelExtra": top_level_extra,
-        "coverMatchesReferenceImage": record.get("cover") == record.get("referenceImage"),
+        "topLevelMissing": top_level_missing,
+        "metadataExtra": metadata_extra,
+        "forbiddenValues": forbidden_values,
+        "productionTerms": production_terms,
+        "needsReviewValid": needs_review_valid,
+        "coverMatchesReferenceImage": cover_matches_reference,
+        "assetUrlsValid": asset_urls_valid,
     }
 
 
@@ -1711,7 +1927,7 @@ def _finalize_uploaded_item(
         and receipt.get("schemaVersion") == rules["schemaVersion"]
         and receipt.get("imageSha256") == _sha_file(approved_path)
         and receipt.get("objectKey") == expected_object_key
-        and str(receipt.get("url", "")).startswith("https://")
+        and _is_valid_https_url(receipt.get("url"))
     )
     if not receipt_valid:
         raise _stop(
@@ -2192,13 +2408,19 @@ def run_production(
         hidden = _compile_hidden_spec(analysis, editable, rules)
         _atomic_write_new(output_dir / "hidden-template-spec.json", _json_bytes(hidden))
         _record_artifact(manifest, output_dir, "hidden-template-spec.json", p5, ["template-analysis.json", "editable-template-spec.json"])
-        draft = _compile_draft(template_key, source_analysis.get("imageSize", "1024x1024"), editable, hidden)
+        draft = _compile_draft(
+            template_key,
+            source_analysis.get("imageSize", "1024x1024"),
+            editable,
+            hidden,
+            rules,
+        )
         _atomic_write_new(output_dir / "gallery-template.draft.json", _json_bytes(draft))
         _record_artifact(manifest, output_dir, "gallery-template.draft.json", p5, ["editable-template-spec.json", "hidden-template-spec.json"])
         _advance(manifest, rules, p5, timestamp)
         _persist_manifest(output_dir, manifest)
 
-        semantic_audit_content = _semantic_audit_payload(draft, editable)
+        semantic_audit_content = _semantic_audit_payload(draft, editable, rules)
         compiled_content_sha = _sha_bytes(_canonical_bytes(semantic_audit_content))
         semantic_audit_request = copy.deepcopy(semantic_audit_content)
         audit_request_sha = _sha_bytes(_canonical_bytes(semantic_audit_request))
@@ -2209,7 +2431,7 @@ def run_production(
             semantic_audit_request,
         )
         compiled_content_unchanged = (
-            _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable)))
+            _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable, rules)))
             == compiled_content_sha
         )
         audit_request_unchanged = (
@@ -2259,7 +2481,7 @@ def run_production(
                 and receipt.get("schemaVersion") == rules["schemaVersion"]
                 and receipt.get("imageSha256") == _sha_file(approved_path)
                 and receipt.get("objectKey") == object_key
-                and str(receipt.get("url", "")).startswith("https://")
+                and _is_valid_https_url(receipt.get("url"))
             )
             if not receipt_valid:
                 raise _stop(
@@ -2271,7 +2493,7 @@ def run_production(
                 )
         else:
             receipt = _adapter_call(rules, "upload", adapters.upload, approved_path, object_key)
-            if receipt.get("imageSha256") != _sha_file(approved_path) or not str(receipt.get("url", "")).startswith("https://"):
+            if receipt.get("imageSha256") != _sha_file(approved_path) or not _is_valid_https_url(receipt.get("url")):
                 raise _stop(rules, "failed", "externalFailure", "上传凭证与确认模板图不一致。", receipt)
             receipt = {"artifactType": "asset-receipt", "schemaVersion": rules["schemaVersion"], **receipt}
             _atomic_write_new(receipt_path, _json_bytes(receipt))

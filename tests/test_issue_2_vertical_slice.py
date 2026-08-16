@@ -205,7 +205,7 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         record = load_json(result.gallery_template)
         rules = load_json(ROOT / "contracts" / "machine-rules.json")
 
-        self.assertEqual(set(rules["formalProjection"]["topLevel"]), set(record))
+        self.assertEqual(set(rules["formalProjection"]["topLevel"].values()), set(record))
         self.assertEqual({"tags"}, set(record["metadata"]))
         self.assertEqual(record["cover"], record["referenceImage"])
         self.assertNotIn("coverUrl", json.dumps(record, ensure_ascii=False))

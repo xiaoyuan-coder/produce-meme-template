@@ -2,7 +2,7 @@
 
 ## 1. 公共工作流
 
-Issue #2–#5 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey`、一个 `sourceImage` 和可选的单图 `replacementStrategy`，输出属于一个独立 Production Item。来源/模板分析、生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+Issue #2–#6 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey`、一个 `sourceImage` 和可选的单图 `replacementStrategy`，输出属于一个独立 Production Item。来源/模板分析、生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
 机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。类别与策略来源使用“具名领域角色 → 机器值”映射，代码不依赖 JSON 成员顺序。代码、测试和 fixture 不再维护第二份枚举。
 
@@ -46,4 +46,4 @@ Issue #2–#5 只通过 `run_production(request, output_root, adapters)` 暴露�
 
 ## 5. 迁移证据
 
-确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 覆盖 E05、E06、E07、E10 和 E25；Issue #4 覆盖 E06、E10、E11、E12、E13、E29 和 E34；Issue #5 的高价值槽位、文案、资产单元与统一 Prompt 编译覆盖 E18、E19、E20、E21、E22、E24、E25、E26、E27、E28、E30 和 E31。
+确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 覆盖 E05、E06、E07、E10 和 E25；Issue #4 覆盖 E06、E10、E11、E12、E13、E29 和 E34；Issue #5 覆盖 E18、E19、E20、E21、E22、E24、E25、E26、E27、E28、E30 和 E31；Issue #6 的正式白名单、样例投影、sidecar 隔离与 URL 身份覆盖 E30、E31、E35、E36、E38 和 E39。

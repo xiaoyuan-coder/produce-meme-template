@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.5.0",
+  "schemaVersion": "0.6.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -92,29 +92,58 @@
     "approvedImageChanged": "approved_image_changed"
   },
   "formalProjection": {
-    "topLevel": [
-      "key",
-      "status",
-      "title",
-      "description",
-      "imageSize",
-      "promptTemplate",
-      "inputSchema",
-      "promptEnhancement",
-      "metadata",
-      "cover",
-      "referenceImage"
-    ],
-    "metadata": ["tags", "needsReview"],
-    "forbiddenKeys": [
-      "coverUrl",
-      "candidateScope",
-      "runtimeRequirements",
-      "templateSource",
-      "inputSemantics",
-      "suggestionRationales",
-      "optimizationAudit"
-    ]
+    "statusValues": {"draft": "DRAFT"},
+    "topLevel": {
+      "templateKey": "key",
+      "lifecycleStatus": "status",
+      "userTitle": "title",
+      "userDescription": "description",
+      "outputImageSize": "imageSize",
+      "userPromptTemplate": "promptTemplate",
+      "userInputSchema": "inputSchema",
+      "hiddenPromptEnhancement": "promptEnhancement",
+      "formalMetadata": "metadata",
+      "coverAsset": "cover",
+      "referenceAsset": "referenceImage"
+    },
+    "metadata": {
+      "classificationTags": "tags",
+      "reviewReason": "needsReview"
+    },
+    "recognizedMetadataSidecars": {
+      "semanticAnalysis": "semanticContext",
+      "runtimeCapability": "runtimeRequirements",
+      "sourceEvidence": "templateSource",
+      "inputAnalysis": "inputSemantics",
+      "optimizationEvidence": "optimizationAudit"
+    },
+    "legacyTermMigrations": {
+      "templateCandidateImage": {"from": "本模板候选图", "to": "模板参考图"},
+      "candidateImage": {"from": "候选图", "to": "模板参考图"}
+    },
+    "forbiddenValuePatterns": {
+      "dataUrl": "data:",
+      "fileUrl": "file://",
+      "posixTemporaryPath": "/(?:private/)?tmp/|/var/folders/",
+      "posixUserPath": "/(?:Users|home|root)/",
+      "windowsDrivePath": "[A-Za-z]:[\\\\/](?![\\\\/])",
+      "relativePath": "(?:^|[^A-Za-z0-9_])\\.\\.?/"
+    },
+    "forbiddenKeys": {
+      "legacyCover": "coverUrl",
+      "candidatePlanning": "candidateScope",
+      "runtimeCapability": "runtimeRequirements",
+      "sourceEvidence": "templateSource",
+      "inputAnalysis": "inputSemantics",
+      "suggestionEvidence": "suggestionRationales",
+      "optimizationEvidence": "optimizationAudit",
+      "generationRequest": "generationRequest",
+      "generationRequestIdentity": "generationRequestId",
+      "externalRequestIdentity": "requestId",
+      "auditTrail": "auditTrail",
+      "temporaryPath": "temporaryPath",
+      "localPath": "localPath"
+    }
   },
   "prompt": {
     "instructionMaxCharacters": 150,
@@ -217,5 +246,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E12", "E13", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E10", "E11", "E12", "E13", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
 }

@@ -1,0 +1,113 @@
+{
+  "key": "layered-heart-anime-duo",
+  "status": "DRAFT",
+  "title": "双人住进分层爱心画框",
+  "description": "主肖像住进大爱心，另一人靠在左上",
+  "imageSize": "1024x1024",
+  "promptTemplate": "分层爱心画面中，{{ boy_subject | \"中央主体\" }}嵌入中央大爱心形成主肖像，{{ girl_subject | \"左上主体\" }}缩小后从外框左上方靠近，外围点缀{{ layered_hearts | \"右侧三颗粉色果冻爱心\" }}。",
+  "inputSchema": [
+    {
+      "id": "boy_subject",
+      "type": "subject",
+      "label": "男生",
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "placeholder": "描述男生",
+        "allowCustom": true,
+        "defaultValue": "中央主体",
+        "suggestions": [
+          "眼镜男生",
+          "卷发男生",
+          "长发男生"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的男生",
+        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
+        "extract": "提取男生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
+    },
+    {
+      "id": "girl_subject",
+      "type": "subject",
+      "label": "女生",
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "placeholder": "描述女生",
+        "allowCustom": true,
+        "defaultValue": "左上主体",
+        "suggestions": [
+          "眼镜女生",
+          "卷发女生",
+          "短发女生"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的女生",
+        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
+        "extract": "提取女生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
+    },
+    {
+      "id": "layered_hearts",
+      "type": "prompt",
+      "label": "立体爱心",
+      "placeholder": "输入立体爱心",
+      "required": false,
+      "suggestions": [
+        "蓝紫渐变果冻爱心",
+        "红色玻璃感爱心",
+        "粉黄星光爱心"
+      ]
+    }
+  ],
+  "promptEnhancement": {
+    "stageKey": "gallery.prompt_rewrite",
+    "instruction": "媒介：高饱和动漫线稿，干净闭合描边与赛璐璐平涂，立体果冻质感的圆润高光与柔软阴影，人物为大头短身比例。卖点：大爱心当容器把一人框成中央大头肖像，另一人缩小成小全身从画框外靠过来，一大一小形成层级反差。色彩：沿用模板参考图的金蓝粉配色与高光阴影层级。",
+    "referenceField": "referenceImage",
+    "lockedConstraints": [
+      "沿用参考图的画幅、裁切、留白、镜头景别与元素位置比例",
+      "沿用参考图的媒介质感与材质表现",
+      "沿用参考图的主体造型比例、轮廓概括与艺术夸张方式",
+      "沿用参考图的前景背景层级、遮挡关系与阅读顺序"
+    ],
+    "preserve": [
+      "大爱心容器中的中央大头肖像与左上小全身人物形成一大一小的层级反差"
+    ],
+    "output": {
+      "format": "json",
+      "promptField": "finalPrompt"
+    }
+  },
+  "metadata": {
+    "tags": [
+      "赛璐璐手绘",
+      "爱心",
+      "双人"
+    ]
+  },
+  "cover": "https://assets.memebuy.cn/gallery/templates/02bf2632-64d1-4e39-bdc7-5f97faf85a0d.png",
+  "referenceImage": "https://assets.memebuy.cn/gallery/templates/02bf2632-64d1-4e39-bdc7-5f97faf85a0d.png"
+}

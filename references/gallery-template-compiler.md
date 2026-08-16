@@ -38,4 +38,6 @@ P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pas
 
 `key`、`status`、`title`、`description`、`imageSize`、`promptTemplate`、`inputSchema`、`promptEnhancement`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover`、`referenceImage`。
 
-`cover` 与 `referenceImage` 写入 Asset Receipt 中同一个 HTTPS URL。`coverUrl`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在 sidecar。
+`cover` 与 `referenceImage` 写入 Asset Receipt 中同一个 HTTPS URL。投影源若含未知顶层字段、未知 metadata、空 `needsReview` 或非 HTTPS URL，直接阻断；冻结 Schema 允许但业务白名单未开放的 metadata 同样不能静默进入正式记录。最终验证还拒绝 Data URL、文件 URL、临时/用户绝对路径、生成 request 字段和审计字段。
+
+`coverUrl`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结两份最新正式样例的逐字节 input 与显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的旧 metadata sidecar，未分类数保持为 0。expected 执行白名单投影、机器声明的旧术语迁移，并按样例合同审计精确修正中性标题与开放实体数量兼容性；每条纠偏路径都由回归测试明确比较，并继续通过冻结 Gallery Schema 与最终业务门禁。

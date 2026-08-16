@@ -1,0 +1,207 @@
+{
+  "key": "layered-heart-anime-duo",
+  "status": "DRAFT",
+  "title": "他被画进一颗大爱心",
+  "description": "主肖像住进大爱心，另一人靠在左上",
+  "imageSize": "1024x1024",
+  "promptTemplate": "分层爱心画面中，{{ boy_subject | \"中央主体\" }}嵌入中央大爱心形成主肖像，{{ girl_subject | \"左上主体\" }}缩小后从外框左上方靠近，外围点缀{{ layered_hearts | \"右侧三颗粉色果冻爱心\" }}。",
+  "inputSchema": [
+    {
+      "id": "boy_subject",
+      "type": "subject",
+      "label": "男生",
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "placeholder": "描述男生",
+        "allowCustom": true,
+        "defaultValue": "中央主体",
+        "suggestions": [
+          "眼镜男生",
+          "卷发男生",
+          "长发男生"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的男生",
+        "hint": "上传1张清晰主体图，按本模板候选图的视觉媒介与区域职责完整重建",
+        "extract": "提取男生的可辨识身份特征，并在候选图的媒介、造型与构图体系中完整重绘。",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
+    },
+    {
+      "id": "girl_subject",
+      "type": "subject",
+      "label": "女生",
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "placeholder": "描述女生",
+        "allowCustom": true,
+        "defaultValue": "左上主体",
+        "suggestions": [
+          "眼镜女生",
+          "卷发女生",
+          "短发女生"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的女生",
+        "hint": "上传1张清晰主体图，按本模板候选图的视觉媒介与区域职责完整重建",
+        "extract": "提取女生的可辨识身份特征，并在候选图的媒介、造型与构图体系中完整重绘。",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
+    },
+    {
+      "id": "layered_hearts",
+      "type": "prompt",
+      "label": "立体爱心",
+      "placeholder": "输入立体爱心",
+      "required": false,
+      "suggestions": [
+        "蓝紫渐变果冻爱心",
+        "红色玻璃感爱心",
+        "粉黄星光爱心"
+      ]
+    }
+  ],
+  "promptEnhancement": {
+    "stageKey": "gallery.prompt_rewrite",
+    "instruction": "媒介：高饱和动漫线稿，干净闭合描边与赛璐璐平涂，立体果冻质感的圆润高光与柔软阴影，人物为大头短身比例。卖点：大爱心当容器把一人框成中央大头肖像，另一人缩小成小全身从画框外靠过来，一大一小形成层级反差。色彩：沿用候选图的金蓝粉配色与高光阴影层级。",
+    "referenceField": "referenceImage",
+    "lockedConstraints": [
+      "沿用参考图的画幅、裁切、留白、镜头景别与元素位置比例",
+      "沿用参考图的媒介质感与材质表现",
+      "沿用参考图的主体造型比例、轮廓概括与艺术夸张方式",
+      "沿用参考图的前景背景层级、遮挡关系与阅读顺序"
+    ],
+    "preserve": [
+      "大爱心容器中的中央大头肖像与左上小全身人物形成一大一小的层级反差"
+    ],
+    "output": {
+      "format": "json",
+      "promptField": "finalPrompt"
+    }
+  },
+  "metadata": {
+    "semanticContext": {
+      "visualHook": "大爱心把一人框成中央大头肖像，另一人缩小后从画框外靠近，一大一小形成层级反差。",
+      "subjectNamingMode": "natural_visible_role",
+      "candidateScope": [
+        "男生",
+        "女生"
+      ],
+      "contentDomains": [
+        "赛璐璐双人",
+        "心形肖像"
+      ],
+      "audienceContexts": [
+        "想做双人纪念图的用户"
+      ],
+      "usageIntents": [
+        "定制关系纪念画"
+      ]
+    },
+    "runtimeRequirements": {
+      "subjectInputVersion": 2,
+      "supportsMultipleSubjectImages": true,
+      "imageSlotAddressing": "input_id"
+    },
+    "templateSource": {
+      "authority": {
+        "composition_authority": "high",
+        "style_authority": "high",
+        "identity_authority": "none"
+      }
+    },
+    "tags": [
+      "赛璐璐手绘",
+      "爱心",
+      "双人"
+    ],
+    "inputSemantics": {
+      "boy_subject": {
+        "semanticType": "subject_identity",
+        "slotRole": "identity_reference",
+        "componentId": "boy_subject",
+        "property": "identity",
+        "operation": "replace_identity",
+        "renderingMode": "illustration_redraw",
+        "defaultStateLabel": "使用默认男生",
+        "textInputLabel": "或描述男生",
+        "uploadLabel": "上传男生图片",
+        "suggestionAxis": "保持中央大爱心主肖像的区域职责，替换为具体的男生身份",
+        "candidateScope": [
+          "男生",
+          "棕色偏分碎发男生"
+        ],
+        "suggestionRationales": {
+          "眼镜男生": "保持中央主肖像职责，提供清晰可辨的男生身份变化。",
+          "卷发男生": "保持中央主肖像职责，提供清晰可辨的男生身份变化。",
+          "长发男生": "保持中央主肖像职责，提供清晰可辨的男生身份变化。"
+        },
+        "defaultValue": "中央主体"
+      },
+      "girl_subject": {
+        "semanticType": "subject_identity",
+        "slotRole": "identity_reference",
+        "componentId": "girl_subject",
+        "property": "identity",
+        "operation": "replace_identity",
+        "renderingMode": "illustration_redraw",
+        "defaultStateLabel": "使用默认女生",
+        "textInputLabel": "或描述女生",
+        "uploadLabel": "上传女生图片",
+        "suggestionAxis": "保持左上小人物的区域职责，替换为具体的女生身份",
+        "candidateScope": [
+          "女生",
+          "蓝色长发女生"
+        ],
+        "suggestionRationales": {
+          "眼镜女生": "保持左上小人物职责，提供清晰可辨的女生身份变化。",
+          "卷发女生": "保持左上小人物职责，提供清晰可辨的女生身份变化。",
+          "短发女生": "保持左上小人物职责，提供清晰可辨的女生身份变化。"
+        },
+        "defaultValue": "左上主体"
+      },
+      "layered_hearts": {
+        "semanticType": "semantic_content",
+        "slotRole": "semantic_replacement",
+        "componentId": "layered_hearts",
+        "property": "semantic_content",
+        "operation": "replace_content",
+        "suggestionAxis": "与来源画面一致的立体爱心变化",
+        "candidateScope": [
+          "立体爱心",
+          "画面内容定制"
+        ],
+        "suggestionRationales": {
+          "蓝紫渐变果冻爱心": "保持立体爱心在原画中的位置与作用，仅沿同一语义轴变化。",
+          "红色玻璃感爱心": "保持立体爱心在原画中的位置与作用，仅沿同一语义轴变化。",
+          "粉黄星光爱心": "保持立体爱心在原画中的位置与作用，仅沿同一语义轴变化。"
+        },
+        "defaultValue": "右侧三颗粉色果冻爱心"
+      }
+    }
+  },
+  "cover": "https://assets.memebuy.cn/gallery/templates/02bf2632-64d1-4e39-bdc7-5f97faf85a0d.png",
+  "referenceImage": "https://assets.memebuy.cn/gallery/templates/02bf2632-64d1-4e39-bdc7-5f97faf85a0d.png"
+}

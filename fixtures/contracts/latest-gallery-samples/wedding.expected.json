@@ -1,0 +1,113 @@
+{
+  "key": "wedding-couple-pet-parade",
+  "status": "DRAFT",
+  "title": "把重要伙伴带进婚礼合照",
+  "description": "婚礼合照把相伴的宠物也带进画面",
+  "imageSize": "1024x1024",
+  "promptTemplate": "白底婚礼涂鸦里，{{ boy_subject | \"男生\" }}穿黑色礼服站左侧，{{ girl_subject | \"女生\" }}穿白色婚纱站右侧；{{ wedding_pets | \"两只猫和一只蓝色小鸟\" }}根据数量自然安排在两人怀中、肩侧或脚边，黄色星星、铃兰与绿叶围绕整体。",
+  "inputSchema": [
+    {
+      "id": "boy_subject",
+      "type": "subject",
+      "label": "男生",
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "placeholder": "描述男生",
+        "allowCustom": true,
+        "defaultValue": "男生",
+        "suggestions": [
+          "深灰短狼尾、戴细框眼镜的男青年",
+          "沙金短狼尾、戴细框眼镜的男青年",
+          "墨棕短狼尾、戴细框眼镜的男青年"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的男生",
+        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
+        "extract": "提取男生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
+    },
+    {
+      "id": "girl_subject",
+      "type": "subject",
+      "label": "女生",
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "placeholder": "描述女生",
+        "allowCustom": true,
+        "defaultValue": "女生",
+        "suggestions": [
+          "酒红丸子头、配珍珠发夹的新娘",
+          "银灰丸子头、配珍珠发夹的新娘",
+          "墨黑丸子头、配珍珠发夹的新娘"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的女生",
+        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
+        "extract": "提取女生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
+    },
+    {
+      "id": "wedding_pets",
+      "type": "prompt",
+      "label": "一起入镜的宠物",
+      "placeholder": "输入一起入镜的宠物",
+      "required": false,
+      "suggestions": [
+        "一只猫和一只小狗",
+        "两只猫和一只兔子",
+        "三只不同花色的猫"
+      ]
+    }
+  ],
+  "promptEnhancement": {
+    "stageKey": "gallery.prompt_rewrite",
+    "instruction": "媒介：白纸底上的幼稚透明水彩涂鸦，暖灰棕铅笔抖线、可控断线与薄水彩渗边，少量蜡笔颗粒与局部漏白，人物为大头短身的稚拙比例。卖点：婚礼双人肖像把用户指定的宠物一并纳入家庭合照，宠物与人物的亲密位置关系是这张图的独特价值。色彩：沿用模板参考图的低饱和主色与单级透明水彩阴影层级，保留大量纸白。",
+    "referenceField": "referenceImage",
+    "lockedConstraints": [
+      "沿用参考图的画幅、裁切、留白、镜头景别与元素位置比例",
+      "沿用参考图的媒介质感与材质表现",
+      "沿用参考图的主体造型比例、轮廓概括与艺术夸张方式",
+      "沿用参考图的前景背景层级、遮挡关系与阅读顺序"
+    ],
+    "preserve": [
+      "婚礼双人肖像把用户指定的宠物一并纳入家庭合照，宠物与人物的亲密位置关系是画面的独特价值"
+    ],
+    "output": {
+      "format": "json",
+      "promptField": "finalPrompt"
+    }
+  },
+  "metadata": {
+    "tags": [
+      "宠物婚礼",
+      "全家合照",
+      "水彩婚纱照"
+    ]
+  },
+  "cover": "https://assets.memebuy.cn/gallery/templates/0a4d6028-4cae-4e25-adaf-65ed0686a4f4.png",
+  "referenceImage": "https://assets.memebuy.cn/gallery/templates/0a4d6028-4cae-4e25-adaf-65ed0686a4f4.png"
+}

@@ -41,7 +41,9 @@ class RepositoryContractTest(unittest.TestCase):
         rules = load(ROOT / "contracts" / "machine-rules.json")
         schema = load(ROOT / "contracts" / "gallery-template.schema.json")
 
-        self.assertTrue(set(rules["formalProjection"]["topLevel"]).issubset(schema["properties"]))
+        self.assertTrue(
+            set(rules["formalProjection"]["topLevel"].values()).issubset(schema["properties"])
+        )
         self.assertEqual(
             "1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619",
             hashlib.sha256((ROOT / "contracts" / "gallery-template.schema.json").read_bytes()).hexdigest(),
@@ -72,6 +74,13 @@ class RepositoryContractTest(unittest.TestCase):
         rules = load(ROOT / "contracts" / "machine-rules.json")
         self.assertTrue(
             {"E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E30", "E31"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_issue_6_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E30", "E31", "E35", "E36", "E38", "E39"}
             <= set(rules["historicalExperienceEvidence"])
         )
 
