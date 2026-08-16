@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.7.0",
+  "schemaVersion": "0.8.0",
   "visibleFacts": [
     "一只短腿小动物蜷卧在暖黄色软垫上",
     "两只前爪搭住垫边",
@@ -22,6 +22,12 @@
   "neutralDescription": "主体蜷卧在软垫上，侧面光线强化安静又疲惫的神态",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}蜷卧在{{ cushion_look | \"暖黄色软垫\" }}上，前爪搭住垫边，{{ room_mood | \"午后窗光\" }}从侧面照入，背景保留安静的客厅和轻微景深。",
   "freeEditableContent": ["前爪搭住垫边", "安静的客厅", "轻微景深"],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可见文字区域"
+  },
   "slotCandidates": [
     {
       "id": "pet_subject",

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.7.0",
+  "schemaVersion": "0.8.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -320,6 +320,10 @@
     "identityNeutrality": {
       "check": "identityNeutralDefaultsValid",
       "evidence": "identityNeutralityReview"
+    },
+    "visibleTextClassification": {
+      "check": "visibleTextClassificationValid",
+      "evidence": "visibleTextClassificationReview"
     }
   },
   "slotBudget": {"minimum": 2, "normal": 3, "maximum": 5, "singleSlotRequiresEvidence": true},
@@ -368,6 +372,110 @@
       "exactVisibleTextMayExceed": true
     }
   },
+  "visibleTextContract": {
+    "analysisFields": {
+      "regions": "textRegions",
+      "inventory": "visibleTextInventory"
+    },
+    "inventoryFields": {
+      "complete": "complete",
+      "regionIdentities": "regionIds",
+      "explanation": "evidence"
+    },
+    "regionFields": {
+      "identity": "id",
+      "sourceText": "sourceText",
+      "role": "role",
+      "valueClass": "valueClass",
+      "action": "action",
+      "slotIdentity": "slotId",
+      "selectedText": "selectedText",
+      "exactTextEvidence": "exactTextEvidence"
+    },
+    "roles": {
+      "content": "content",
+      "attribution": "attribution",
+      "watermark": "watermark",
+      "brand": "brand",
+      "ambiguous": "ambiguous"
+    },
+    "actions": {
+      "openSlot": "open_slot",
+      "freeEditable": "free_editable",
+      "preserve": "preserve",
+      "remove": "remove",
+      "review": "review"
+    },
+    "valueClasses": {
+      "identityRelated": "identity_related",
+      "primaryVisual": "primary_visual",
+      "highValueSpan": "high_value_span",
+      "secondaryReadable": "secondary_readable",
+      "decorativeMicrotext": "decorative_microtext",
+      "lowValueInformation": "low_value_information"
+    },
+    "allowedActionsByRole": {
+      "content": ["open_slot", "free_editable", "preserve"],
+      "attribution": ["preserve", "remove"],
+      "watermark": ["remove"],
+      "brand": ["preserve", "remove", "review"],
+      "ambiguous": ["review"]
+    },
+    "openSlotValueClasses": ["identity_related", "primary_visual", "high_value_span"],
+    "freeEditableValueClasses": ["secondary_readable"],
+    "nonSlotValueClasses": ["decorative_microtext", "low_value_information"],
+    "slotBindingField": "textRegionId",
+    "exactEvidenceFields": {
+      "language": "language",
+      "tokens": "tokens",
+      "lines": "lines",
+      "caseSensitiveTokens": "caseSensitiveTokens",
+      "rareSymbols": "rareSymbols",
+      "symbolTopology": "symbolTopology",
+      "explanation": "evidence"
+    },
+    "languageValues": {
+      "simplifiedChinese": "zh-Hans",
+      "traditionalChinese": "zh-Hant",
+      "japanese": "ja",
+      "korean": "ko",
+      "english": "en",
+      "mixed": "mixed",
+      "undetermined": "und"
+    },
+    "japaneseKanaPattern": "[ぁ-ゟ゠-ヿ]",
+    "koreanHangulPattern": "[가-힣]",
+    "commonPunctuationCharacters": [
+      "，", "。", "！", "？", "；", "、", ",", ".", "!", "?", ";", ":", "：",
+      "\"", "'", "“", "”", "‘", "’", "(", ")", "（", "）", "[", "]", "【", "】",
+      "<", ">", "《", "》", "-"
+    ],
+    "wholeRegionSlotHardMaximum": 36,
+    "semanticAuditFields": {
+      "reviewedRegionIdentities": "reviewedRegionIds",
+      "decisions": "roleActionDecisions",
+      "slotOrigins": "slotOriginDecisions",
+      "freeContentOrigins": "freeContentOriginDecisions",
+      "fixedRegionLeaks": "fixedRegionLeakIds",
+      "complete": "allVisibleTextClassified",
+      "explanation": "evidence"
+    },
+    "semanticDecisionFields": {
+      "observedLanguage": "observedLanguage",
+      "observedTokens": "observedTokens",
+      "identityNeutral": "identityNeutral"
+    },
+    "slotOriginFields": {
+      "slotIdentity": "slotId",
+      "originRegionIdentity": "originTextRegionId",
+      "explanation": "evidence"
+    },
+    "freeContentOriginFields": {
+      "content": "content",
+      "originRegionIdentity": "originTextRegionId",
+      "explanation": "evidence"
+    }
+  },
   "identifiers": {
     "productionItemIdPattern": "^[a-z][a-z0-9-]{1,127}$",
     "imageExtensionPattern": "^\\.[a-z0-9]{1,10}$"
@@ -384,5 +492,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
 }

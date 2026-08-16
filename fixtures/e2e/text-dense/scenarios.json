@@ -1,0 +1,30 @@
+{
+  "textCard": {
+    "regionId": "headline-region",
+    "sourceText": "今日宜躺平\n(－_－) zzZ",
+    "language": "mixed",
+    "tokens": ["今日", "宜", "躺平", "(－_－)", "zzZ"],
+    "lines": ["今日宜躺平", "(－_－) zzZ"],
+    "caseSensitiveTokens": ["zzZ"],
+    "rareSymbols": ["－", "_"],
+    "symbolTopology": "颜文字由全角括号、全角横线和下划线按原顺序组成"
+  },
+  "longPoster": {
+    "longRegionId": "poster-body-region",
+    "longText": "周五之前交付终稿，逾期需要重新排期，并在群内同步所有修改记录。暂停内耗，从现在开始完成最重要的一件事。",
+    "selectedSpan": "暂停内耗",
+    "secondaryRegionId": "poster-secondary-region",
+    "secondaryText": "周五之前交付终稿",
+    "attributionText": "摄影：MOMO STUDIO",
+    "decorativeText": "EST. 2026",
+    "brandText": "ACME"
+  },
+  "identityInterface": {
+    "regionId": "identity-label-region",
+    "sourceText": "PORTRAIT",
+    "language": "en",
+    "tokens": ["PORTRAIT"],
+    "lines": ["PORTRAIT"],
+    "caseSensitiveTokens": ["PORTRAIT"]
+  }
+}

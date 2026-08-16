@@ -23,6 +23,9 @@ RULES_PATH = REPO_ROOT / "contracts" / "machine-rules.json"
 GALLERY_SCHEMA_PATH = REPO_ROOT / "contracts" / "gallery-template.schema.json"
 RELEASE_PATH = REPO_ROOT / "release.json"
 CJK_CHARACTER = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+VISIBLE_TEXT_LEXEME = re.compile(
+    r"[A-Za-z]+(?:['’][A-Za-z]+)*|\d+|[\u3400-\u4dbf\u4e00-\u9fff]{2,}"
+)
 INPUT_ID_PATTERN = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))["$defs"]["inputId"]["pattern"]
 INPUT_ID_PATTERN_BODY = INPUT_ID_PATTERN.removeprefix("^").removesuffix("$")
 SLOT_ID = re.compile(INPUT_ID_PATTERN)
@@ -1709,6 +1712,402 @@ def _evaluate_visual_gate(
     return None
 
 
+def _text_tokens_follow_source(
+    source_text: str, tokens: list[str], common_punctuation: set[str]
+) -> bool:
+    cursor = 0
+    for token in tokens:
+        position = source_text.find(token, cursor)
+        if position < 0:
+            return False
+        cursor = position + len(token)
+    normalize = lambda value: "".join(
+        character
+        for character in value
+        if not character.isspace() and character not in common_punctuation
+    )
+    return normalize("".join(tokens)) == normalize(source_text)
+
+
+def _normalized_visible_text(value: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKC", value).casefold()
+        if not character.isspace()
+        and not unicodedata.category(character).startswith(("P", "Z"))
+    )
+
+
+def _validate_visible_text_contract(
+    analysis: dict[str, Any], slots: list[dict[str, Any]], rules: dict[str, Any]
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    contract = rules["visibleTextContract"]
+    analysis_fields = contract["analysisFields"]
+    inventory_fields = contract["inventoryFields"]
+    region_fields = contract["regionFields"]
+    evidence_fields = contract["exactEvidenceFields"]
+    actions = contract["actions"]
+    roles = set(contract["roles"].values())
+    value_classes = set(contract["valueClasses"].values())
+    language_values = contract["languageValues"]
+    regions = analysis.get(analysis_fields["regions"])
+    inventory = analysis.get(analysis_fields["inventory"])
+
+    inventory_valid = bool(
+        isinstance(regions, list)
+        and isinstance(inventory, dict)
+        and set(inventory) == set(inventory_fields.values())
+        and inventory.get(inventory_fields["complete"]) is True
+        and isinstance(inventory.get(inventory_fields["regionIdentities"]), list)
+        and all(
+            isinstance(value, str) and value.strip()
+            for value in inventory.get(inventory_fields["regionIdentities"], [])
+        )
+        and len(inventory.get(inventory_fields["regionIdentities"], []))
+        == len(set(inventory.get(inventory_fields["regionIdentities"], [])))
+        and isinstance(inventory.get(inventory_fields["explanation"]), str)
+        and inventory[inventory_fields["explanation"]].strip()
+    )
+    if not inventory_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "可见文字清单必须声明完整区域集合并提供非空证据。",
+            {},
+        )
+
+    region_ids: list[str] = []
+    malformed_region_ids: list[str] = []
+    invalid_fidelity_ids: list[str] = []
+    invalid_route_ids: list[str] = []
+    review_region_ids: list[str] = []
+    removal_region_ids: list[str] = []
+    slot_bindings: dict[str, str] = {}
+    common_punctuation = set(contract["commonPunctuationCharacters"])
+    for index, region in enumerate(regions):
+        fallback_id = f"region-{index}"
+        if not isinstance(region, dict):
+            malformed_region_ids.append(fallback_id)
+            continue
+        region_id = region.get(region_fields["identity"])
+        source_text = region.get(region_fields["sourceText"])
+        role = region.get(region_fields["role"])
+        value_class = region.get(region_fields["valueClass"])
+        action = region.get(region_fields["action"])
+        selected_text = region.get(region_fields["selectedText"])
+        evidence = region.get(region_fields["exactTextEvidence"])
+        base_region_fields = set(region_fields.values()) - {region_fields["slotIdentity"]}
+        expected_region_fields = base_region_fields | (
+            {region_fields["slotIdentity"]}
+            if action == actions["openSlot"]
+            else set()
+        )
+        if not (
+            isinstance(region_id, str)
+            and region_id.strip()
+            and isinstance(source_text, str)
+            and source_text.strip()
+            and isinstance(role, str)
+            and role in roles
+            and isinstance(value_class, str)
+            and value_class in value_classes
+            and isinstance(action, str)
+            and action in set(contract["actions"].values())
+            and isinstance(selected_text, str)
+            and isinstance(evidence, dict)
+            and set(evidence) == set(evidence_fields.values())
+            and set(region) == expected_region_fields
+        ):
+            malformed_region_ids.append(region_id if isinstance(region_id, str) else fallback_id)
+            continue
+        region_ids.append(region_id)
+
+        language = evidence.get(evidence_fields["language"])
+        tokens = evidence.get(evidence_fields["tokens"])
+        lines = evidence.get(evidence_fields["lines"])
+        case_tokens = evidence.get(evidence_fields["caseSensitiveTokens"])
+        rare_symbols = evidence.get(evidence_fields["rareSymbols"])
+        source_has_cjk = bool(CJK_CHARACTER.search(source_text))
+        source_has_latin = bool(re.search(r"[A-Za-z]", source_text))
+        source_has_kana = bool(re.search(contract["japaneseKanaPattern"], source_text))
+        source_has_hangul = bool(re.search(contract["koreanHangulPattern"], source_text))
+        if source_has_latin and (source_has_cjk or source_has_kana or source_has_hangul):
+            allowed_languages = {language_values["mixed"]}
+        elif source_has_kana:
+            allowed_languages = {language_values["japanese"]}
+        elif source_has_hangul:
+            allowed_languages = {language_values["korean"]}
+        elif source_has_cjk:
+            allowed_languages = {
+                language_values["simplifiedChinese"],
+                language_values["traditionalChinese"],
+            }
+        elif source_has_latin:
+            allowed_languages = {language_values["english"]}
+        else:
+            allowed_languages = {language_values["undetermined"]}
+        expected_case_tokens = {
+            token for token in (tokens if isinstance(tokens, list) else [])
+            if isinstance(token, str) and re.search(r"[A-Za-z]", token)
+        }
+        expected_rare_symbols = {
+            character
+            for character in source_text
+            if not character.isalnum()
+            and not character.isspace()
+            and character not in common_punctuation
+        }
+        fidelity_valid = bool(
+            language in allowed_languages
+            and isinstance(tokens, list)
+            and tokens
+            and all(isinstance(value, str) and value for value in tokens)
+            and _text_tokens_follow_source(source_text, tokens, common_punctuation)
+            and isinstance(lines, list)
+            and lines == source_text.splitlines()
+            and isinstance(case_tokens, list)
+            and all(isinstance(value, str) and value in source_text for value in case_tokens)
+            and len(case_tokens) == len(set(case_tokens))
+            and set(case_tokens) == expected_case_tokens
+            and isinstance(rare_symbols, list)
+            and all(isinstance(value, str) and len(value) == 1 for value in rare_symbols)
+            and len(rare_symbols) == len(set(rare_symbols))
+            and set(rare_symbols) == expected_rare_symbols
+            and isinstance(evidence.get(evidence_fields["symbolTopology"]), str)
+            and evidence[evidence_fields["symbolTopology"]].strip()
+            and isinstance(evidence.get(evidence_fields["explanation"]), str)
+            and evidence[evidence_fields["explanation"]].strip()
+        )
+        if not fidelity_valid:
+            invalid_fidelity_ids.append(region_id)
+
+        if action not in contract["allowedActionsByRole"].get(role, []):
+            invalid_route_ids.append(region_id)
+        elif action == actions["remove"]:
+            removal_region_ids.append(region_id)
+        if action == actions["review"]:
+            review_region_ids.append(region_id)
+        if action == actions["openSlot"]:
+            slot_id = region.get(region_fields["slotIdentity"])
+            if (
+                value_class not in set(contract["openSlotValueClasses"])
+                or not isinstance(slot_id, str)
+                or not slot_id.strip()
+                or not selected_text
+                or selected_text not in source_text
+                or (
+                    value_class == contract["valueClasses"]["highValueSpan"]
+                    and selected_text == source_text
+                )
+                or (
+                    selected_text == source_text
+                    and len(source_text) > contract["wholeRegionSlotHardMaximum"]
+                )
+            ):
+                invalid_route_ids.append(region_id)
+            elif slot_id in slot_bindings:
+                invalid_route_ids.append(region_id)
+            else:
+                slot_bindings[slot_id] = region_id
+        elif action == actions["freeEditable"]:
+            if (
+                value_class not in set(contract["freeEditableValueClasses"])
+                or not selected_text
+                or selected_text != source_text
+            ):
+                invalid_route_ids.append(region_id)
+        elif action == actions["preserve"] and selected_text != source_text:
+            invalid_route_ids.append(region_id)
+        elif action == actions["remove"] and selected_text:
+            invalid_route_ids.append(region_id)
+        elif action == actions["review"] and selected_text != source_text:
+            invalid_route_ids.append(region_id)
+        elif value_class == contract["valueClasses"]["secondaryReadable"]:
+            invalid_route_ids.append(region_id)
+        elif value_class in set(contract["nonSlotValueClasses"]) and action not in {
+            actions["preserve"],
+            actions["remove"],
+            actions["review"],
+        }:
+            invalid_route_ids.append(region_id)
+        if action != actions["openSlot"] and region_fields["slotIdentity"] in region:
+            invalid_route_ids.append(region_id)
+
+    expected_region_ids = inventory[inventory_fields["regionIdentities"]]
+    if (
+        malformed_region_ids
+        or len(region_ids) != len(set(region_ids))
+        or set(region_ids) != set(expected_region_ids)
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "可见文字区域未被唯一、完整地分类。",
+            {"malformedRegionIds": malformed_region_ids},
+        )
+    if invalid_fidelity_ids:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "可见文字的原语种、token、换行、大小写或符号拓扑证据与模板图文字不一致。",
+            {inventory_fields["regionIdentities"]: sorted(set(invalid_fidelity_ids))},
+        )
+    if removal_region_ids:
+        raise _stop(
+            rules,
+            "blocked",
+            "visualHardFailure",
+            "Approved Template Image 仍含需要清理的可见文字，必须修正模板图后重新分析。",
+            {inventory_fields["regionIdentities"]: sorted(set(removal_region_ids))},
+        )
+    if review_region_ids:
+        raise _stop(
+            rules,
+            "needs_input",
+            "riskNeedsReview",
+            "可见文字角色或处理方式存在歧义，需要人工复核。",
+            {inventory_fields["regionIdentities"]: sorted(set(review_region_ids))},
+        )
+    if invalid_route_ids:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "文字角色、价值类别与 preserve/remove/open/free-editable 操作不兼容。",
+            {inventory_fields["regionIdentities"]: sorted(set(invalid_route_ids))},
+        )
+
+    text_slot_type = rules["slotCompilationContract"]["slotTypes"]["visibleTextPrompt"]
+    binding_field = contract["slotBindingField"]
+    text_slots = [slot for slot in slots if slot.get("type") == text_slot_type]
+    binding_valid = bool(
+        len(text_slots) == len(slot_bindings)
+        and all(
+            isinstance(slot.get(binding_field), str)
+            and slot_bindings.get(slot["id"]) == slot[binding_field]
+            and slot.get("defaultValue")
+            == next(
+                region[region_fields["selectedText"]]
+                for region in regions
+                if region[region_fields["identity"]] == slot[binding_field]
+            )
+            for slot in text_slots
+        )
+    )
+    if not binding_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "文字槽必须与一个高价值文字区域和实际选中文字双向绑定。",
+            {},
+        )
+    over_capacity_text_slots = sorted(
+        slot["id"]
+        for slot in text_slots
+        if any(
+            not isinstance(value, str)
+            or len(value.strip()) > contract["wholeRegionSlotHardMaximum"]
+            for value in slot.get("suggestions", [])
+        )
+    )
+    if over_capacity_text_slots:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "文字槽推荐项超出可稳定排版的短文字容量。",
+            {"slotIds": over_capacity_text_slots},
+        )
+    subject_role = rules["slotCompilationContract"]["semanticRoles"]["primarySubject"]
+    subject_open = any(slot.get("semanticRole") == subject_role for slot in slots)
+    identity_value_class = contract["valueClasses"]["identityRelated"]
+
+    prompt_template = analysis.get("promptTemplate")
+    free_editable = analysis.get("freeEditableContent")
+    invalid_free_editable_ids = sorted(
+        region[region_fields["identity"]]
+        for region in regions
+        if region[region_fields["action"]] == actions["freeEditable"]
+        and (
+            not isinstance(prompt_template, str)
+            or region[region_fields["selectedText"]] not in prompt_template
+            or not isinstance(free_editable, list)
+            or region[region_fields["selectedText"]] not in free_editable
+        )
+    )
+    if invalid_free_editable_ids:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "次要可读文字必须同时进入 Prompt Template 与自由编辑内容。",
+            {inventory_fields["regionIdentities"]: invalid_free_editable_ids},
+        )
+    slot_user_values = [
+        value
+        for slot in slots
+        for value in [slot.get("defaultValue"), *slot.get("suggestions", [])]
+        if isinstance(value, str)
+    ]
+    user_editable_texts = [
+        prompt_template if isinstance(prompt_template, str) else "",
+        *(free_editable if isinstance(free_editable, list) else []),
+        *slot_user_values,
+    ]
+    normalized_user_editable_texts = [
+        _normalized_visible_text(value)
+        for value in user_editable_texts
+        if isinstance(value, str)
+    ]
+
+    def forbidden_region_fragments(region: dict[str, Any]) -> tuple[str, set[str]]:
+        evidence = region[region_fields["exactTextEvidence"]]
+        source = _normalized_visible_text(region[region_fields["sourceText"]])
+        lexical_spans = VISIBLE_TEXT_LEXEME.findall(region[region_fields["sourceText"]])
+        tokens = {
+            normalized
+            for value in [*evidence[evidence_fields["tokens"]], *lexical_spans]
+            if isinstance(value, str)
+            for normalized in [_normalized_visible_text(value)]
+            if len(normalized) >= 2
+        }
+        return source, tokens
+
+    def fixed_region_reenters_user_content(region: dict[str, Any]) -> bool:
+        source, tokens = forbidden_region_fragments(region)
+        return bool(
+            (source and any(source in value for value in normalized_user_editable_texts))
+            or any(token == value for token in tokens for value in normalized_user_editable_texts)
+        )
+
+    forbidden_user_text_region_ids = sorted(
+        region[region_fields["identity"]]
+        for region in regions
+        if region[region_fields["action"]] not in {
+            actions["openSlot"],
+            actions["freeEditable"],
+        }
+        and not (
+            region[region_fields["valueClass"]] == identity_value_class
+            and not subject_open
+        )
+        and fixed_region_reenters_user_content(region)
+    )
+    if forbidden_user_text_region_ids:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "固定、归因、品牌或清理文字不能重新进入用户 Prompt、自由编辑内容或普通槽位。",
+            {inventory_fields["regionIdentities"]: forbidden_user_text_region_ids},
+        )
+    return copy.deepcopy(regions), copy.deepcopy(inventory)
+
+
 def _compile_editable_spec(
     analysis: dict[str, Any], rules: dict[str, Any], plan: dict[str, Any]
 ) -> dict[str, Any]:
@@ -1726,6 +2125,8 @@ def _compile_editable_spec(
             and isinstance(slot.get("semanticRole"), str)
             and slot["semanticRole"].strip()
             and slot.get("type") in set(slot_contract["slotTypes"].values())
+            and isinstance(slot.get("defaultValue"), str)
+            and isinstance(slot.get("suggestions"), list)
             and (slot["type"] == subject_upload_type)
             is (slot["semanticRole"] == subject_role)
             and isinstance(slot.get("valueGates"), dict)
@@ -1740,7 +2141,7 @@ def _compile_editable_spec(
             rules,
             "blocked",
             "contractFailure",
-            "槽位候选必须为四道具名价值门禁提供完整布尔结论。",
+            "槽位候选必须提供合法默认值、推荐池和四道具名价值门禁。",
             {},
         )
     slots = [slot for slot in slot_candidates if all(slot["valueGates"][role] for role in value_gate_roles)]
@@ -1781,6 +2182,9 @@ def _compile_editable_spec(
                 "身份文字的中性文字槽与 Replacement Plan 不一致，或具体身份文字与开放主体同时存在。",
                 {},
             )
+    text_regions, visible_text_inventory = _validate_visible_text_contract(
+        analysis, slots, rules
+    )
     budget = rules["slotBudget"]
     has_primary_subject = analysis.get("hasPrimarySubject")
     subject_kind = analysis.get("subjectKind")
@@ -2066,6 +2470,8 @@ def _compile_editable_spec(
         "slotSuggestionPools": {slot["id"]: slot["suggestions"] for slot in slots},
         "promptTemplate": prompt_template,
         "freeEditableContent": analysis["freeEditableContent"],
+        rules["visibleTextContract"]["analysisFields"]["regions"]: text_regions,
+        rules["visibleTextContract"]["analysisFields"]["inventory"]: visible_text_inventory,
         "tags": analysis["tags"],
         "resolvedPromptContract": {
             "singleSourceField": "promptTemplate",
@@ -2217,11 +2623,14 @@ def _semantic_audit_payload(
     draft: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
     top_level = rules["formalProjection"]["topLevel"]
+    text_analysis_fields = rules["visibleTextContract"]["analysisFields"]
     return copy.deepcopy({
         top_level["userTitle"]: draft[top_level["userTitle"]],
         top_level["userPromptTemplate"]: draft[top_level["userPromptTemplate"]],
         top_level["hiddenPromptEnhancement"]: draft[top_level["hiddenPromptEnhancement"]],
         "freeEditableContent": editable["freeEditableContent"],
+        text_analysis_fields["regions"]: editable[text_analysis_fields["regions"]],
+        text_analysis_fields["inventory"]: editable[text_analysis_fields["inventory"]],
         "slots": [
             {
                 "id": slot["id"],
@@ -2327,6 +2736,18 @@ def _validation_report(
         if slot.get("type") == subject_upload_type
     }
     identity_terms = planned_identity_terms if subject_slot_ids else []
+    text_contract = rules["visibleTextContract"]
+    text_region_fields = text_contract["regionFields"]
+    text_evidence_fields = text_contract["exactEvidenceFields"]
+    identity_text_regions = [
+        region
+        for region in editable[text_contract["analysisFields"]["regions"]]
+        if region.get(text_region_fields["valueClass"])
+        == text_contract["valueClasses"]["identityRelated"]
+    ]
+    identity_neutrality_applicable = bool(
+        subject_slot_ids and (identity_terms or identity_text_regions)
+    )
     non_identity_prompt_content = PLACEHOLDER_WITH_DEFAULT.sub(
         lambda match: "" if match.group(1) in subject_slot_ids else match.group(0),
         draft[prompt_field],
@@ -2381,6 +2802,7 @@ def _validation_report(
     instruction_scope_field = semantic_audit_roles["instructionScope"]["evidence"]
     hidden_responsibility_field = semantic_audit_roles["hiddenLayerResponsibilities"]["evidence"]
     identity_neutrality_field = semantic_audit_roles["identityNeutrality"]["evidence"]
+    visible_text_classification_field = semantic_audit_roles["visibleTextClassification"]["evidence"]
     resolved_cases = evidence.get(resolved_cases_field)
     reviewed_open_axes = evidence.get(open_axes_field)
     maximum_difference_inputs = evidence.get(maximum_difference_field)
@@ -2388,10 +2810,210 @@ def _validation_report(
     instruction_scope_review = evidence.get(instruction_scope_field)
     hidden_responsibility_review = evidence.get(hidden_responsibility_field)
     identity_neutrality_review = evidence.get(identity_neutrality_field)
+    visible_text_classification_review = evidence.get(visible_text_classification_field)
     identity_neutrality_fields = identity_contract["neutralityAuditFields"]
+    text_audit_fields = text_contract["semanticAuditFields"]
+    text_decision_fields = text_contract["semanticDecisionFields"]
+    expected_text_decisions = {
+        (
+            region[text_region_fields["identity"]],
+            region[text_region_fields["role"]],
+            region[text_region_fields["action"]],
+            region[text_region_fields["valueClass"]],
+            region[text_region_fields["exactTextEvidence"]][
+                text_evidence_fields["language"]
+            ],
+            tuple(
+                region[text_region_fields["exactTextEvidence"]][
+                    text_evidence_fields["tokens"]
+                ]
+            ),
+        )
+        for region in editable[text_contract["analysisFields"]["regions"]]
+    }
+    observed_text_decisions = set()
+    if isinstance(visible_text_classification_review, dict):
+        raw_text_decisions = visible_text_classification_review.get(
+            text_audit_fields["decisions"]
+        )
+        for decision in raw_text_decisions if isinstance(raw_text_decisions, list) else []:
+            if isinstance(decision, dict):
+                observed_decision = (
+                    decision.get(text_region_fields["identity"]),
+                    decision.get(text_region_fields["role"]),
+                    decision.get(text_region_fields["action"]),
+                    decision.get(text_region_fields["valueClass"]),
+                    decision.get(text_decision_fields["observedLanguage"]),
+                    tuple(decision.get(text_decision_fields["observedTokens"], []))
+                    if isinstance(
+                        decision.get(text_decision_fields["observedTokens"]), list
+                    )
+                    and all(
+                        isinstance(value, str)
+                        for value in decision[text_decision_fields["observedTokens"]]
+                    )
+                    else None,
+                )
+                if all(isinstance(value, str) for value in observed_decision[:5]) and isinstance(
+                    observed_decision[5], tuple
+                ):
+                    observed_text_decisions.add(observed_decision)
+    identity_neutral_region_ids = {
+        region[text_region_fields["identity"]]
+        for region in identity_text_regions
+    }
+    slot_origin_fields = text_contract["slotOriginFields"]
+    slot_origin_decisions = (
+        visible_text_classification_review.get(text_audit_fields["slotOrigins"])
+        if isinstance(visible_text_classification_review, dict)
+        else None
+    )
+    expected_slot_ids = {slot["id"] for slot in editable["slots"]}
+    region_by_id = {
+        region[text_region_fields["identity"]]: region
+        for region in editable[text_contract["analysisFields"]["regions"]]
+    }
+
+    def required_slot_origin(slot_id: str) -> str | None:
+        return next(
+            (
+                region[text_region_fields["identity"]]
+                for region in region_by_id.values()
+                if region.get(text_region_fields["action"])
+                == text_contract["actions"]["openSlot"]
+                and region.get(text_region_fields["slotIdentity"]) == slot_id
+            ),
+            None,
+        )
+
+    slot_origin_evidence_valid = bool(
+        isinstance(slot_origin_decisions, list)
+        and len(slot_origin_decisions) == len(expected_slot_ids)
+        and all(
+            isinstance(decision, dict)
+            and set(decision) == set(slot_origin_fields.values())
+            and isinstance(decision.get(slot_origin_fields["slotIdentity"]), str)
+            and (
+                decision.get(slot_origin_fields["originRegionIdentity"]) is None
+                or isinstance(
+                    decision.get(slot_origin_fields["originRegionIdentity"]), str
+                )
+            )
+            and isinstance(decision.get(slot_origin_fields["explanation"]), str)
+            and decision[slot_origin_fields["explanation"]].strip()
+            for decision in slot_origin_decisions
+        )
+        and {
+            decision[slot_origin_fields["slotIdentity"]]
+            for decision in slot_origin_decisions
+        }
+        == expected_slot_ids
+        and all(
+            (
+                required_slot_origin(decision[slot_origin_fields["slotIdentity"]])
+                is None
+                or decision[slot_origin_fields["originRegionIdentity"]]
+                == required_slot_origin(decision[slot_origin_fields["slotIdentity"]])
+            )
+            and (
+                decision[slot_origin_fields["originRegionIdentity"]] is None
+                or (
+                    decision[slot_origin_fields["originRegionIdentity"]] in region_by_id
+                    and region_by_id[
+                        decision[slot_origin_fields["originRegionIdentity"]]
+                    ].get(text_region_fields["action"])
+                    == text_contract["actions"]["openSlot"]
+                    and region_by_id[
+                        decision[slot_origin_fields["originRegionIdentity"]]
+                    ].get(text_region_fields["slotIdentity"])
+                    == decision[slot_origin_fields["slotIdentity"]]
+                )
+            )
+            for decision in slot_origin_decisions
+        )
+    )
+    free_origin_fields = text_contract["freeContentOriginFields"]
+    free_origin_decisions = (
+        visible_text_classification_review.get(text_audit_fields["freeContentOrigins"])
+        if isinstance(visible_text_classification_review, dict)
+        else None
+    )
+    expected_free_content = editable.get("freeEditableContent", [])
+
+    def required_free_content_origin(value: str) -> str | None:
+        return next(
+            (
+                region[text_region_fields["identity"]]
+                for region in region_by_id.values()
+                if region.get(text_region_fields["action"])
+                == text_contract["actions"]["freeEditable"]
+                and region.get(text_region_fields["selectedText"]) == value
+            ),
+            None,
+        )
+
+    free_origin_evidence_valid = bool(
+        isinstance(free_origin_decisions, list)
+        and len(free_origin_decisions) == len(expected_free_content)
+        and all(
+            isinstance(decision, dict)
+            and set(decision) == set(free_origin_fields.values())
+            and isinstance(decision.get(free_origin_fields["content"]), str)
+            and (
+                decision.get(free_origin_fields["originRegionIdentity"]) is None
+                or isinstance(
+                    decision.get(free_origin_fields["originRegionIdentity"]), str
+                )
+            )
+            and isinstance(decision.get(free_origin_fields["explanation"]), str)
+            and decision[free_origin_fields["explanation"]].strip()
+            for decision in free_origin_decisions
+        )
+        and sorted(
+            decision[free_origin_fields["content"]]
+            for decision in free_origin_decisions
+        )
+        == sorted(expected_free_content)
+        and all(
+            (
+                required_free_content_origin(decision[free_origin_fields["content"]])
+                is None
+                or decision[free_origin_fields["originRegionIdentity"]]
+                == required_free_content_origin(decision[free_origin_fields["content"]])
+            )
+            and (
+                decision[free_origin_fields["originRegionIdentity"]] is None
+                or (
+                    decision[free_origin_fields["originRegionIdentity"]] in region_by_id
+                    and region_by_id[
+                        decision[free_origin_fields["originRegionIdentity"]]
+                    ].get(text_region_fields["action"])
+                    == text_contract["actions"]["freeEditable"]
+                    and region_by_id[
+                        decision[free_origin_fields["originRegionIdentity"]]
+                    ].get(text_region_fields["selectedText"])
+                    == decision[free_origin_fields["content"]]
+                )
+            )
+            for decision in free_origin_decisions
+        )
+    )
+    fixed_region_leaks = (
+        visible_text_classification_review.get(text_audit_fields["fixedRegionLeaks"])
+        if isinstance(visible_text_classification_review, dict)
+        else None
+    )
+    fixed_region_leak_evidence_valid = bool(
+        isinstance(fixed_region_leaks, list)
+        and all(
+            isinstance(region_id, str) and region_id.strip()
+            for region_id in fixed_region_leaks
+        )
+        and len(fixed_region_leaks) == len(set(fixed_region_leaks))
+        and not fixed_region_leaks
+    )
     expected_resolved_cases = {label for label, _ in resolved_prompts}
     expected_open_axes = {slot["semanticRole"] for slot in editable["slots"]}
-    expected_slot_ids = {slot["id"] for slot in editable["slots"]}
     maximum_difference_set = (
         set(maximum_difference_inputs) if unique_nonempty_strings(maximum_difference_inputs) else set()
     )
@@ -2429,7 +3051,7 @@ def _validation_report(
         and isinstance(identity_neutrality_review, dict)
         and set(identity_neutrality_review) == set(identity_neutrality_fields.values())
         and identity_neutrality_review.get(identity_neutrality_fields["applicability"])
-        is bool(identity_terms)
+        is identity_neutrality_applicable
         and identity_neutrality_review.get(
             identity_neutrality_fields["specificIdentityDetected"]
         )
@@ -2438,6 +3060,77 @@ def _validation_report(
             identity_neutrality_review.get(identity_neutrality_fields["explanation"]), str
         )
         and identity_neutrality_review[identity_neutrality_fields["explanation"]].strip()
+        and isinstance(visible_text_classification_review, dict)
+        and set(visible_text_classification_review) == set(text_audit_fields.values())
+        and isinstance(
+            visible_text_classification_review.get(text_audit_fields["reviewedRegionIdentities"]),
+            list,
+        )
+        and all(
+            isinstance(region_id, str) and region_id.strip()
+            for region_id in visible_text_classification_review[
+                text_audit_fields["reviewedRegionIdentities"]
+            ]
+        )
+        and len(
+            visible_text_classification_review[
+                text_audit_fields["reviewedRegionIdentities"]
+            ]
+        )
+        == len(
+            set(
+                visible_text_classification_review[
+                    text_audit_fields["reviewedRegionIdentities"]
+                ]
+            )
+        )
+        and set(
+            visible_text_classification_review[text_audit_fields["reviewedRegionIdentities"]]
+        )
+        == {
+            region[text_region_fields["identity"]]
+            for region in editable[text_contract["analysisFields"]["regions"]]
+        }
+        and isinstance(
+            visible_text_classification_review.get(text_audit_fields["decisions"]), list
+        )
+        and len(visible_text_classification_review[text_audit_fields["decisions"]])
+        == len(expected_text_decisions)
+        and observed_text_decisions == expected_text_decisions
+        and slot_origin_evidence_valid
+        and free_origin_evidence_valid
+        and fixed_region_leak_evidence_valid
+        and all(
+            isinstance(decision, dict)
+            and set(decision)
+            == {
+                text_region_fields["identity"],
+                text_region_fields["role"],
+                text_region_fields["action"],
+                text_region_fields["valueClass"],
+                text_decision_fields["observedLanguage"],
+                text_decision_fields["observedTokens"],
+                text_decision_fields["identityNeutral"],
+                text_audit_fields["explanation"],
+            }
+            and isinstance(
+                decision.get(text_decision_fields["identityNeutral"]), bool
+            )
+            and (
+                not identity_neutrality_applicable
+                or decision.get(text_region_fields["identity"])
+                not in identity_neutral_region_ids
+                or decision.get(text_decision_fields["identityNeutral"]) is True
+            )
+            and isinstance(decision.get(text_audit_fields["explanation"]), str)
+            and decision[text_audit_fields["explanation"]].strip()
+            for decision in visible_text_classification_review[text_audit_fields["decisions"]]
+        )
+        and visible_text_classification_review.get(text_audit_fields["complete"]) is True
+        and isinstance(
+            visible_text_classification_review.get(text_audit_fields["explanation"]), str
+        )
+        and visible_text_classification_review[text_audit_fields["explanation"]].strip()
     )
 
     semantic_audit_contract_valid = (

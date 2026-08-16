@@ -22,6 +22,8 @@ Prompt Template 是完整自然语言描述：
 
 `editable-template-spec.json` 保存 `resolvedPromptContract`：`promptTemplate` 是槽位编辑与全文编辑的唯一用户可见文字源；每个 placeholder 必须携带与侧车 `defaultValue` 完全一致的内联默认值，默认槽位值代入后形成无残留 placeholder 的 `defaultResolvedPrompt`。次要可读文字具有编辑价值时留在 `freeEditableContent` 和 Prompt Template，不自动暴露为控件。
 
+可见文字先依据 [可见文字区域与文字槽合同](visible-text-contract.md) 完整清点和分类。只有身份相关文字、主要视觉文字或长文高价值 span 可以成为文字槽；归因、水印、品牌、装饰微字和低价值海报信息不能占用槽位预算。token、换行、大小写、罕见符号和必要符号拓扑接受确定性门禁，实际语种与身份中性由内容摘要绑定的独立逐区域语义审计确认。
+
 P6 必须确认全部 `freeEditableContent` 原样进入 Prompt Template，并分别代入槽位默认值与每个推荐值。所有代入结果都要解除 placeholder、保留完整句式与自然标点；只有占位符拼接的片段不属于完整 Prompt。完整句式的自然度属于推理性判断，由独立语义审计 adapter 复核并输出结构化证据。adapter 只接收深拷贝审计快照；调用前后摘要必须一致，原地变异按外部 adapter 失败处理。
 
 Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存于 `editable-template-spec.json`。两个集合独立编译，正式 JSON 只包含产品合同支持的槽位建议。

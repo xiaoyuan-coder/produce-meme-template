@@ -95,6 +95,13 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_8_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E14", "E15", "E16", "E17", "E18", "E24", "E27", "E28"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
     def test_replacement_enums_expose_named_domain_roles(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
 
@@ -237,6 +244,81 @@ class RepositoryContractTest(unittest.TestCase):
                 direct_review_fields.add(node.args[0].value)
 
         self.assertTrue(evidence_fields.isdisjoint(direct_review_fields))
+
+    def test_visible_text_contract_values_have_one_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["visibleTextContract"]
+        contract_role_names = set()
+
+        def collect_role_names(value: object) -> None:
+            if isinstance(value, dict):
+                contract_role_names.update(value)
+                for nested in value.values():
+                    collect_role_names(nested)
+
+        collect_role_names(contract)
+        machine_values = {contract["slotBindingField"]}
+        for field in (
+            "analysisFields",
+            "inventoryFields",
+            "regionFields",
+            "roles",
+            "actions",
+            "valueClasses",
+            "exactEvidenceFields",
+            "languageValues",
+            "semanticAuditFields",
+            "semanticDecisionFields",
+            "slotOriginFields",
+            "freeContentOriginFields",
+        ):
+            machine_values.update(contract[field].values())
+        for values in contract["allowedActionsByRole"].values():
+            machine_values.update(values)
+        machine_values.update(contract["openSlotValueClasses"])
+        machine_values.update(contract["freeEditableValueClasses"])
+        machine_values.update(contract["nonSlotValueClasses"])
+        machine_values -= contract_role_names | {
+            "id",
+            "evidence",
+            "preserve",
+            "remove",
+            "review",
+            "content",
+            "attribution",
+            "watermark",
+            "brand",
+            "ambiguous",
+        }
+
+        sources = [
+            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "adapters.py",
+            ROOT / "tests" / "test_issue_5_editable_prompt_compiler.py",
+            ROOT / "tests" / "test_issue_7_identity_replacement.py",
+            ROOT / "tests" / "test_issue_8_text_dense_templates.py",
+        ]
+        for path in sources:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            literals = {
+                node.value
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            }
+            self.assertTrue(machine_values.isdisjoint(literals), path.as_posix())
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+                    continue
+                collection = {
+                    item.value
+                    for item in node.elts
+                    if isinstance(item, ast.Constant) and isinstance(item.value, str)
+                }
+                self.assertNotEqual(
+                    set(contract["commonPunctuationCharacters"]),
+                    collection,
+                    path.as_posix(),
+                )
 
 
 if __name__ == "__main__":

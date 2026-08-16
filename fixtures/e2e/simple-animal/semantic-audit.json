@@ -1,7 +1,7 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.7.0",
-  "contentSha256": "5588b857a603de68239949686ec6a218188ee2b3f35cb8bddbd15ac11ffc8de4",
+  "schemaVersion": "0.8.0",
+  "contentSha256": "fcc0eb9a07ccf0754a8f78b8ebd532e600a46209a2d9d5c96aa3e6a3b2e77323",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,
@@ -9,7 +9,8 @@
     "slotSuggestionsSameAxisAndGranularity": true,
     "instructionScopeValid": true,
     "hiddenLayersResponsibilitiesSeparated": true,
-    "identityNeutralDefaultsValid": true
+    "identityNeutralDefaultsValid": true,
+    "visibleTextClassificationValid": true
   },
   "evidence": {
     "promptResolutionCases": [
@@ -42,6 +43,12 @@
       "applicable": false,
       "identitySpecificDefaultDetected": false,
       "evidence": "当前模板不属于开放身份路由"
+    },
+    "visibleTextClassificationReview": {
+      "reviewedRegionIds": [],
+      "roleActionDecisions": [],
+      "allVisibleTextClassified": true,
+      "evidence": "全画布没有独立可见文字区域，清单为空且完整"
     }
   }
 }

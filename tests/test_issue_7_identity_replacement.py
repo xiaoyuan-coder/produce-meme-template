@@ -26,6 +26,15 @@ COUNT_FIELDS = SLOT_CONTRACT["assetUnitCountFields"]
 IDENTITY_CONTRACT = RULES["identityReplacementContract"]
 IDENTITY_PLAN_FIELDS = IDENTITY_CONTRACT["planFields"]
 IDENTITY_SOURCE_FIELDS = IDENTITY_CONTRACT["sourceFields"]
+TEXT_CONTRACT = RULES["visibleTextContract"]
+TEXT_ANALYSIS_FIELDS = TEXT_CONTRACT["analysisFields"]
+TEXT_INVENTORY_FIELDS = TEXT_CONTRACT["inventoryFields"]
+TEXT_REGION_FIELDS = TEXT_CONTRACT["regionFields"]
+TEXT_EVIDENCE_FIELDS = TEXT_CONTRACT["exactEvidenceFields"]
+TEXT_ROLES = TEXT_CONTRACT["roles"]
+TEXT_ACTIONS = TEXT_CONTRACT["actions"]
+TEXT_VALUE_CLASSES = TEXT_CONTRACT["valueClasses"]
+TEXT_LANGUAGES = TEXT_CONTRACT["languageValues"]
 
 
 def load_json(path: Path) -> dict:
@@ -263,7 +272,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
         if scenario["exposeText"]:
             text_slot = {
                 "id": "identity_label",
-                "type": "text",
+                "type": SLOT_CONTRACT["slotTypes"]["visibleTextPrompt"],
                 "semanticRole": SLOT_CONTRACT["semanticRoles"]["identityText"],
                 "label": "画面标签",
                 "placeholder": "输入中性人物标签",
@@ -278,6 +287,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                     "visibleText": scenario["identityTextResult"],
                     "evidence": "标题栏中的中性大字清晰可辨",
                 },
+                TEXT_CONTRACT["slotBindingField"]: "identity-label-region",
             }
             analysis["slotCandidates"].append(text_slot)
             analysis["promptTemplate"] = analysis["promptTemplate"].removesuffix("。") + (
@@ -289,6 +299,57 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                     "reviewed": True,
                     "reason": "当前确认模板图使用简短英文中性标签",
                 }
+            }
+            analysis[TEXT_ANALYSIS_FIELDS["regions"]] = [
+                {
+                    TEXT_REGION_FIELDS["identity"]: "identity-label-region",
+                    TEXT_REGION_FIELDS["sourceText"]: scenario["identityTextResult"],
+                    TEXT_REGION_FIELDS["role"]: TEXT_ROLES["content"],
+                    TEXT_REGION_FIELDS["valueClass"]: TEXT_VALUE_CLASSES["identityRelated"],
+                    TEXT_REGION_FIELDS["action"]: TEXT_ACTIONS["openSlot"],
+                    TEXT_REGION_FIELDS["slotIdentity"]: "identity_label",
+                    TEXT_REGION_FIELDS["selectedText"]: scenario["identityTextResult"],
+                    TEXT_REGION_FIELDS["exactTextEvidence"]: {
+                        TEXT_EVIDENCE_FIELDS["language"]: TEXT_LANGUAGES["english"],
+                        TEXT_EVIDENCE_FIELDS["tokens"]: [scenario["identityTextResult"]],
+                        TEXT_EVIDENCE_FIELDS["lines"]: [scenario["identityTextResult"]],
+                        TEXT_EVIDENCE_FIELDS["caseSensitiveTokens"]: [scenario["identityTextResult"]],
+                        TEXT_EVIDENCE_FIELDS["rareSymbols"]: [],
+                        TEXT_EVIDENCE_FIELDS["symbolTopology"]: "标题栏单行大写身份标签",
+                        TEXT_EVIDENCE_FIELDS["explanation"]: "逐字核对标题栏的中性身份文字",
+                    },
+                }
+            ]
+            analysis[TEXT_ANALYSIS_FIELDS["inventory"]] = {
+                TEXT_INVENTORY_FIELDS["complete"]: True,
+                TEXT_INVENTORY_FIELDS["regionIdentities"]: ["identity-label-region"],
+                TEXT_INVENTORY_FIELDS["explanation"]: "标题栏是模板图中唯一可见文字区域",
+            }
+        elif scenario["identityTextActionRole"] == "synchronize":
+            synchronized_text = scenario["identityTextResult"]
+            analysis[TEXT_ANALYSIS_FIELDS["regions"]] = [
+                {
+                    TEXT_REGION_FIELDS["identity"]: "synchronized-identity-region",
+                    TEXT_REGION_FIELDS["sourceText"]: synchronized_text,
+                    TEXT_REGION_FIELDS["role"]: TEXT_ROLES["content"],
+                    TEXT_REGION_FIELDS["valueClass"]: TEXT_VALUE_CLASSES["identityRelated"],
+                    TEXT_REGION_FIELDS["action"]: TEXT_ACTIONS["preserve"],
+                    TEXT_REGION_FIELDS["selectedText"]: synchronized_text,
+                    TEXT_REGION_FIELDS["exactTextEvidence"]: {
+                        TEXT_EVIDENCE_FIELDS["language"]: TEXT_LANGUAGES["simplifiedChinese"] if any("\u4e00" <= c <= "\u9fff" for c in synchronized_text) else TEXT_LANGUAGES["english"],
+                        TEXT_EVIDENCE_FIELDS["tokens"]: [synchronized_text],
+                        TEXT_EVIDENCE_FIELDS["lines"]: [synchronized_text],
+                        TEXT_EVIDENCE_FIELDS["caseSensitiveTokens"]: [synchronized_text] if synchronized_text.isascii() else [],
+                        TEXT_EVIDENCE_FIELDS["rareSymbols"]: [],
+                        TEXT_EVIDENCE_FIELDS["symbolTopology"]: "单行身份文字与固定主体同步",
+                        TEXT_EVIDENCE_FIELDS["explanation"]: "逐字核对固定主体对应的同步身份文字",
+                    },
+                }
+            ]
+            analysis[TEXT_ANALYSIS_FIELDS["inventory"]] = {
+                TEXT_INVENTORY_FIELDS["complete"]: True,
+                TEXT_INVENTORY_FIELDS["regionIdentities"]: ["synchronized-identity-region"],
+                TEXT_INVENTORY_FIELDS["explanation"]: "固定身份路线的同步文字已完整分类",
             }
         if self.approved_transform:
             analysis = self.approved_transform(analysis)

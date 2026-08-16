@@ -24,6 +24,15 @@ PERSON_ATTRIBUTE_ROLES = tuple(SLOT_CONTRACT["personAttributeRoles"].values())
 SINGLE_SLOT_REVIEW_AXES = tuple(SLOT_CONTRACT["singleSlotReviewAxes"].values())
 ASSET_COUNT_FIELDS = SLOT_CONTRACT["assetUnitCountFields"]
 VISIBLE_TEXT_SLOT_TYPE = SLOT_CONTRACT["slotTypes"]["visibleTextPrompt"]
+TEXT_CONTRACT = RULES["visibleTextContract"]
+TEXT_ANALYSIS_FIELDS = TEXT_CONTRACT["analysisFields"]
+TEXT_INVENTORY_FIELDS = TEXT_CONTRACT["inventoryFields"]
+TEXT_REGION_FIELDS = TEXT_CONTRACT["regionFields"]
+TEXT_EVIDENCE_FIELDS = TEXT_CONTRACT["exactEvidenceFields"]
+TEXT_ROLES = TEXT_CONTRACT["roles"]
+TEXT_ACTIONS = TEXT_CONTRACT["actions"]
+TEXT_VALUE_CLASSES = TEXT_CONTRACT["valueClasses"]
+TEXT_LANGUAGES = TEXT_CONTRACT["languageValues"]
 
 
 def load_json(path: Path) -> dict:
@@ -303,10 +312,36 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         def bound_exact_text(analysis: dict) -> dict:
             analysis = fake_exact_text(analysis)
             slot = analysis["slotCandidates"][1]
+            slot[TEXT_CONTRACT["slotBindingField"]] = "long-visible-text-region"
             slot["exactVisibleTextEvidence"] = {
                 "approvedImageSha256": analysis["visualFactSourceSha256"],
                 "visibleText": long_visible_text,
                 "evidence": "Approved Template Image 的软垫区域逐字可见",
+            }
+            analysis[TEXT_ANALYSIS_FIELDS["regions"]] = [
+                {
+                    TEXT_REGION_FIELDS["identity"]: "long-visible-text-region",
+                    TEXT_REGION_FIELDS["sourceText"]: long_visible_text,
+                    TEXT_REGION_FIELDS["role"]: TEXT_ROLES["content"],
+                    TEXT_REGION_FIELDS["valueClass"]: TEXT_VALUE_CLASSES["primaryVisual"],
+                    TEXT_REGION_FIELDS["action"]: TEXT_ACTIONS["openSlot"],
+                    TEXT_REGION_FIELDS["slotIdentity"]: slot["id"],
+                    TEXT_REGION_FIELDS["selectedText"]: long_visible_text,
+                    TEXT_REGION_FIELDS["exactTextEvidence"]: {
+                        TEXT_EVIDENCE_FIELDS["language"]: TEXT_LANGUAGES["simplifiedChinese"],
+                        TEXT_EVIDENCE_FIELDS["tokens"]: [long_visible_text],
+                        TEXT_EVIDENCE_FIELDS["lines"]: [long_visible_text],
+                        TEXT_EVIDENCE_FIELDS["caseSensitiveTokens"]: [],
+                        TEXT_EVIDENCE_FIELDS["rareSymbols"]: [],
+                        TEXT_EVIDENCE_FIELDS["symbolTopology"]: "单行主要视觉文字",
+                        TEXT_EVIDENCE_FIELDS["explanation"]: "逐字核对模板图的主要文字区域",
+                    },
+                }
+            ]
+            analysis[TEXT_ANALYSIS_FIELDS["inventory"]] = {
+                TEXT_INVENTORY_FIELDS["complete"]: True,
+                TEXT_INVENTORY_FIELDS["regionIdentities"]: ["long-visible-text-region"],
+                TEXT_INVENTORY_FIELDS["explanation"]: "全画布检查后仅有这一组主要文字",
             }
             return analysis
 

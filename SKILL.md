@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-当前已提供 Issue #2–#7 的单图纵向切片：普通真人可以 prompt-only 生成新身份，公众人物和知名 IP 通过含身份锚点、反锚点和玩法融合要求的同类候选卡替换，重复实例、影子、倒影、相框、徽章和身份文字统一进入依赖闭包。P2 执行视觉与身份文字硬门禁，P3–P6 编译高价值槽位、中性默认内容和统一 resolved Prompt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 回填。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
+当前已提供 Issue #2–#8 的单图纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字，再把身份文字、主要视觉文字或长文高价值短语编译为文字槽，次要可读文字保留在全文编辑。P2 执行视觉与身份文字硬门禁，P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 回填。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
 
 ## 开始工作
 
@@ -34,6 +34,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 - P2 的视觉硬门禁、证据绑定、自主确认和不可变重做读取 [模板图确认与恢复合同](references/template-image-gate.md)。
 - P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。
+- P3–P6 遇到可见文字、文字密集海报或文字槽时读取 [可见文字区域与文字槽合同](references/visible-text-contract.md)。
 - 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/gallery-template.schema.json`。
 
 ## 事实源

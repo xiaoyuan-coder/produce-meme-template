@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "updated_at": "2026-08-16",
-  "description": "实现 Issue #7 普通真人、公众人物与知名 IP 身份路由、候选卡、依赖闭包和身份文字硬门禁。",
+  "description": "实现 Issue #8 可见文字分区、角色与操作分类、高价值文字槽、长文 span 和精确文字保真门禁。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -50,10 +50,13 @@
     "fixtures/e2e/simple-animal/source-analysis.json",
     "fixtures/e2e/simple-animal/source-image.ppm",
     "fixtures/e2e/simple-animal/visual-review.json",
+    "fixtures/e2e/text-dense/README.md",
+    "fixtures/e2e/text-dense/scenarios.json",
     "references/gallery-template-compiler.md",
     "references/replacement-spec.md",
     "references/template-image-gate.md",
     "references/vertical-slice-runtime.md",
+    "references/visible-text-contract.md",
     "release.json",
     "requirements.txt",
     "scripts/produce.py",
@@ -77,6 +80,7 @@
     "tests/test_issue_5_editable_prompt_compiler.py",
     "tests/test_issue_6_formal_gallery_contract.py",
     "tests/test_issue_7_identity_replacement.py",
+    "tests/test_issue_8_text_dense_templates.py",
     "tests/test_repository_contract.py"
   ]
 }

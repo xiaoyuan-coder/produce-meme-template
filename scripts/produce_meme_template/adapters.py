@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,48 @@ def _semantic_overlap(left: str, right: str) -> bool:
         normalized_left
         and normalized_right
         and (normalized_left in normalized_right or normalized_right in normalized_left)
+    )
+
+
+def _fixture_observed_language(
+    source_text: str, declared_language: str, contract: dict[str, Any]
+) -> str:
+    languages = contract["languageValues"]
+    has_latin = bool(re.search(r"[A-Za-z]", source_text))
+    has_cjk = bool(re.search(r"[\u3400-\u4dbf\u4e00-\u9fff]", source_text))
+    has_kana = bool(re.search(contract["japaneseKanaPattern"], source_text))
+    has_hangul = bool(re.search(contract["koreanHangulPattern"], source_text))
+    if has_latin and (has_cjk or has_kana or has_hangul):
+        return languages["mixed"]
+    if has_kana:
+        return languages["japanese"]
+    if has_hangul:
+        return languages["korean"]
+    if has_latin:
+        return languages["english"]
+    if has_cjk:
+        # The deterministic fixture adapter recognizes its regression corpus.
+        # Production adapters perform the same decision from the Approved Image.
+        traditional_regression_characters = set("歡迎光臨藝術設計")
+        if any(character in traditional_regression_characters for character in source_text):
+            return languages["traditionalChinese"]
+    return declared_language
+
+
+def _fixture_identity_text_is_neutral(values: list[str]) -> bool:
+    neutral_meaning = re.compile(
+        r"^(?:portrait|profile|player|your\s+name|hero|人物|角色|主角|档案|简介|代号|昵称)$",
+        re.IGNORECASE,
+    )
+    return all(bool(neutral_meaning.fullmatch(value.strip())) for value in values)
+
+
+def _fixture_normalized_visible_text(value: str) -> str:
+    return "".join(
+        character
+        for character in unicodedata.normalize("NFKC", value).casefold()
+        if not character.isspace()
+        and not unicodedata.category(character).startswith(("P", "Z"))
     )
 
 
@@ -159,9 +202,183 @@ class DeterministicFixtureAdapters:
             slot["suggestions"][0] for slot in slots
         ]
         result["evidence"][roles["slotSuggestions"]["evidence"]] = [slot["id"] for slot in slots]
+        text_contract = rules["visibleTextContract"]
+        region_fields = text_contract["regionFields"]
+        audit_fields = text_contract["semanticAuditFields"]
+        decision_fields = text_contract["semanticDecisionFields"]
+        regions = content[text_contract["analysisFields"]["regions"]]
+        identity_value_class = text_contract["valueClasses"]["identityRelated"]
+        subject_type = rules["slotCompilationContract"]["slotTypes"]["primarySubjectUpload"]
+        subject_open = any(slot["type"] == subject_type for slot in slots)
+
+        def region_identity_is_neutral(region: dict[str, Any]) -> bool:
+            if region[region_fields["valueClass"]] != identity_value_class:
+                return True
+            values = [region[region_fields["selectedText"]]]
+            slot_id = region.get(region_fields["slotIdentity"])
+            if slot_id:
+                values.extend(
+                    suggestion
+                    for slot in slots
+                    if slot["id"] == slot_id
+                    for suggestion in slot["suggestions"]
+                )
+            return _fixture_identity_text_is_neutral(values)
+
+        slot_origin_fields = text_contract["slotOriginFields"]
+        free_origin_fields = text_contract["freeContentOriginFields"]
+        actions = text_contract["actions"]
+
+        def region_matches_values(region: dict[str, Any], values: list[str]) -> bool:
+            normalized_values = [
+                _fixture_normalized_visible_text(value) for value in values
+            ]
+            source = _fixture_normalized_visible_text(
+                region[region_fields["sourceText"]]
+            )
+            if source and any(source in value for value in normalized_values):
+                return True
+            lexemes = re.findall(
+                r"[A-Za-z]+|\d+|[\u3400-\u4dbf\u4e00-\u9fff]{2,}",
+                region[region_fields["sourceText"]],
+            )
+            for lexeme in lexemes:
+                normalized = _fixture_normalized_visible_text(lexeme)
+                if len(normalized) < 2:
+                    continue
+                if normalized.isascii():
+                    derived = any(normalized in value for value in normalized_values)
+                else:
+                    derived = any(normalized == value for value in normalized_values)
+                if derived:
+                    return True
+            return False
+
+        def inferred_text_region(values: list[str]) -> str | None:
+            for region in regions:
+                if region_matches_values(region, values):
+                    return region[region_fields["identity"]]
+            return None
+
+        def slot_origin_region(slot: dict[str, Any]) -> str | None:
+            explicit = next(
+                (
+                    region[region_fields["identity"]]
+                    for region in regions
+                    if region.get(region_fields["slotIdentity"]) == slot["id"]
+                ),
+                None,
+            )
+            if explicit is not None:
+                return explicit
+            return inferred_text_region(
+                [slot["defaultValue"], *slot["suggestions"]]
+            )
+
+        def free_content_origin(value: str) -> str | None:
+            explicit = next(
+                (
+                    region[region_fields["identity"]]
+                    for region in regions
+                    if region[region_fields["action"]] == actions["freeEditable"]
+                    and region[region_fields["selectedText"]] == value
+                ),
+                None,
+            )
+            return explicit if explicit is not None else inferred_text_region([value])
+
+        user_visible_texts = [
+            content[rules["formalProjection"]["topLevel"]["userPromptTemplate"]],
+            *content["freeEditableContent"],
+            *[
+                value
+                for slot in slots
+                for value in [slot["defaultValue"], *slot["suggestions"]]
+            ],
+        ]
+        fixed_region_leaks = [
+            region[region_fields["identity"]]
+            for region in regions
+            if region[region_fields["action"]]
+            not in {actions["openSlot"], actions["freeEditable"]}
+            and not (
+                region[region_fields["valueClass"]] == identity_value_class
+                and not subject_open
+            )
+            and region_matches_values(region, user_visible_texts)
+        ]
+
+        result["evidence"][roles["visibleTextClassification"]["evidence"]] = {
+            audit_fields["reviewedRegionIdentities"]: [
+                region[region_fields["identity"]] for region in regions
+            ],
+            audit_fields["decisions"]: [
+                {
+                    region_fields["identity"]: region[region_fields["identity"]],
+                    region_fields["role"]: region[region_fields["role"]],
+                    region_fields["action"]: region[region_fields["action"]],
+                    region_fields["valueClass"]: region[region_fields["valueClass"]],
+                    decision_fields["observedLanguage"]: _fixture_observed_language(
+                        region[region_fields["sourceText"]],
+                        region[region_fields["exactTextEvidence"]][
+                            text_contract["exactEvidenceFields"]["language"]
+                        ],
+                        text_contract,
+                    ),
+                    decision_fields["observedTokens"]: copy.deepcopy(
+                        region[region_fields["exactTextEvidence"]][
+                            text_contract["exactEvidenceFields"]["tokens"]
+                        ]
+                    ),
+                    decision_fields["identityNeutral"]: region_identity_is_neutral(region),
+                    audit_fields["explanation"]: "逐区复核文字角色、编辑价值和处理操作",
+                }
+                for region in regions
+            ],
+            audit_fields["slotOrigins"]: [
+                {
+                    slot_origin_fields["slotIdentity"]: slot["id"],
+                    slot_origin_fields["originRegionIdentity"]: slot_origin_region(slot),
+                    slot_origin_fields["explanation"]: "独立判断槽值是否取自某个可见文字区域",
+                }
+                for slot in slots
+            ],
+            audit_fields["freeContentOrigins"]: [
+                {
+                    free_origin_fields["content"]: value,
+                    free_origin_fields["originRegionIdentity"]: free_content_origin(value),
+                    free_origin_fields["explanation"]: "独立判断自由编辑内容是否取自某个可见文字区域",
+                }
+                for value in content["freeEditableContent"]
+            ],
+            audit_fields["fixedRegionLeaks"]: fixed_region_leaks,
+            audit_fields["complete"]: True,
+            audit_fields["explanation"]: "独立复核全部可见文字区域的角色、价值类别与处理决定",
+        }
         result["observedContentSha256"] = hashlib.sha256(
             json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
+        identity_audit = roles["identityNeutrality"]
+        identity_fields = rules["identityReplacementContract"]["neutralityAuditFields"]
+        identity_regions = [
+            region
+            for region in regions
+            if region[region_fields["valueClass"]] == identity_value_class
+        ]
+        neutrality_applicable = bool(subject_open and identity_regions)
+        identity_specific = bool(
+            neutrality_applicable
+            and any(
+                not region_identity_is_neutral(region)
+                for region in identity_regions
+            )
+        )
+        result["checks"][identity_audit["check"]] = not identity_specific
+        result["evidence"][identity_audit["evidence"]] = {
+            identity_fields["applicability"]: neutrality_applicable,
+            identity_fields["specificIdentityDetected"]: identity_specific,
+            identity_fields["explanation"]: "逐项复核开放主体旁的身份相关文字是否保持中性",
+        }
         return result
 
     def upload(self, approved_image: Path, object_key: str) -> dict[str, Any]:
