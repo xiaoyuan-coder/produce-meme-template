@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-本仓库处于 `0.1.0` 规格阶段。生产脚本、合同和 fixtures 完成前，只使用本 Skill 进行设计与实现，不宣称已经具备 P0–P8 正式生产能力。
+`0.2.0` 已提供 Issue #2 的单图纵向切片：普通动物或物体来源图在无显式策略时可通过一个公共工作流完成 P0–P8。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
 
 ## 开始工作
 
@@ -16,11 +16,24 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 3. 涉及来源网图替换、生图 Prompt 或模板图确认时，完整读取 [第一阶段替换规范](references/replacement-spec.md)。
 4. 将旧 Unified 和上一轮拆分版视为迁移证据；新规则只写入本仓库的唯一所有者。
 
+## 公共入口
+
+- Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters)`。
+- 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir>`。
+- 一次请求只包含一个 `templateKey` 和一张 `sourceImage`；每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
+
 ## 调用边界
 
 - **正式生产**：从来源网图进入 P0–P8，以完成 OSS URL 回填并通过正式投影的 `gallery-template.json` 结束。
 - **批量提交**：把多张来源网图拆成相互独立的 Production Item；仅在用户显式提供共享批次策略时建立跨图约束。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
+
+## 规则路由
+
+- P0–P2 的自主替换、依赖闭包、生图包和视觉门禁读取 [第一阶段替换规范](references/replacement-spec.md)。
+- P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
+- P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。
+- 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/gallery-template.schema.json`。
 
 ## 事实源
 
@@ -30,4 +43,4 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 完成条件
 
-实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。完整生产只有在 P0–P8 全部完成、四层验证通过、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。
+实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。完整生产只有在 P0–P8 全部完成、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。

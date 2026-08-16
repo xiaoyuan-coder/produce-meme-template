@@ -1,0 +1,73 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.2.0",
+  "mechanism": {
+    "setup": "一个小动物蜷卧在软垫上",
+    "turn": "前爪搭住垫边，困倦神态很突出",
+    "payoff": "安静姿态与疲惫表情形成治愈感",
+    "tone": "慵懒、治愈"
+  },
+  "target": {
+    "category": "generic_animal",
+    "role": "画面中央蜷卧的主要动物",
+    "identity": "橘猫"
+  },
+  "replacementPool": [
+    {
+      "value": "柯基犬",
+      "category": "generic_animal",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.96,
+      "reason": "短身轮廓、伏卧姿态和亲近感都能承接原有笑点角色"
+    },
+    {
+      "value": "水豚",
+      "category": "generic_animal",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.88,
+      "reason": "慵懒气质兼容，伏卧轮廓可以保持构图"
+    },
+    {
+      "value": "马克杯",
+      "category": "generic_object",
+      "semanticCompatible": false,
+      "visualCompatible": false,
+      "rightsAndSafety": "pass",
+      "score": 0.2,
+      "reason": "跨类别且无法承接动物姿态"
+    }
+  ],
+  "dependencyClosure": [
+    {"type": "full_body", "value": "主要动物的头部、身体、四肢与耳朵"},
+    {"type": "repeated_instance", "value": "软垫反光中的动物轮廓"},
+    {"type": "shadow", "value": "身体压在软垫上的接触阴影"},
+    {"type": "identity_mark", "value": "橙色条纹与猫科脸部特征"}
+  ],
+  "frozenSet": [
+    "单主体伏卧构图",
+    "前爪搭住垫边的动作",
+    "软垫容器关系",
+    "安静客厅背景与侧面窗光",
+    "摄影媒介与浅景深"
+  ],
+  "visualContract": {
+    "medium": "自然光室内宠物摄影",
+    "form": "单主体伏卧，头部略低，前爪搭住垫边",
+    "edge": "毛发边缘自然，景深过渡柔和",
+    "colorAndShading": "暖色主体与冷灰背景，侧面柔光",
+    "surface": "短毛、织物软垫和木质背景材质可辨",
+    "composition": "主体居中偏下，软垫占下三分之一，背景留白"
+  },
+  "spatialRelations": [
+    "胸腹压住软垫形成接触凹陷",
+    "两只前爪从身体前方搭在垫边",
+    "身体阴影贴合软垫表面"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": ["橘猫", "猫咪", "橙色条纹"]
+}

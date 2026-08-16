@@ -1,0 +1,22 @@
+{
+  "artifactType": "visual-review",
+  "schemaVersion": "0.2.0",
+  "hardGates": {
+    "replacementComplete": true,
+    "dependencyClosureComplete": true,
+    "mechanismPreserved": true,
+    "contactGeometryValid": true,
+    "watermarkFree": true,
+    "legacyIdentityFree": true
+  },
+  "visualDimensions": {
+    "medium": {"pass": true, "evidence": "保持自然光室内摄影"},
+    "form": {"pass": true, "evidence": "单主体结构完整，前爪数量正确"},
+    "edge": {"pass": true, "evidence": "毛发与景深边缘统一"},
+    "colorAndShading": {"pass": true, "evidence": "侧面柔光与明暗方向一致"},
+    "surface": {"pass": true, "evidence": "短毛和织物材质连续"},
+    "composition": {"pass": true, "evidence": "主体、软垫和背景占比保持"}
+  },
+  "watermarkScan": ["显眼标记无残留", "半透明角标无残留", "嵌入区域无残留"],
+  "decision": "approved"
+}

@@ -1,0 +1,26 @@
+{
+  "artifactType": "semantic-audit",
+  "schemaVersion": "0.2.0",
+  "contentSha256": "e449278147dc4f5ace4db8b171c2ebd726ee7df32f91073a4bf008277286ac9d",
+  "checks": {
+    "promptResolutionsNatural": true,
+    "hiddenOpenAxesRemainEditable": true,
+    "titleSurvivesMaximumDifference": true
+  },
+  "evidence": {
+    "promptResolutionCases": [
+      "defaults",
+      "pet_subject=柴犬",
+      "pet_subject=垂耳兔",
+      "pet_subject=小羊",
+      "cushion_look=奶油白绒垫",
+      "cushion_look=湖蓝针织垫",
+      "cushion_look=浅粉格纹软垫",
+      "room_mood=清晨薄雾光",
+      "room_mood=雨天柔光",
+      "room_mood=暖色夜灯"
+    ],
+    "reviewedOpenAxes": ["subject", "container_appearance", "scene_atmosphere"],
+    "maximumDifferenceInputs": ["垂耳兔", "湖蓝针织垫", "暖色夜灯"]
+  }
+}
