@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+from tests.fixture_contracts import rebuild_approved_component_graph
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,7 +46,10 @@ class ApprovedAnalysisAdapters(DeterministicFixtureAdapters):
         self.transform = transform
 
     def analyze_approved(self, approved_image: Path) -> dict:
-        return self.transform(super().analyze_approved(approved_image))
+        analysis = self.transform(super().analyze_approved(approved_image))
+        if "assetUnitAnalysis" in analysis:
+            rebuild_approved_component_graph(analysis, RULES)
+        return analysis
 
     def audit_semantics(self, content: dict) -> dict:
         result = super().audit_semantics(content)
@@ -93,6 +97,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 "reason": "主体替换会破坏唯一的伏卧接触机制",
             }
             analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 2
+            analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["uploads"]] = 0
             return analysis
 
         result = self.run_case("audited-subject-slot-omission", omit_subject)
@@ -297,6 +302,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             old_default = slot["defaultValue"]
             slot["defaultValue"] = long_visible_text
             slot["type"] = VISIBLE_TEXT_SLOT_TYPE
+            slot["semanticRole"] = SLOT_CONTRACT["semanticRoles"]["highValueTextSpan"]
             slot["exactVisibleText"] = True
             analysis["promptTemplate"] = analysis["promptTemplate"].replace(old_default, long_visible_text)
             analysis["defaultValuePreferenceExceptionEvidence"] = {

@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-当前已提供 Issue #2–#8 的单图纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字，再把身份文字、主要视觉文字或长文高价值短语编译为文字槽，次要可读文字保留在全文编辑。P2 执行视觉与身份文字硬门禁，P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 回填。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
+当前已提供 Issue #2–#9 的单图纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字；多实例、镜像、容器、分格和接触关系通过组件图与五类图片操作进入同一 Replacement Plan。P2 执行视觉、身份文字、目标清除、稳定锚点和非目标漂移硬门禁，P3–P6 独立计算画面实例、身份、上传素材与控件，编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 回填。当前仓库内置确定性生成、视觉证据、独立语义审计和 OSS fixture adapter；真实服务 adapter 仍需由调用环境注入。
 
 ## 开始工作
 
@@ -31,6 +31,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 ## 规则路由
 
 - P0–P2 的自主替换、依赖闭包和生图包读取 [第一阶段替换规范](references/replacement-spec.md)。
+- P0–P3 遇到重复实例、镜像、阴影、容器、分格或接触遮挡时读取 [多实例组件图与图片操作合同](references/multi-instance-image-operations.md)。
 - P2 的视觉硬门禁、证据绑定、自主确认和不可变重做读取 [模板图确认与恢复合同](references/template-image-gate.md)。
 - P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。

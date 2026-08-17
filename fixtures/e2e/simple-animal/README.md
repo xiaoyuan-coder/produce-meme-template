@@ -1,4 +1,4 @@
-# Issue #2–#8 tracer fixture
+# Issue #2–#9 tracer fixture
 
 这个 fixture 通过同一个公共工作流运行一张普通动物网图的 P0–P8。适配器读取固定的来源分析、确认模板图审核、模板图分析和独立语义审计，并用图片或被审计内容 SHA 绑定每段证据。
 
@@ -37,5 +37,7 @@ Issue #5 的必填主体判别、主体槽省略证据、单槽例外、唯一�
 Issue #7 的普通真人、公众人物和知名 IP 场景位于 `fixtures/e2e/identity-routes/`；公共 seam 验收位于 `tests/test_issue_7_identity_replacement.py`。
 
 Issue #8 的文字卡、长海报与身份界面场景位于 `fixtures/e2e/text-dense/`；公共 seam 验收位于 `tests/test_issue_8_text_dense_templates.py`。
+
+Issue #9 的相框整图、多人分格、重复宠物、人物接触物体和场景替换位于 `fixtures/e2e/multi-instance/`；公共 seam 验收位于 `tests/test_issue_9_multi_instance_operations.py`。
 
 Issue #6 的严格正式白名单、条件 `needsReview`、sidecar 隔离、模板图 URL 同一性、未知字段与临时值拒绝位于 `tests/test_issue_6_formal_gallery_contract.py`；两份权威样例的输入、显式 expected 投影和摘要证据位于 `fixtures/contracts/latest-gallery-samples/`。

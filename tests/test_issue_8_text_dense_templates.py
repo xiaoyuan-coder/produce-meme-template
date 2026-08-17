@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+from tests.fixture_contracts import rebuild_approved_component_graph
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,6 +30,9 @@ VALUE_CLASSES = TEXT_CONTRACT["valueClasses"]
 LANGUAGES = TEXT_CONTRACT["languageValues"]
 TEXT_SLOT_TYPE = RULES["slotCompilationContract"]["slotTypes"]["visibleTextPrompt"]
 IDENTITY_TEXT_ROLE = RULES["slotCompilationContract"]["semanticRoles"]["identityText"]
+PRIMARY_VISUAL_TEXT_ROLE = RULES["slotCompilationContract"]["semanticRoles"]["primaryVisualText"]
+HIGH_VALUE_TEXT_SPAN_ROLE = RULES["slotCompilationContract"]["semanticRoles"]["highValueTextSpan"]
+DECORATIVE_CAPTION_ROLE = RULES["slotCompilationContract"]["semanticRoles"]["decorativeCaption"]
 
 
 def canonical_sha(value: object) -> str:
@@ -43,7 +47,8 @@ class TextScenarioAdapters(DeterministicFixtureAdapters):
         self.transform = transform
 
     def analyze_approved(self, approved_image: Path) -> dict:
-        return self.transform(super().analyze_approved(approved_image))
+        analysis = self.transform(super().analyze_approved(approved_image))
+        return rebuild_approved_component_graph(analysis, RULES)
 
     def audit_semantics(self, content: dict) -> dict:
         result = super().audit_semantics(content)
@@ -93,7 +98,7 @@ class Issue8TextDenseTemplatesTest(unittest.TestCase):
             {
                 "id": "headline_text",
                 "type": TEXT_SLOT_TYPE,
-                "semanticRole": "primary_visual_text",
+                "semanticRole": PRIMARY_VISUAL_TEXT_ROLE,
                 "label": "画面主文字",
                 "placeholder": "输入主文字",
                 "defaultValue": scenario["sourceText"],
@@ -200,7 +205,7 @@ class Issue8TextDenseTemplatesTest(unittest.TestCase):
             {
                 "id": "poster_keyword",
                 "type": TEXT_SLOT_TYPE,
-                "semanticRole": "high_value_text_span",
+                "semanticRole": HIGH_VALUE_TEXT_SPAN_ROLE,
                 "label": "海报关键词",
                 "placeholder": "输入关键词或短语",
                 "defaultValue": scenario["selectedSpan"],
@@ -694,7 +699,7 @@ class Issue8TextDenseTemplatesTest(unittest.TestCase):
             slot.update(
                 {
                     "id": "decorative_year",
-                    "semanticRole": "decorative_caption",
+                    "semanticRole": DECORATIVE_CAPTION_ROLE,
                     "defaultValue": "2026",
                     "suggestions": ["2025", "2024", "2023"],
                 }

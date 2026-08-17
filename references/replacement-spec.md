@@ -195,7 +195,7 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
 ```json
 {
   "artifactType": "replacement-plan",
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.9.0",
   "templateKey": "example-key",
   "strategy": {
     "source": "per_image | batch | autonomous",
@@ -243,6 +243,8 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
 ```
 
 机器枚举、请求字段白名单和条件约束读取 `contracts/machine-rules.json`；文档示例只解释字段职责。
+
+多实例、镜像、阴影、相框或屏幕内容、多人分格与接触遮挡同时记录 `componentGraph` 和 `imageOperations`。具名依赖闭包必须与操作目标精确一致，五类操作的字段职责与视觉验收读取 [多实例组件图与图片操作合同](multi-instance-image-operations.md)。
 
 ## 8. 阻断条件
 

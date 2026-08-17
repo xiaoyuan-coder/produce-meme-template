@@ -211,8 +211,8 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         review_adapters = DeterministicFixtureAdapters(FIXTURE)
         inspect = review_adapters.inspect_generated
 
-        def mutate_review_context(generated_image: Path, review_context: dict[str, str]) -> dict:
-            review_context["generationPackageSha256"] = "0" * 64
+        def mutate_review_context(generated_image: Path, review_context: dict) -> dict:
+            review_context["bindings"]["generationPackageSha256"] = "0" * 64
             return inspect(generated_image, review_context)
 
         review_adapters.inspect_generated = mutate_review_context

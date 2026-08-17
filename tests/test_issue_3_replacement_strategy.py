@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+from tests.fixture_contracts import (
+    rebuild_approved_component_graph,
+    rebuild_source_component_graph_for_named_closure,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +39,7 @@ RESULT_FAILED = tuple(RULES["resultStates"])[3]
 STRATEGY_PER_IMAGE = RULES["strategySources"]["perImageDecision"]
 STRATEGY_AUTONOMOUS = RULES["strategySources"]["autonomousDecision"]
 SUGGESTION_AUDIT_CHECK = RULES["semanticAuditChecks"]["slotSuggestions"]["check"]
+COUNT_FIELDS = RULES["slotCompilationContract"]["assetUnitCountFields"]
 
 
 class ScenarioAdapters(DeterministicFixtureAdapters):
@@ -52,12 +57,19 @@ class ScenarioAdapters(DeterministicFixtureAdapters):
         self.identity_text_applicable = identity_text_applicable
 
     def analyze_source(self, source_image: Path, replacement_strategy: dict | None) -> dict:
-        return self.source_transform(super().analyze_source(source_image, replacement_strategy))
+        analysis = self.source_transform(
+            super().analyze_source(source_image, replacement_strategy)
+        )
+        self.source_analysis = copy.deepcopy(analysis)
+        return analysis
 
     def analyze_approved(self, approved_image: Path) -> dict:
-        return self.approved_transform(super().analyze_approved(approved_image))
+        analysis = self.approved_transform(super().analyze_approved(approved_image))
+        return rebuild_approved_component_graph(
+            analysis, RULES, getattr(self, "source_analysis", None)
+        )
 
-    def inspect_generated(self, generated_image: Path, review_context: dict[str, str]) -> dict:
+    def inspect_generated(self, generated_image: Path, review_context: dict) -> dict:
         result = super().inspect_generated(generated_image, review_context)
         contract = RULES["visualReviewContract"]
         evidence_fields = contract["identityTextEvidenceFields"]
@@ -127,10 +139,29 @@ def source_scenario(
                 "reason": "类别与画面职责不兼容",
             }
         )
-        analysis["dependencyClosure"] = [
-            {"type": "full_region", "value": f"{role}及其边缘、阴影和重复区域"}
-        ]
         identity_contract = RULES["identityReplacementContract"]
+        dependency_fields = identity_contract["dependencyFields"]
+        multi_contract = RULES["multiInstanceContract"]
+        dependency_role = (
+            multi_contract["operationDependencyTypes"]["sceneReplace"]
+            if category == RULES["sourceCategories"]["sceneAttribute"]
+            else multi_contract["operationDependencyTypes"]["maskFill"]
+            if category
+            in {
+                RULES["sourceCategories"]["textContent"],
+                RULES["sourceCategories"]["genericObject"],
+                RULES["sourceCategories"]["genericFood"],
+            }
+            else "fullBody"
+        )
+        dependency_type = identity_contract["dependencyTypes"][dependency_role]
+        analysis["dependencyClosure"] = [
+            {
+                dependency_fields["componentIdentity"]: "primary-target-region",
+                dependency_fields["dependencyType"]: dependency_type,
+                dependency_fields["description"]: f"{role}及其边缘、阴影和重复区域",
+            }
+        ]
         identity_route = next(
             (
                 route
@@ -150,7 +181,6 @@ def source_scenario(
                         distinct_fields["distinct"]: True,
                         distinct_fields["explanation"]: "确认候选与来源身份不同且保持同类语境",
                     }
-            dependency_fields = identity_contract["dependencyFields"]
             dependency_types = identity_contract["dependencyTypes"]
             component_field = dependency_fields["componentIdentity"]
             type_field = dependency_fields["dependencyType"]
@@ -218,6 +248,7 @@ def source_scenario(
             ]
         if target_eligibility is not None:
             analysis["targetEligibility"] = target_eligibility
+        rebuild_source_component_graph_for_named_closure(analysis, RULES)
         return analysis
 
     return transform
@@ -232,6 +263,22 @@ def approved_scenario(
     subject_role: str,
 ) -> Callable[[dict[str, Any]], dict[str, Any]]:
     def transform(analysis: dict) -> dict:
+        slot_contract = RULES["slotCompilationContract"]
+        semantic_roles = slot_contract["semanticRoles"]
+        subject_semantic_role = (
+            semantic_roles["primarySubject"]
+            if subject_role == "subject"
+            else semantic_roles["primaryVisualText"]
+            if subject_role == "text"
+            else semantic_roles["sceneContent"]
+        )
+        subject_slot_type = (
+            slot_contract["slotTypes"]["primarySubjectUpload"]
+            if subject_role == "subject"
+            else slot_contract["slotTypes"]["visibleTextPrompt"]
+            if subject_role == "text"
+            else slot_contract["slotTypes"]["freePrompt"]
+        )
         analysis["neutralTitle"] = title
         analysis["neutralDescription"] = "画面保持原有构图关系，并提供三个清晰可控的编辑入口"
         analysis["hasPrimarySubject"] = subject_role == "subject"
@@ -239,8 +286,8 @@ def approved_scenario(
         first.update(
             {
                 "id": subject_id,
-                "type": "subject" if subject_role == "subject" else "prompt",
-                "semanticRole": subject_role,
+                "type": subject_slot_type,
+                "semanticRole": subject_semantic_role,
                 "label": "主要替换内容",
                 "defaultValue": subject_default,
                 "suggestions": subject_suggestions,
@@ -251,7 +298,7 @@ def approved_scenario(
         second.update(
             {
                 "id": "supporting_look",
-                "semanticRole": "supporting_appearance",
+                "semanticRole": semantic_roles["supportingAppearance"],
                 "defaultValue": "柔和中性色",
                 "suggestions": ["低饱和蓝色", "温暖米色", "清透绿色"],
                 "hiddenConflictTokens": ["配色固定"],
@@ -261,7 +308,7 @@ def approved_scenario(
         third.update(
             {
                 "id": "ambient_light",
-                "semanticRole": "scene_atmosphere",
+                "semanticRole": semantic_roles["sceneAtmosphere"],
                 "defaultValue": "侧面柔光",
                 "suggestions": ["清晨薄光", "阴天漫射光", "暖色夜灯"],
                 "hiddenConflictTokens": ["光线固定"],
@@ -274,8 +321,54 @@ def approved_scenario(
             "{{ ambient_light | \"侧面柔光\" }}塑造层次，保留构图骨架、核心关系和留白节奏。"
         )
         analysis["freeEditableContent"] = ["构图骨架", "核心关系", "留白节奏"]
+        if subject_role != "subject":
+            analysis["assetUnitAnalysis"].update(
+                {
+                    COUNT_FIELDS["visibleSubjects"]: 0,
+                    COUNT_FIELDS["identities"]: 0,
+                    COUNT_FIELDS["uploads"]: 0,
+                }
+            )
         analysis["promptEnhancement"]["lockedConstraints"] = ["保持画幅、构图关系与原有媒介"]
         analysis["promptEnhancement"]["preserve"] = ["保持画面核心内容与环境的空间关系"]
+        if subject_role == "text":
+            text_contract = RULES["visibleTextContract"]
+            region_fields = text_contract["regionFields"]
+            evidence_fields = text_contract["exactEvidenceFields"]
+            region_id = "main-text-region"
+            first[text_contract["slotBindingField"]] = region_id
+            first["exactVisibleText"] = True
+            first["exactVisibleTextEvidence"] = {
+                "approvedImageSha256": analysis["visualFactSourceSha256"],
+                "visibleText": subject_default,
+                "evidence": "确认模板图中的主文字已逐字绑定",
+            }
+            analysis[text_contract["analysisFields"]["regions"]] = [
+                {
+                    region_fields["identity"]: region_id,
+                    region_fields["sourceText"]: subject_default,
+                    region_fields["role"]: text_contract["roles"]["content"],
+                    region_fields["valueClass"]: text_contract["valueClasses"]["primaryVisual"],
+                    region_fields["action"]: text_contract["actions"]["openSlot"],
+                    region_fields["slotIdentity"]: subject_id,
+                    region_fields["selectedText"]: subject_default,
+                    region_fields["exactTextEvidence"]: {
+                        evidence_fields["language"]: text_contract["languageValues"]["simplifiedChinese"],
+                        evidence_fields["tokens"]: [subject_default],
+                        evidence_fields["lines"]: [subject_default],
+                        evidence_fields["caseSensitiveTokens"]: [],
+                        evidence_fields["rareSymbols"]: [],
+                        evidence_fields["symbolTopology"]: "单行主文字",
+                        evidence_fields["explanation"]: "逐字、逐行核对主文字",
+                    },
+                }
+            ]
+            inventory_fields = text_contract["inventoryFields"]
+            analysis[text_contract["analysisFields"]["inventory"]] = {
+                inventory_fields["complete"]: True,
+                inventory_fields["regionIdentities"]: [region_id],
+                inventory_fields["explanation"]: "全画布仅有一个主文字区域",
+            }
         return analysis
 
     return transform

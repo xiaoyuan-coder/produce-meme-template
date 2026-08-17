@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.9.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -80,7 +80,8 @@
       "visibleText": "visibleTextEvidence",
       "cleanliness": "cleanlinessFindings",
       "ambiguity": "ambiguitySignals",
-      "identityText": "identityTextEvidence"
+      "identityText": "identityTextEvidence",
+      "imageOperations": "imageOperationEvidence"
     },
     "identityTextEvidenceFields": {
       "applicability": "applicable",
@@ -168,7 +169,33 @@
       "identityBadge": "identity_badge",
       "identityText": "identity_text",
       "identityMark": "identity_mark",
-      "contactBoundary": "contact_boundary"
+      "contactBoundary": "contact_boundary",
+      "sceneRegion": "scene_region",
+      "maskRegion": "mask_region",
+      "nestedContent": "nested_content",
+      "orderedMember": "ordered_member"
+    },
+    "dependencyComponentRoleKeys": {
+      "fullBody": ["subject"],
+      "repeatedInstance": ["subject"],
+      "shadow": ["shadow"],
+      "reflection": ["reflection"],
+      "framedPortrait": ["reflection", "nestedContent"],
+      "identityBadge": ["prop"],
+      "identityText": ["text"],
+      "identityMark": ["prop"],
+      "contactBoundary": ["prop"]
+    },
+    "dependencyRelationTypeKeys": {
+      "fullBody": [],
+      "repeatedInstance": ["repeatedIdentity"],
+      "shadow": ["shadow"],
+      "reflection": ["reflection", "mirror"],
+      "framedPortrait": ["reflection", "nestedIn"],
+      "identityBadge": [],
+      "identityText": [],
+      "identityMark": [],
+      "contactBoundary": ["contact"]
     },
     "topologyFields": {
       "requiredComponents": "requiredComponentIds",
@@ -329,7 +356,17 @@
   "slotBudget": {"minimum": 2, "normal": 3, "maximum": 5, "singleSlotRequiresEvidence": true},
   "slotCompilationContract": {
     "subjectKinds": {"humanSubject": "person", "nonHumanSubject": "non_person"},
-    "semanticRoles": {"primarySubject": "subject", "identityText": "identity_text"},
+    "semanticRoles": {
+      "primarySubject": "subject",
+      "identityText": "identity_text",
+      "containerAppearance": "container_appearance",
+      "sceneContent": "scene_content",
+      "sceneAtmosphere": "scene_atmosphere",
+      "supportingAppearance": "supporting_appearance",
+      "primaryVisualText": "primary_visual_text",
+      "highValueTextSpan": "high_value_text_span",
+      "decorativeCaption": "decorative_caption"
+    },
     "slotTypes": {
       "primarySubjectUpload": "subject",
       "visibleTextPrompt": "text",
@@ -476,6 +513,213 @@
       "explanation": "evidence"
     }
   },
+  "multiInstanceContract": {
+    "sourceFields": {
+      "componentGraph": "componentGraph",
+      "imageOperations": "imageOperations"
+    },
+    "approvedFields": {
+      "componentGraph": "componentGraph",
+      "operationBindings": "approvedOperationBindings"
+    },
+    "planFields": {
+      "componentGraph": "componentGraph",
+      "imageOperations": "imageOperations"
+    },
+    "generationFields": {
+      "imageOperations": "imageOperations"
+    },
+    "graphFields": {
+      "components": "components",
+      "relations": "relations",
+      "explanation": "evidence"
+    },
+    "componentFields": {
+      "identity": "componentId",
+      "role": "role",
+      "identityUnit": "identityUnitId",
+      "visualInstance": "visualInstance",
+      "uploadAsset": "uploadAssetId",
+      "control": "controlId",
+      "container": "containerId",
+      "explanation": "evidence"
+    },
+    "componentRoles": {
+      "subject": "subject",
+      "prop": "prop",
+      "container": "container",
+      "background": "background",
+      "nestedContent": "nested_content",
+      "text": "text",
+      "shadow": "shadow",
+      "reflection": "reflection",
+      "frame": "frame",
+      "panel": "panel"
+    },
+    "relationFields": {
+      "identity": "relationId",
+      "type": "type",
+      "source": "sourceComponentId",
+      "target": "targetComponentId",
+      "explanation": "evidence"
+    },
+    "relationTypes": {
+      "repeatedIdentity": "repeated_identity",
+      "mirror": "mirror",
+      "shadow": "shadow",
+      "reflection": "reflection",
+      "nestedIn": "nested_in",
+      "contact": "contact",
+      "occlusion": "occlusion",
+      "orderedBefore": "ordered_before"
+    },
+    "relationEndpointRoleKeyPairs": {
+      "repeatedIdentity": [["subject", "subject"]],
+      "mirror": [["reflection", "subject"]],
+      "shadow": [["shadow", "subject"]],
+      "reflection": [["reflection", "subject"]],
+      "nestedIn": [["nestedContent", "frame"], ["nestedContent", "container"], ["subject", "panel"], ["reflection", "frame"], ["reflection", "container"]],
+      "contact": [["subject", "container"], ["subject", "prop"], ["prop", "subject"]],
+      "occlusion": [["subject", "prop"], ["prop", "subject"]],
+      "orderedBefore": [["panel", "panel"]]
+    },
+    "approvedIdentityDependencyRoleKeys": ["reflection", "shadow"],
+    "approvedOperationBindingFields": {
+      "operationIdentity": "operationId",
+      "targetComponents": "targetComponentIds",
+      "stableAnchors": "stableAnchorComponentIds",
+      "controls": "controlIds",
+      "explanation": "evidence"
+    },
+    "operationFields": {
+      "identity": "operationId",
+      "operation": "operation",
+      "targetRegions": "targetRegionIds",
+      "clearRequirements": "clearRequirements",
+      "stableAnchors": "stableAnchorIds",
+      "preservedRelations": "preservedRelationIds",
+      "explanation": "evidence"
+    },
+    "operations": {
+      "identityReplace": "identity_replace",
+      "sceneReplace": "scene_replace",
+      "maskFill": "mask_fill",
+      "contentReplace": "content_replace",
+      "orderedSet": "ordered_set"
+    },
+    "operationRequirements": {
+      "identityReplace": {
+        "minimumTargets": 1,
+        "requiredTargetRoleKeys": ["subject"],
+        "allowedTargetRoleKeys": [],
+        "requiredAnchorRoleKeys": [],
+        "requiredRelationTypeKeys": [],
+        "singleIdentityUnit": true,
+        "targetContainersMustBeAnchors": false,
+        "requiresCompleteOrderedChain": false
+      },
+      "sceneReplace": {
+        "minimumTargets": 1,
+        "requiredTargetRoleKeys": ["background"],
+        "allowedTargetRoleKeys": ["background"],
+        "requiredAnchorRoleKeys": ["subject"],
+        "requiredRelationTypeKeys": [],
+        "singleIdentityUnit": false,
+        "targetContainersMustBeAnchors": false,
+        "requiresCompleteOrderedChain": false
+      },
+      "maskFill": {
+        "minimumTargets": 1,
+        "requiredTargetRoleKeys": [],
+        "allowedTargetRoleKeys": ["prop", "text"],
+        "requiredAnchorRoleKeys": [],
+        "requiredRelationTypeKeys": [],
+        "singleIdentityUnit": false,
+        "targetContainersMustBeAnchors": false,
+        "requiresCompleteOrderedChain": false
+      },
+      "contentReplace": {
+        "minimumTargets": 1,
+        "requiredTargetRoleKeys": ["nestedContent"],
+        "allowedTargetRoleKeys": [],
+        "requiredAnchorRoleKeys": [],
+        "requiredRelationTypeKeys": ["nestedIn"],
+        "singleIdentityUnit": false,
+        "targetContainersMustBeAnchors": true,
+        "requiresCompleteOrderedChain": false
+      },
+      "orderedSet": {
+        "minimumTargets": 2,
+        "requiredTargetRoleKeys": [],
+        "allowedTargetRoleKeys": [],
+        "requiredAnchorRoleKeys": ["panel"],
+        "requiredRelationTypeKeys": ["orderedBefore"],
+        "singleIdentityUnit": false,
+        "targetContainersMustBeAnchors": true,
+        "requiresCompleteOrderedChain": true
+      }
+    },
+    "operationDependencyTypes": {
+      "sceneReplace": "sceneRegion",
+      "maskFill": "maskRegion",
+      "contentReplace": "nestedContent",
+      "orderedSet": "orderedMember"
+    },
+    "approvedControlBindings": {
+      "subject": [
+        {"slotTypeRole": "primarySubjectUpload", "semanticRoleKey": "primarySubject"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "clothing"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "styling"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "hairstyle"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "pose"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "color"}
+      ],
+      "prop": [
+        {"slotTypeRole": "primarySubjectUpload", "semanticRoleKey": "primarySubject"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "supportingAppearance"}
+      ],
+      "container": [
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "containerAppearance"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "supportingAppearance"}
+      ],
+      "background": [
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "sceneContent"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "sceneAtmosphere"}
+      ],
+      "nestedContent": [
+        {"slotTypeRole": "primarySubjectUpload", "semanticRoleKey": "primarySubject"}
+      ],
+      "text": [
+        {"slotTypeRole": "visibleTextPrompt", "semanticRoleKey": "identityText"},
+        {"slotTypeRole": "visibleTextPrompt", "semanticRoleKey": "primaryVisualText"},
+        {"slotTypeRole": "visibleTextPrompt", "semanticRoleKey": "highValueTextSpan"},
+        {"slotTypeRole": "visibleTextPrompt", "semanticRoleKey": "decorativeCaption"}
+      ],
+      "shadow": [],
+      "reflection": [
+        {"slotTypeRole": "primarySubjectUpload", "semanticRoleKey": "primarySubject"}
+      ],
+      "frame": [
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "containerAppearance"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "supportingAppearance"}
+      ],
+      "panel": [
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "containerAppearance"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "supportingAppearance"}
+      ]
+    },
+    "relationTypeKeysRequiringPreservation": ["contact", "occlusion"],
+    "identityDerivedRelationTypeKeys": ["repeatedIdentity", "mirror", "shadow", "reflection"],
+    "subjectImageMaxCountField": "imageMaxCount",
+    "operationReviewFields": {
+      "operationIdentity": "operationId",
+      "targetCleared": "targetCleared",
+      "anchorsStable": "stableAnchorsPreserved",
+      "relationsPreserved": "relationsPreserved",
+      "nonTargetStable": "nonTargetContentPreserved",
+      "explanation": "evidence"
+    }
+  },
   "identifiers": {
     "productionItemIdPattern": "^[a-z][a-z0-9-]{1,127}$",
     "imageExtensionPattern": "^\\.[a-z0-9]{1,10}$"
@@ -492,5 +736,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
+  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
 }

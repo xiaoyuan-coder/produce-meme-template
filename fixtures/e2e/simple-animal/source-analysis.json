@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.9.0",
   "mechanism": {
     "setup": "一个小动物蜷卧在软垫上",
     "turn": "前爪搭住垫边，困倦神态很突出",
@@ -12,6 +12,25 @@
     "role": "画面中央蜷卧的主要动物",
     "identity": "橘猫"
   },
+  "componentGraph": {
+    "components": [
+      {"componentId": "animal-main", "role": "subject", "identityUnitId": "source-animal", "visualInstance": true, "uploadAssetId": null, "controlId": null, "containerId": "cushion", "evidence": "画面中央的主要动物实例"},
+      {"componentId": "animal-reflection", "role": "reflection", "identityUnitId": "source-animal", "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": null, "evidence": "软垫反光中的同一动物轮廓"},
+      {"componentId": "animal-shadow", "role": "shadow", "identityUnitId": "source-animal", "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": "cushion", "evidence": "主体压住软垫形成的接触阴影"},
+      {"componentId": "animal-mark", "role": "prop", "identityUnitId": "source-animal", "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": null, "evidence": "橙色条纹与猫科脸部身份特征"},
+      {"componentId": "cushion", "role": "container", "identityUnitId": null, "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": null, "evidence": "承托主体的暖黄色软垫"},
+      {"componentId": "room-background", "role": "background", "identityUnitId": null, "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": null, "evidence": "安静客厅与侧面窗光"}
+    ],
+    "relations": [
+      {"relationId": "same-animal-reflection", "type": "reflection", "sourceComponentId": "animal-reflection", "targetComponentId": "animal-main", "evidence": "反光轮廓属于同一动物身份"},
+      {"relationId": "animal-contact-cushion", "type": "contact", "sourceComponentId": "animal-main", "targetComponentId": "cushion", "evidence": "胸腹压住软垫且前爪搭住垫边"},
+      {"relationId": "animal-shadow-contact", "type": "shadow", "sourceComponentId": "animal-shadow", "targetComponentId": "animal-main", "evidence": "阴影随主体接触边界同步"}
+    ],
+    "evidence": "逐区域记录主体、反光、阴影、身份标记、容器和背景"
+  },
+  "imageOperations": [
+    {"operationId": "replace-animal-identity", "operation": "identity_replace", "targetRegionIds": ["animal-main", "animal-reflection", "animal-shadow", "animal-mark"], "clearRequirements": ["清除橘猫脸部、橙色条纹和全部派生轮廓"], "stableAnchorIds": ["cushion", "room-background"], "preservedRelationIds": ["animal-contact-cushion"], "evidence": "同一动物身份的主体、反光、阴影和标记需要完整同步替换"}
+  ],
   "replacementPool": [
     {
       "value": "柯基犬",
@@ -42,10 +61,10 @@
     }
   ],
   "dependencyClosure": [
-    {"type": "full_body", "value": "主要动物的头部、身体、四肢与耳朵"},
-    {"type": "repeated_instance", "value": "软垫反光中的动物轮廓"},
-    {"type": "shadow", "value": "身体压在软垫上的接触阴影"},
-    {"type": "identity_mark", "value": "橙色条纹与猫科脸部特征"}
+    {"componentId": "animal-main", "type": "full_body", "value": "主要动物的头部、身体、四肢与耳朵"},
+    {"componentId": "animal-reflection", "type": "reflection", "value": "软垫反光中的动物轮廓"},
+    {"componentId": "animal-shadow", "type": "shadow", "value": "身体压在软垫上的接触阴影"},
+    {"componentId": "animal-mark", "type": "identity_mark", "value": "橙色条纹与猫科脸部特征"}
   ],
   "frozenSet": [
     "单主体伏卧构图",

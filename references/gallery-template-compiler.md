@@ -8,7 +8,7 @@ P3 以后只读取 Approved Template Image 的 SHA 绑定分析。Source Web Ima
 
 槽位必须使用唯一、非空且符合冻结 Gallery Schema `inputId.pattern` 的 ID；placeholder 解析直接派生同一 Schema 模式。槽位同时通过用户动机、画面可见、模型可控和机制保持四道具名布尔门禁。常态预算读取 `contracts/machine-rules.json`，为 2–5 个且通常约 3 个。分析必须明确提供 `hasPrimarySubject` 布尔值和机器合同内的 `subjectKind`；人物判别必须与主体存在性一致。有明显主体时默认包含主体槽；省略时保存四道门禁逐项结果，至少一项失败并附理由。仅有一个高价值槽位时，必须穷尽复核主体、内容物、颜色、文字、服装、道具、场景和嵌套内容，保存完整且无重复的复核轴与例外理由。
 
-人物的服装、造型、发型、姿势和颜色分别记录四道门禁、是否入槽和图像证据；入槽决定必须与门禁结论一致。每次 Approved Template Image 分析都必须提供 `assetUnitAnalysis`，分别计数可见主体、身份单元、上传素材和控件，不从其中一个数量推导其他数量；控件数最终必须与通过门禁的槽位数一致。
+人物的服装、造型、发型、姿势和颜色分别记录四道门禁、是否入槽和图像证据；入槽决定必须与门禁结论一致。每次 Approved Template Image 分析都必须提供 `componentGraph` 与 `assetUnitAnalysis`，分别计数可见主体、身份单元、上传素材和控件，不从其中一个数量推导其他数量；控件数最终必须与通过门禁的槽位数一致。组件图、容器和关系的详细规则读取 [多实例组件图与图片操作合同](multi-instance-image-operations.md)。
 
 默认值必须是非空用户文案，优先使用中文且原则上为 2–8 个字符；偏离语言或长度偏好时必须按槽位保存已复核结论与理由。硬上限为 12 个字符，只有 `exactVisibleTextEvidence` 同时绑定当前 Approved Template Image SHA、逐字默认值和非空图像证据的文字槽可以超过。每个推荐池必须非空；推荐项按 trim 后的用户可见值判断重复与默认值冲突，同轴、同颗粒度和可生成性继续由绑定完整内容摘要的独立语义审计判断。
 

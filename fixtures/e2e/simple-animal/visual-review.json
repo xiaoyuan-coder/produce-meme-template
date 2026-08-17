@@ -1,6 +1,6 @@
 {
   "artifactType": "visual-review",
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.9.0",
   "hardGates": {
     "replacementComplete": true,
     "dependencyClosureComplete": true,
@@ -30,6 +30,9 @@
     "replacementIdentityTextConsistent": true,
     "evidence": "通用动物场景没有现实人物或角色身份文字依赖"
   },
+  "imageOperationEvidence": [
+    {"operationId": "replace-animal-identity", "targetCleared": true, "stableAnchorsPreserved": true, "relationsPreserved": true, "nonTargetContentPreserved": true, "evidence": "主体及反光、阴影、身份标记均完成替换，软垫接触和背景锚点保持"}
+  ],
   "cleanlinessFindings": {
     "ghostTextDetected": false,
     "pseudoSignatureDetected": false,

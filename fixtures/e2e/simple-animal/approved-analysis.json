@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.8.0",
+  "schemaVersion": "0.9.0",
   "visibleFacts": [
     "一只短腿小动物蜷卧在暖黄色软垫上",
     "两只前爪搭住垫边",
@@ -18,6 +18,31 @@
     "controlUnitCount": 3,
     "evidence": "单主体、单身份和单上传素材；三个控件来自三个独立高价值槽位"
   },
+  "componentGraph": {
+    "components": [
+      {"componentId": "approved-animal-main", "role": "subject", "identityUnitId": "approved-animal", "visualInstance": true, "uploadAssetId": "pet-subject-asset", "controlId": "pet_subject", "containerId": "approved-cushion", "evidence": "确认模板图中的唯一主体实例"},
+      {"componentId": "approved-animal-reflection", "role": "reflection", "identityUnitId": "approved-animal", "visualInstance": false, "uploadAssetId": "pet-subject-asset", "controlId": "pet_subject", "containerId": null, "evidence": "确认模板图中与主体同步的反光轮廓"},
+      {"componentId": "approved-animal-shadow", "role": "shadow", "identityUnitId": "approved-animal", "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": "approved-cushion", "evidence": "主体接触软垫形成的同步阴影"},
+      {"componentId": "approved-animal-mark", "role": "prop", "identityUnitId": "approved-animal", "visualInstance": false, "uploadAssetId": null, "controlId": null, "containerId": null, "evidence": "已替换主体的身份特征标记"},
+      {"componentId": "approved-cushion", "role": "container", "identityUnitId": null, "visualInstance": false, "uploadAssetId": null, "controlId": "cushion_look", "containerId": null, "evidence": "承托主体并开放外观编辑"},
+      {"componentId": "approved-room", "role": "background", "identityUnitId": null, "visualInstance": false, "uploadAssetId": null, "controlId": "room_mood", "containerId": null, "evidence": "房间氛围与侧面光线编辑区域"}
+    ],
+    "relations": [
+      {"relationId": "approved-reflection", "type": "reflection", "sourceComponentId": "approved-animal-reflection", "targetComponentId": "approved-animal-main", "evidence": "反光轮廓与主体属于同一身份"},
+      {"relationId": "approved-shadow", "type": "shadow", "sourceComponentId": "approved-animal-shadow", "targetComponentId": "approved-animal-main", "evidence": "阴影随主体边界同步"},
+      {"relationId": "approved-contact-cushion", "type": "contact", "sourceComponentId": "approved-animal-main", "targetComponentId": "approved-cushion", "evidence": "胸腹压住软垫且前爪搭住垫边"}
+    ],
+    "evidence": "分别记录一个画面实例、一个身份、一个上传素材和三个控件"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "replace-animal-identity",
+      "targetComponentIds": ["approved-animal-main", "approved-animal-reflection", "approved-animal-shadow", "approved-animal-mark"],
+      "stableAnchorComponentIds": ["approved-cushion", "approved-room"],
+      "controlIds": ["pet_subject"],
+      "evidence": "将确认模板图的主体、反光、阴影和身份标记显式绑定到当前身份替换操作"
+    }
+  ],
   "neutralTitle": "软垫上的困倦瞬间",
   "neutralDescription": "主体蜷卧在软垫上，侧面光线强化安静又疲惫的神态",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}蜷卧在{{ cushion_look | \"暖黄色软垫\" }}上，前爪搭住垫边，{{ room_mood | \"午后窗光\" }}从侧面照入，背景保留安静的客厅和轻微景深。",

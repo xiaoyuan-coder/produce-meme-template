@@ -80,7 +80,7 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         self.assertEqual("柯基犬", target["replacementValue"])
         self.assertEqual(1, sum(item["kind"] == "primary" for item in plan["changedSet"]))
         self.assertEqual(
-            {"full_body", "repeated_instance", "shadow", "identity_mark"},
+            {"full_body", "reflection", "shadow", "identity_mark"},
             {item["type"] for item in plan["dependencyClosure"]},
         )
 

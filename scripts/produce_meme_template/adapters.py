@@ -166,12 +166,12 @@ class DeterministicFixtureAdapters:
         }
 
     def inspect_generated(
-        self, generated_image: Path, review_context: dict[str, str]
+        self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "visual-review.json")
         contract = _read_json(RULES_PATH)["visualReviewContract"]
         result["bindings"] = {
-            **review_context,
+            **review_request["bindings"],
             "generatedImageSha256": hashlib.sha256(generated_image.read_bytes()).hexdigest(),
             "evidenceSha256": _visual_evidence_sha(result, contract),
         }
@@ -397,8 +397,8 @@ class DeterministicFixtureAdapters:
         clone = copy.copy(self)
         original = clone.inspect_generated
 
-        def inspect(generated_image: Path, review_context: dict[str, str]) -> dict[str, Any]:
-            result = original(generated_image, review_context)
+        def inspect(generated_image: Path, review_request: dict[str, Any]) -> dict[str, Any]:
+            result = original(generated_image, review_request)
             for key, value in overrides.items():
                 if isinstance(value, dict) and isinstance(result.get(key), dict):
                     result[key].update(value)

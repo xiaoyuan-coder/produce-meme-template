@@ -102,6 +102,13 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_9_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E06", "E12", "E20", "E22", "E23", "E29"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
     def test_replacement_enums_expose_named_domain_roles(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
 
@@ -319,6 +326,203 @@ class RepositoryContractTest(unittest.TestCase):
                     collection,
                     path.as_posix(),
                 )
+
+    def test_multi_instance_contract_values_have_one_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["multiInstanceContract"]
+        self.assertNotIn("maximumUploadsPerControl", contract)
+        self.assertNotIn("visualEvidenceField", contract)
+        self.assertEqual(
+            {
+                "operationIdentity",
+                "targetComponents",
+                "stableAnchors",
+                "controls",
+                "explanation",
+            },
+            set(contract["approvedOperationBindingFields"]),
+        )
+        self.assertEqual(
+            len(contract["approvedOperationBindingFields"]),
+            len(set(contract["approvedOperationBindingFields"].values())),
+        )
+        self.assertEqual(set(contract["operations"]), set(contract["operationRequirements"]))
+        for requirement in contract["operationRequirements"].values():
+            self.assertEqual(
+                {
+                    "minimumTargets",
+                    "requiredTargetRoleKeys",
+                    "allowedTargetRoleKeys",
+                    "requiredAnchorRoleKeys",
+                    "requiredRelationTypeKeys",
+                    "singleIdentityUnit",
+                    "targetContainersMustBeAnchors",
+                    "requiresCompleteOrderedChain",
+                },
+                set(requirement),
+            )
+            self.assertTrue(
+                set(requirement["requiredTargetRoleKeys"])
+                | set(requirement["allowedTargetRoleKeys"])
+                | set(requirement["requiredAnchorRoleKeys"])
+                <= set(contract["componentRoles"])
+            )
+            self.assertTrue(
+                set(requirement["requiredRelationTypeKeys"])
+                <= set(contract["relationTypes"])
+            )
+            self.assertIsInstance(requirement["minimumTargets"], int)
+            self.assertNotIsInstance(requirement["minimumTargets"], bool)
+            self.assertGreater(requirement["minimumTargets"], 0)
+            for field in (
+                "singleIdentityUnit",
+                "targetContainersMustBeAnchors",
+                "requiresCompleteOrderedChain",
+            ):
+                self.assertIsInstance(requirement[field], bool)
+            for field in (
+                "requiredTargetRoleKeys",
+                "allowedTargetRoleKeys",
+                "requiredAnchorRoleKeys",
+                "requiredRelationTypeKeys",
+            ):
+                self.assertIsInstance(requirement[field], list)
+                self.assertEqual(len(requirement[field]), len(set(requirement[field])))
+                self.assertTrue(all(isinstance(value, str) and value for value in requirement[field]))
+        self.assertTrue(
+            set(contract["relationTypeKeysRequiringPreservation"])
+            <= set(contract["relationTypes"])
+        )
+        identity_contract = rules["identityReplacementContract"]
+        operation_dependency_types = contract["operationDependencyTypes"]
+        self.assertEqual(
+            set(contract["operations"]) - {"identityReplace"},
+            set(operation_dependency_types),
+        )
+        self.assertEqual(
+            len(operation_dependency_types.values()),
+            len(set(operation_dependency_types.values())),
+        )
+        self.assertTrue(
+            set(operation_dependency_types.values())
+            <= set(identity_contract["dependencyTypes"])
+        )
+        self.assertEqual(
+            set(identity_contract["dependencyComponentRoleKeys"]),
+            set(identity_contract["dependencyRelationTypeKeys"]),
+        )
+        self.assertTrue(
+            set(identity_contract["dependencyComponentRoleKeys"])
+            <= set(identity_contract["dependencyTypes"])
+        )
+        for role_keys in identity_contract["dependencyComponentRoleKeys"].values():
+            self.assertTrue(set(role_keys) <= set(contract["componentRoles"]))
+        for relation_keys in identity_contract["dependencyRelationTypeKeys"].values():
+            self.assertTrue(set(relation_keys) <= set(contract["relationTypes"]))
+        slot_contract = rules["slotCompilationContract"]
+        semantic_role_keys = {
+            *slot_contract["semanticRoles"],
+            *slot_contract["personAttributeRoles"],
+        }
+        self.assertEqual(
+            set(contract["approvedControlBindings"]),
+            set(contract["componentRoles"]),
+        )
+        for bindings in contract["approvedControlBindings"].values():
+            self.assertIsInstance(bindings, list)
+            self.assertEqual(
+                len(bindings),
+                len(
+                    {
+                        (binding["slotTypeRole"], binding["semanticRoleKey"])
+                        for binding in bindings
+                    }
+                ),
+            )
+            for binding in bindings:
+                self.assertEqual(
+                    {"slotTypeRole", "semanticRoleKey"}, set(binding)
+                )
+                self.assertIn(binding["slotTypeRole"], slot_contract["slotTypes"])
+                self.assertIn(binding["semanticRoleKey"], semantic_role_keys)
+        self.assertEqual(
+            set(contract["relationEndpointRoleKeyPairs"]),
+            set(contract["relationTypes"]),
+        )
+        for role_pairs in contract["relationEndpointRoleKeyPairs"].values():
+            self.assertIsInstance(role_pairs, list)
+            self.assertTrue(role_pairs)
+            self.assertEqual(
+                len(role_pairs), len({tuple(pair) for pair in role_pairs})
+            )
+            self.assertTrue(
+                all(
+                    isinstance(pair, list)
+                    and len(pair) == 2
+                    and all(role in contract["componentRoles"] for role in pair)
+                    for pair in role_pairs
+                )
+            )
+        approved_identity_roles = contract["approvedIdentityDependencyRoleKeys"]
+        identity_contract = rules["identityReplacementContract"]
+        self.assertIsInstance(approved_identity_roles, list)
+        self.assertTrue(approved_identity_roles)
+        self.assertEqual(
+            len(approved_identity_roles), len(set(approved_identity_roles))
+        )
+        self.assertTrue(
+            set(approved_identity_roles)
+            <= set(identity_contract["dependencyComponentRoleKeys"])
+        )
+        self.assertTrue(
+            set(approved_identity_roles)
+            <= set(identity_contract["dependencyRelationTypeKeys"])
+        )
+        role_names = set()
+
+        def collect_role_names(value: object) -> None:
+            if isinstance(value, dict):
+                role_names.update(value)
+                for nested in value.values():
+                    collect_role_names(nested)
+
+        collect_role_names(contract)
+        machine_values = {contract["subjectImageMaxCountField"]}
+        for field in (
+            "sourceFields",
+            "approvedFields",
+            "planFields",
+            "generationFields",
+            "graphFields",
+            "componentFields",
+            "componentRoles",
+            "relationFields",
+            "relationTypes",
+            "operationFields",
+            "operations",
+            "operationReviewFields",
+            "approvedOperationBindingFields",
+        ):
+            machine_values.update(contract[field].values())
+        machine_values.update(identity_contract["dependencyTypes"].values())
+        machine_values.update(
+            contract["relationTypes"][role]
+            for role in contract["relationTypeKeysRequiringPreservation"]
+        )
+        machine_values -= role_names | {"id", "type", "role", "evidence"}
+
+        sources = [
+            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "tests" / "fixture_contracts.py",
+            ROOT / "tests" / "test_issue_9_multi_instance_operations.py",
+        ]
+        for path in sources:
+            literals = {
+                node.value
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            }
+            self.assertTrue(machine_values.isdisjoint(literals), path.as_posix())
 
 
 if __name__ == "__main__":

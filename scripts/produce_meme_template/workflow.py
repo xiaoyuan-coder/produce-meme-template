@@ -26,7 +26,11 @@ CJK_CHARACTER = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 VISIBLE_TEXT_LEXEME = re.compile(
     r"[A-Za-z]+(?:['’][A-Za-z]+)*|\d+|[\u3400-\u4dbf\u4e00-\u9fff]{2,}"
 )
-INPUT_ID_PATTERN = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))["$defs"]["inputId"]["pattern"]
+GALLERY_SCHEMA = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
+INPUT_ID_PATTERN = GALLERY_SCHEMA["$defs"]["inputId"]["pattern"]
+SUBJECT_IMAGE_MAX_COUNT = GALLERY_SCHEMA["$defs"]["subjectImageConfig"]["properties"][
+    "maxCount"
+]["maximum"]
 INPUT_ID_PATTERN_BODY = INPUT_ID_PATTERN.removeprefix("^").removesuffix("$")
 SLOT_ID = re.compile(INPUT_ID_PATTERN)
 PLACEHOLDER = re.compile(
@@ -43,7 +47,7 @@ class WorkflowAdapters(Protocol):
     ) -> dict[str, Any]: ...
     def generate(self, source_image: Path, generation_package: dict[str, Any]) -> dict[str, Any]: ...
     def inspect_generated(
-        self, generated_image: Path, review_context: dict[str, str]
+        self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]: ...
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]: ...
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]: ...
@@ -722,6 +726,525 @@ def _build_pin(rules: dict[str, Any], release: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def _component_graph_view(
+    graph: Any, rules: dict[str, Any]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]] | None:
+    contract = rules["multiInstanceContract"]
+    graph_fields = contract["graphFields"]
+    component_fields = contract["componentFields"]
+    relation_fields = contract["relationFields"]
+    if not (
+        isinstance(graph, dict)
+        and set(graph) == set(graph_fields.values())
+        and isinstance(graph.get(graph_fields["components"]), list)
+        and graph[graph_fields["components"]]
+        and isinstance(graph.get(graph_fields["relations"]), list)
+        and isinstance(graph.get(graph_fields["explanation"]), str)
+        and graph[graph_fields["explanation"]].strip()
+    ):
+        return None
+    components = graph[graph_fields["components"]]
+    relations = graph[graph_fields["relations"]]
+    component_roles = set(contract["componentRoles"].values())
+    if not all(
+        isinstance(component, dict)
+        and set(component) == set(component_fields.values())
+        and isinstance(component.get(component_fields["identity"]), str)
+        and component[component_fields["identity"]].strip()
+        and isinstance(component.get(component_fields["role"]), str)
+        and component.get(component_fields["role"]) in component_roles
+        and (
+            component.get(component_fields["identityUnit"]) is None
+            or isinstance(component.get(component_fields["identityUnit"]), str)
+            and component[component_fields["identityUnit"]].strip()
+        )
+        and isinstance(component.get(component_fields["visualInstance"]), bool)
+        and all(
+            component.get(component_fields[field]) is None
+            or isinstance(component.get(component_fields[field]), str)
+            and component[component_fields[field]].strip()
+            for field in ("uploadAsset", "control", "container")
+        )
+        and isinstance(component.get(component_fields["explanation"]), str)
+        and component[component_fields["explanation"]].strip()
+        for component in components
+    ):
+        return None
+    component_ids = [component[component_fields["identity"]] for component in components]
+    if len(component_ids) != len(set(component_ids)):
+        return None
+    component_id_set = set(component_ids)
+    if any(
+        component[component_fields["container"]] is not None
+        and (
+            component[component_fields["container"]] not in component_id_set
+            or component[component_fields["container"]]
+            == component[component_fields["identity"]]
+        )
+        for component in components
+    ):
+        return None
+    container_by_component = {
+        component[component_fields["identity"]]: component[component_fields["container"]]
+        for component in components
+    }
+    for component_id in component_id_set:
+        visited: set[str] = set()
+        current: str | None = component_id
+        while current is not None:
+            if current in visited:
+                return None
+            visited.add(current)
+            current = container_by_component[current]
+    relation_types = set(contract["relationTypes"].values())
+    if not all(
+        isinstance(relation, dict)
+        and set(relation) == set(relation_fields.values())
+        and isinstance(relation.get(relation_fields["identity"]), str)
+        and relation[relation_fields["identity"]].strip()
+        and isinstance(relation.get(relation_fields["type"]), str)
+        and relation.get(relation_fields["type"]) in relation_types
+        and isinstance(relation.get(relation_fields["source"]), str)
+        and relation.get(relation_fields["source"]) in component_id_set
+        and isinstance(relation.get(relation_fields["target"]), str)
+        and relation.get(relation_fields["target"]) in component_id_set
+        and relation[relation_fields["source"]] != relation[relation_fields["target"]]
+        and isinstance(relation.get(relation_fields["explanation"]), str)
+        and relation[relation_fields["explanation"]].strip()
+        for relation in relations
+    ):
+        return None
+    relation_ids = [relation[relation_fields["identity"]] for relation in relations]
+    if len(relation_ids) != len(set(relation_ids)):
+        return None
+    return components, relations
+
+
+def _identity_relations_are_consistent(
+    components: list[dict[str, Any]],
+    relations: list[dict[str, Any]],
+    contract: dict[str, Any],
+) -> bool:
+    component_fields = contract["componentFields"]
+    relation_fields = contract["relationFields"]
+    component_by_id = {
+        component[component_fields["identity"]]: component for component in components
+    }
+    identity_relation_types = {
+        contract["relationTypes"][role]
+        for role in contract["identityDerivedRelationTypeKeys"]
+    }
+    return all(
+        relation[relation_fields["type"]] not in identity_relation_types
+        or (
+            component_by_id[relation[relation_fields["source"]]][
+                component_fields["identityUnit"]
+            ]
+            is not None
+            and component_by_id[relation[relation_fields["source"]]][
+                component_fields["identityUnit"]
+            ]
+            == component_by_id[relation[relation_fields["target"]]][
+                component_fields["identityUnit"]
+            ]
+        )
+        for relation in relations
+    )
+
+
+def _complete_typed_relation_chain(
+    node_ids: set[str],
+    relations: list[dict[str, Any]],
+    relation_type: str,
+    relation_fields: dict[str, str],
+) -> bool:
+    if len(node_ids) < 2:
+        return False
+    chain_relations = [
+        relation
+        for relation in relations
+        if relation[relation_fields["type"]] == relation_type
+        and relation[relation_fields["source"]] in node_ids
+        and relation[relation_fields["target"]] in node_ids
+    ]
+    if len(chain_relations) != len(node_ids) - 1:
+        return False
+    outgoing: dict[str, str] = {}
+    incoming: dict[str, str] = {}
+    for relation in chain_relations:
+        source_id = relation[relation_fields["source"]]
+        target_id = relation[relation_fields["target"]]
+        if source_id in outgoing or target_id in incoming:
+            return False
+        outgoing[source_id] = target_id
+        incoming[target_id] = source_id
+    starts = node_ids - set(incoming)
+    if len(starts) != 1:
+        return False
+    visited: set[str] = set()
+    current = next(iter(starts))
+    while current not in visited:
+        visited.add(current)
+        if current not in outgoing:
+            break
+        current = outgoing[current]
+    return visited == node_ids
+
+
+def _validated_source_multi_instance_contract(
+    source_analysis: dict[str, Any], rules: dict[str, Any]
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    contract = rules["multiInstanceContract"]
+    source_fields = contract["sourceFields"]
+    graph = source_analysis.get(source_fields["componentGraph"])
+    graph_view = _component_graph_view(graph, rules)
+    operations = source_analysis.get(source_fields["imageOperations"])
+    if graph_view is None or not isinstance(operations, list) or not operations:
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "来源组件图与图片操作必须提供完整结构化证据。",
+            {},
+        )
+    components, relations = graph_view
+    component_fields = contract["componentFields"]
+    relation_fields = contract["relationFields"]
+    operation_fields = contract["operationFields"]
+    component_by_id = {
+        component[component_fields["identity"]]: component for component in components
+    }
+    relation_by_id = {
+        relation[relation_fields["identity"]]: relation for relation in relations
+    }
+    operation_values = set(contract["operations"].values())
+    list_field_roles = (
+        "targetRegions",
+        "clearRequirements",
+        "stableAnchors",
+        "preservedRelations",
+    )
+    operation_shape_valid = all(
+        isinstance(operation, dict)
+        and set(operation) == set(operation_fields.values())
+        and isinstance(operation.get(operation_fields["identity"]), str)
+        and operation[operation_fields["identity"]].strip()
+        and isinstance(operation.get(operation_fields["operation"]), str)
+        and operation.get(operation_fields["operation"]) in operation_values
+        and all(
+            isinstance(operation.get(operation_fields[field]), list)
+            and all(
+                isinstance(value, str) and value.strip()
+                for value in operation[operation_fields[field]]
+            )
+            and len(operation[operation_fields[field]])
+            == len(set(operation[operation_fields[field]]))
+            for field in list_field_roles
+        )
+        and operation[operation_fields["targetRegions"]]
+        and operation[operation_fields["clearRequirements"]]
+        and operation[operation_fields["stableAnchors"]]
+        and set(operation[operation_fields["targetRegions"]]) <= set(component_by_id)
+        and set(operation[operation_fields["stableAnchors"]]) <= set(component_by_id)
+        and not (
+            set(operation[operation_fields["targetRegions"]])
+            & set(operation[operation_fields["stableAnchors"]])
+        )
+        and set(operation[operation_fields["preservedRelations"]]) <= set(relation_by_id)
+        and isinstance(operation.get(operation_fields["explanation"]), str)
+        and operation[operation_fields["explanation"]].strip()
+        for operation in operations
+    )
+    if not operation_shape_valid or len(
+        {operation[operation_fields["identity"]] for operation in operations}
+    ) != len(operations):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "图片操作必须唯一声明合法目标、清除要求、稳定锚点和保持关系。",
+            {},
+        )
+    operation_target_lists = [
+        operation[operation_fields["targetRegions"]] for operation in operations
+    ]
+    flattened_operation_targets = [
+        target for targets in operation_target_lists for target in targets
+    ]
+    if len(flattened_operation_targets) != len(set(flattened_operation_targets)):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "一个组件只能由一个图片操作负责。",
+            {},
+        )
+    preservation_types = {
+        contract["relationTypes"][role]
+        for role in contract["relationTypeKeysRequiringPreservation"]
+    }
+    relation_coverage_valid = all(
+        {
+            relation[relation_fields["identity"]]
+            for relation in relations
+            if relation[relation_fields["type"]] in preservation_types
+            and (
+                relation[relation_fields["source"]]
+                in set(operation[operation_fields["targetRegions"]])
+                or relation[relation_fields["target"]]
+                in set(operation[operation_fields["targetRegions"]])
+            )
+        }
+        <= set(operation[operation_fields["preservedRelations"]])
+        for operation in operations
+    )
+    identity_relations_valid = _identity_relations_are_consistent(
+        components, relations, contract
+    )
+    identity_coverage_valid = all(
+        {
+            component[component_fields["identity"]]
+            for component in components
+            if component[component_fields["identityUnit"]]
+            in {
+                component_by_id[target][component_fields["identityUnit"]]
+                for target in operation[operation_fields["targetRegions"]]
+                if component_by_id[target][component_fields["identityUnit"]] is not None
+            }
+        }
+        <= set(operation[operation_fields["targetRegions"]])
+        for operation in operations
+    )
+    requirement_by_operation = {
+        contract["operations"][role]: requirement
+        for role, requirement in contract["operationRequirements"].items()
+    }
+
+    def operation_semantics_valid(operation: dict[str, Any]) -> bool:
+        requirement = requirement_by_operation[operation[operation_fields["operation"]]]
+        target_ids = set(operation[operation_fields["targetRegions"]])
+        anchor_ids = set(operation[operation_fields["stableAnchors"]])
+        preserved_ids = set(operation[operation_fields["preservedRelations"]])
+        target_components = [component_by_id[value] for value in target_ids]
+        anchor_components = [component_by_id[value] for value in anchor_ids]
+        required_target_roles = {
+            contract["componentRoles"][role]
+            for role in requirement["requiredTargetRoleKeys"]
+        }
+        allowed_target_roles = {
+            contract["componentRoles"][role]
+            for role in requirement["allowedTargetRoleKeys"]
+        }
+        required_anchor_roles = {
+            contract["componentRoles"][role]
+            for role in requirement["requiredAnchorRoleKeys"]
+        }
+        identity_units = {
+            component[component_fields["identityUnit"]]
+            for component in target_components
+        }
+        target_containers = {
+            component[component_fields["container"]]
+            for component in target_components
+        }
+        required_relation_types = {
+            contract["relationTypes"][role]
+            for role in requirement["requiredRelationTypeKeys"]
+        }
+        operation_scope = target_ids | anchor_ids
+        scoped_required_relations = [
+            relation
+            for relation in relations
+            if relation[relation_fields["type"]] in required_relation_types
+            and {
+                relation[relation_fields["source"]],
+                relation[relation_fields["target"]],
+            }
+            <= operation_scope
+        ]
+        ordered_chain_valid = True
+        if requirement["requiresCompleteOrderedChain"]:
+            ordered_chain_valid = _complete_typed_relation_chain(
+                target_containers,
+                relations,
+                contract["relationTypes"]["orderedBefore"],
+                relation_fields,
+            )
+        return bool(
+            len(target_ids) >= requirement["minimumTargets"]
+            and required_target_roles
+            <= {component[component_fields["role"]] for component in target_components}
+            and (
+                not allowed_target_roles
+                or {
+                    component[component_fields["role"]]
+                    for component in target_components
+                }
+                <= allowed_target_roles
+            )
+            and required_anchor_roles
+            <= {component[component_fields["role"]] for component in anchor_components}
+            and (
+                not requirement["singleIdentityUnit"]
+                or None not in identity_units
+                and len(identity_units) == 1
+            )
+            and (
+                not requirement["targetContainersMustBeAnchors"]
+                or None not in target_containers
+                and target_containers <= anchor_ids
+            )
+            and (
+                not required_relation_types
+                or required_relation_types
+                <= {
+                    relation[relation_fields["type"]]
+                    for relation in scoped_required_relations
+                }
+                and {
+                    relation[relation_fields["identity"]]
+                    for relation in scoped_required_relations
+                }
+                <= preserved_ids
+            )
+            and all(
+                {
+                    relation_by_id[relation_id][relation_fields["source"]],
+                    relation_by_id[relation_id][relation_fields["target"]],
+                }
+                <= operation_scope
+                for relation_id in preserved_ids
+            )
+            and ordered_chain_valid
+        )
+
+    operation_semantics_are_valid = all(
+        operation_semantics_valid(operation) for operation in operations
+    )
+    if not (
+        relation_coverage_valid
+        and identity_relations_valid
+        and identity_coverage_valid
+        and operation_semantics_are_valid
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "图片操作类型、身份闭包、派生关系或接触遮挡保持证据无效。",
+            {},
+        )
+    dependency_fields = rules["identityReplacementContract"]["dependencyFields"]
+    closure_component_field = dependency_fields["componentIdentity"]
+    closure = source_analysis.get("dependencyClosure", [])
+    named_closure_ids = [
+        item.get(closure_component_field) for item in closure if isinstance(item, dict)
+    ]
+    if not (
+        len(named_closure_ids) == len(closure)
+        and all(isinstance(value, str) and value.strip() for value in named_closure_ids)
+        and len(named_closure_ids) == len(set(named_closure_ids))
+    ):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "具名依赖闭包必须为每个组件提供唯一非空 ID。",
+            {},
+        )
+    operation_target_ids = {
+        target
+        for operation in operations
+        for target in operation[operation_fields["targetRegions"]]
+    }
+    if operation_target_ids != set(named_closure_ids):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "图片操作目标必须精确覆盖具名依赖闭包。",
+            {
+                "missingOperationTargets": sorted(set(named_closure_ids) - operation_target_ids),
+                "targetsOutsideClosure": sorted(operation_target_ids - set(named_closure_ids)),
+            },
+        )
+    identity_contract = rules["identityReplacementContract"]
+    closure_type_field = identity_contract["dependencyFields"]["dependencyType"]
+    closure_by_id = {item[closure_component_field]: item for item in closure}
+    identity_dependency_role_by_value = {
+        value: role for role, value in identity_contract["dependencyTypes"].items()
+    }
+    operation_role_by_value = {
+        value: role for role, value in contract["operations"].items()
+    }
+
+    def identity_dependency_matches_component(component_id: str) -> bool:
+        item = closure_by_id[component_id]
+        dependency_type = item[closure_type_field]
+        dependency_role = identity_dependency_role_by_value.get(dependency_type)
+        if (
+            dependency_role is None
+            or dependency_role
+            not in identity_contract["dependencyComponentRoleKeys"]
+            or dependency_role
+            not in identity_contract["dependencyRelationTypeKeys"]
+        ):
+            return False
+        component = component_by_id[component_id]
+        allowed_roles = {
+            contract["componentRoles"][role]
+            for role in identity_contract["dependencyComponentRoleKeys"][dependency_role]
+        }
+        required_relation_types = {
+            contract["relationTypes"][role]
+            for role in identity_contract["dependencyRelationTypeKeys"][dependency_role]
+        }
+        observed_relation_types = {
+            relation[relation_fields["type"]]
+            for relation in relations
+            if component_id
+            in {
+                relation[relation_fields["source"]],
+                relation[relation_fields["target"]],
+            }
+        }
+        if component[component_fields["role"]] not in allowed_roles:
+            return False
+        return not required_relation_types or bool(
+            required_relation_types & observed_relation_types
+        )
+
+    dependency_topology_valid = all(
+        (
+            all(
+                identity_dependency_matches_component(component_id)
+                for component_id in operation[operation_fields["targetRegions"]]
+            )
+            if operation_role_by_value[operation[operation_fields["operation"]]]
+            == "identityReplace"
+            else all(
+                closure_by_id[component_id][closure_type_field]
+                == identity_contract["dependencyTypes"][
+                    contract["operationDependencyTypes"][
+                        operation_role_by_value[operation[operation_fields["operation"]]]
+                    ]
+                ]
+                for component_id in operation[operation_fields["targetRegions"]]
+            )
+        )
+        for operation in operations
+    )
+    if not dependency_topology_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "依赖类型必须与图片操作、组件角色和关系拓扑一致。",
+            {},
+        )
+    return copy.deepcopy(graph), copy.deepcopy(operations)
+
+
 def _plan_replacement(
     source_analysis: dict[str, Any],
     rules: dict[str, Any],
@@ -757,6 +1280,8 @@ def _plan_replacement(
     closure = source_analysis.get("dependencyClosure", [])
     if not isinstance(closure, list) or not all(
         isinstance(item, dict)
+        and isinstance(item.get(component_field), str)
+        and item[component_field].strip()
         and isinstance(item.get(type_field), str)
         and item[type_field].strip()
         and isinstance(item.get(value_field), str)
@@ -770,6 +1295,14 @@ def _plan_replacement(
             "来源分析的 dependencyClosure 必须是包含非空 type/value 的对象列表。",
             {"actualType": type(closure).__name__},
         )
+    if len({item[component_field] for item in closure}) != len(closure):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "来源分析的 dependencyClosure 组件 ID 必须唯一。",
+            {},
+        )
     if not closure:
         raise _stop(
             rules,
@@ -778,6 +1311,9 @@ def _plan_replacement(
             "主要替换目标的依赖范围尚无法可靠判定，需要复核。",
             {"category": category},
         )
+    component_graph, image_operations = _validated_source_multi_instance_contract(
+        source_analysis, rules
+    )
     identity_route_role = next(
         (
             role
@@ -1465,6 +2001,8 @@ def _plan_replacement(
         "templateKey": template_key,
         "strategy": strategy,
         "mechanism": source_analysis["mechanism"],
+        rules["multiInstanceContract"]["planFields"]["componentGraph"]: component_graph,
+        rules["multiInstanceContract"]["planFields"]["imageOperations"]: image_operations,
         "primaryTargets": [
             {
                 "sourceCategory": category,
@@ -1557,11 +2095,15 @@ def _compile_generation_package(
             for item in plan[plan_fields["textDecisions"]]
         )
     request_id = "gen-" + _sha_bytes(_canonical_bytes({"plan": plan, "sections": sections}))[:24]
+    multi_contract = rules["multiInstanceContract"]
     return {
         "artifactType": "generation-package",
         "schemaVersion": plan["schemaVersion"],
         "requestId": request_id,
         "sections": sections,
+        multi_contract["generationFields"]["imageOperations"]: copy.deepcopy(
+            plan[multi_contract["planFields"]["imageOperations"]]
+        ),
         "output": {"imageCount": 1, "size": source_analysis.get("imageSize", "1024x1024")},
         "replacementPlanSha256": _sha_bytes(_json_bytes(plan)),
     }
@@ -1591,6 +2133,7 @@ def _evaluate_visual_gate(
     rules: dict[str, Any],
     expected_bindings: dict[str, str],
     identity_text_required: bool,
+    expected_image_operations: list[dict[str, Any]],
 ) -> WorkflowStop | None:
     if not isinstance(review, dict):
         return _stop(
@@ -1613,6 +2156,13 @@ def _evaluate_visual_gate(
     identity_text_field = evidence_fields["identityText"]
     identity_text = review.get(identity_text_field)
     identity_text_fields = contract["identityTextEvidenceFields"]
+    multi_contract = rules["multiInstanceContract"]
+    operation_fields = multi_contract["operationFields"]
+    operation_review_fields = multi_contract["operationReviewFields"]
+    operation_evidence = review.get(evidence_fields["imageOperations"])
+    expected_operation_ids = {
+        operation[operation_fields["identity"]] for operation in expected_image_operations
+    }
     bindings = review.get("bindings")
     method = review.get("method")
     evidence_payload = (
@@ -1652,6 +2202,36 @@ def _evaluate_visual_gate(
         and isinstance(identity_text.get(identity_text_fields["replacementConsistency"]), bool)
         and isinstance(identity_text.get(identity_text_fields["explanation"]), str)
         and identity_text[identity_text_fields["explanation"]].strip()
+        and isinstance(operation_evidence, list)
+        and len(operation_evidence) == len(expected_operation_ids)
+        and all(
+            isinstance(item, dict)
+            and set(item) == set(operation_review_fields.values())
+            and isinstance(
+                item.get(operation_review_fields["operationIdentity"]), str
+            )
+            and item.get(operation_review_fields["operationIdentity"])
+            in expected_operation_ids
+            and all(
+                isinstance(item.get(operation_review_fields[field]), bool)
+                for field in (
+                    "targetCleared",
+                    "anchorsStable",
+                    "relationsPreserved",
+                    "nonTargetStable",
+                )
+            )
+            and isinstance(item.get(operation_review_fields["explanation"]), str)
+            and item[operation_review_fields["explanation"]].strip()
+            for item in operation_evidence
+        )
+        and len(
+            {
+                item[operation_review_fields["operationIdentity"]]
+                for item in operation_evidence
+            }
+        )
+        == len(operation_evidence)
         and isinstance(bindings, dict)
         and all(bindings.get(key) == value for key, value in expected_bindings.items())
         and evidence_payload is not None
@@ -1685,6 +2265,15 @@ def _evaluate_visual_gate(
     ):
         failures.append(contract["hardGateRoles"]["visibleText"])
         failures.append(contract["hardGateRoles"]["legacyIdentityAbsence"])
+    for item in operation_evidence:
+        if item[operation_review_fields["targetCleared"]] is not True:
+            failures.append(contract["hardGateRoles"]["dependencyClosure"])
+        if item[operation_review_fields["anchorsStable"]] is not True:
+            failures.append(contract["hardGateRoles"]["nonTargetPreservation"])
+        if item[operation_review_fields["relationsPreserved"]] is not True:
+            failures.append(contract["hardGateRoles"]["contactGeometry"])
+        if item[operation_review_fields["nonTargetStable"]] is not True:
+            failures.append(contract["hardGateRoles"]["nonTargetPreservation"])
     if failures:
         failed_gates = sorted(set(failures))
         review["decision"] = contract["decisionValues"]["rejected"]
@@ -2113,6 +2702,10 @@ def _compile_editable_spec(
 ) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
     value_gate_roles = tuple(slot_contract["valueGateRoles"].values())
+    allowed_semantic_roles = {
+        *slot_contract["semanticRoles"].values(),
+        *slot_contract["personAttributeRoles"].values(),
+    }
     subject_role = slot_contract["semanticRoles"]["primarySubject"]
     subject_upload_type = slot_contract["slotTypes"]["primarySubjectUpload"]
     slot_candidates = analysis.get("slotCandidates")
@@ -2123,7 +2716,7 @@ def _compile_editable_spec(
             and isinstance(slot.get("id"), str)
             and SLOT_ID.fullmatch(slot["id"])
             and isinstance(slot.get("semanticRole"), str)
-            and slot["semanticRole"].strip()
+            and slot["semanticRole"] in allowed_semantic_roles
             and slot.get("type") in set(slot_contract["slotTypes"].values())
             and isinstance(slot.get("defaultValue"), str)
             and isinstance(slot.get("suggestions"), list)
@@ -2144,7 +2737,11 @@ def _compile_editable_spec(
             "槽位候选必须提供合法默认值、推荐池和四道具名价值门禁。",
             {},
         )
-    slots = [slot for slot in slot_candidates if all(slot["valueGates"][role] for role in value_gate_roles)]
+    slots = [
+        copy.deepcopy(slot)
+        for slot in slot_candidates
+        if all(slot["valueGates"][role] for role in value_gate_roles)
+    ]
     identity_contract = rules["identityReplacementContract"]
     identity_plan_fields = identity_contract["planFields"]
     if identity_plan_fields["route"] in plan:
@@ -2277,10 +2874,488 @@ def _compile_editable_spec(
                 {},
             )
     asset_units = analysis.get("assetUnitAnalysis")
+    multi_contract = rules["multiInstanceContract"]
+    approved_graph = analysis.get(
+        multi_contract["approvedFields"]["componentGraph"]
+    )
+    approved_graph_view = _component_graph_view(approved_graph, rules)
     count_fields = set(slot_contract["assetUnitCountFields"].values())
     control_count_field = slot_contract["assetUnitCountFields"]["controls"]
+    component_fields = multi_contract["componentFields"]
+    components = approved_graph_view[0] if approved_graph_view is not None else []
+    approved_relations = approved_graph_view[1] if approved_graph_view is not None else []
+    computed_visible_count = sum(
+        component[component_fields["visualInstance"]] is True for component in components
+    )
+    computed_identity_ids = {
+        component[component_fields["identityUnit"]]
+        for component in components
+        if component[component_fields["identityUnit"]] is not None
+    }
+    computed_upload_ids = {
+        component[component_fields["uploadAsset"]]
+        for component in components
+        if component[component_fields["uploadAsset"]] is not None
+    }
+    computed_control_ids = {
+        component[component_fields["control"]]
+        for component in components
+        if component[component_fields["control"]] is not None
+    }
+    slot_by_id = {slot["id"]: slot for slot in slots}
+    semantic_role_by_key = {
+        **slot_contract["semanticRoles"],
+        **slot_contract["personAttributeRoles"],
+    }
+    allowed_control_bindings = {
+        multi_contract["componentRoles"][component_role]: {
+            (
+                slot_contract["slotTypes"][binding["slotTypeRole"]],
+                semantic_role_by_key[binding["semanticRoleKey"]],
+            )
+            for binding in bindings
+        }
+        for component_role, bindings in multi_contract[
+            "approvedControlBindings"
+        ].items()
+    }
+    uploads_by_control: dict[str, set[str]] = {}
+    controls_by_upload: dict[str, set[str]] = {}
+    for component in components:
+        upload_id = component[component_fields["uploadAsset"]]
+        control_id = component[component_fields["control"]]
+        if upload_id is None or control_id is None:
+            continue
+        uploads_by_control.setdefault(control_id, set()).add(upload_id)
+        controls_by_upload.setdefault(upload_id, set()).add(control_id)
+    graph_counts = {
+        slot_contract["assetUnitCountFields"]["visibleSubjects"]: computed_visible_count,
+        slot_contract["assetUnitCountFields"]["identities"]: len(computed_identity_ids),
+        slot_contract["assetUnitCountFields"]["uploads"]: len(computed_upload_ids),
+        slot_contract["assetUnitCountFields"]["controls"]: len(computed_control_ids),
+    }
+    relation_fields = multi_contract["relationFields"]
+    approved_component_by_id = {
+        component[component_fields["identity"]]: component for component in components
+    }
+    approved_identity_relations_valid = _identity_relations_are_consistent(
+        components, approved_relations, multi_contract
+    )
+    allowed_relation_role_pairs = {
+        multi_contract["relationTypes"][relation_role]: {
+            (
+                multi_contract["componentRoles"][source_role],
+                multi_contract["componentRoles"][target_role],
+            )
+            for source_role, target_role in role_pairs
+        }
+        for relation_role, role_pairs in multi_contract[
+            "relationEndpointRoleKeyPairs"
+        ].items()
+    }
+    approved_relation_roles_valid = all(
+        (
+            approved_component_by_id[relation[relation_fields["source"]]][
+                component_fields["role"]
+            ],
+            approved_component_by_id[relation[relation_fields["target"]]][
+                component_fields["role"]
+            ],
+        )
+        in allowed_relation_role_pairs[relation[relation_fields["type"]]]
+        for relation in approved_relations
+    )
+    approved_relation_types_by_component: dict[str, set[str]] = {
+        component_id: set() for component_id in approved_component_by_id
+    }
+    for relation in approved_relations:
+        approved_relation_types_by_component[relation[relation_fields["source"]]].add(
+            relation[relation_fields["type"]]
+        )
+        approved_relation_types_by_component[relation[relation_fields["target"]]].add(
+            relation[relation_fields["type"]]
+        )
+    identity_contract = rules["identityReplacementContract"]
+    component_required_relation_types: dict[str, set[str]] = {}
+    for dependency_role in multi_contract["approvedIdentityDependencyRoleKeys"]:
+        required_relation_types = {
+            multi_contract["relationTypes"][relation_role]
+            for relation_role in identity_contract["dependencyRelationTypeKeys"][
+                dependency_role
+            ]
+        }
+        for component_role in identity_contract["dependencyComponentRoleKeys"][
+            dependency_role
+        ]:
+            component_required_relation_types.setdefault(
+                multi_contract["componentRoles"][component_role], set()
+            ).update(required_relation_types)
+    approved_component_relations_complete = all(
+        component[component_fields["role"]]
+        not in component_required_relation_types
+        or bool(
+            component_required_relation_types[component[component_fields["role"]]]
+            & approved_relation_types_by_component[
+                component[component_fields["identity"]]
+            ]
+        )
+        for component in components
+    )
+    plan_operations = plan.get(multi_contract["planFields"]["imageOperations"], [])
+    source_plan_graph_view = _component_graph_view(
+        plan.get(multi_contract["planFields"]["componentGraph"]), rules
+    )
+    source_plan_components = (
+        source_plan_graph_view[0] if source_plan_graph_view is not None else []
+    )
+    source_plan_relations = (
+        source_plan_graph_view[1] if source_plan_graph_view is not None else []
+    )
+    source_plan_component_by_id = {
+        component[component_fields["identity"]]: component
+        for component in source_plan_components
+    }
+    source_plan_relation_by_id = {
+        relation[relation_fields["identity"]]: relation
+        for relation in source_plan_relations
+    }
+    operation_fields = multi_contract["operationFields"]
+    operation_role_by_value = {
+        value: role for role, value in multi_contract["operations"].items()
+    }
+    binding_fields = multi_contract["approvedOperationBindingFields"]
+    approved_bindings = analysis.get(
+        multi_contract["approvedFields"]["operationBindings"]
+    )
+    component_id_set = set(approved_component_by_id)
+    plan_operation_ids = {
+        operation[operation_fields["identity"]] for operation in plan_operations
+    }
+    approved_bindings_shape_valid = bool(
+        isinstance(approved_bindings, list)
+        and len(approved_bindings) == len(plan_operations)
+        and all(
+            isinstance(binding, dict)
+            and set(binding) == set(binding_fields.values())
+            and isinstance(binding.get(binding_fields["operationIdentity"]), str)
+            and binding[binding_fields["operationIdentity"]].strip()
+            and all(
+                isinstance(binding.get(binding_fields[field]), list)
+                and all(
+                    isinstance(value, str) and value.strip()
+                    for value in binding[binding_fields[field]]
+                )
+                and len(binding[binding_fields[field]])
+                == len(set(binding[binding_fields[field]]))
+                for field in ("targetComponents", "stableAnchors", "controls")
+            )
+            and binding[binding_fields["targetComponents"]]
+            and binding[binding_fields["stableAnchors"]]
+            and set(binding[binding_fields["targetComponents"]]) <= component_id_set
+            and set(binding[binding_fields["stableAnchors"]]) <= component_id_set
+            and not (
+                set(binding[binding_fields["targetComponents"]])
+                & set(binding[binding_fields["stableAnchors"]])
+            )
+            and set(binding[binding_fields["controls"]]) <= set(slot_by_id)
+            and isinstance(binding.get(binding_fields["explanation"]), str)
+            and binding[binding_fields["explanation"]].strip()
+            for binding in approved_bindings
+        )
+        and {
+            binding[binding_fields["operationIdentity"]]
+            for binding in approved_bindings
+        }
+        == plan_operation_ids
+    )
+    if approved_bindings_shape_valid:
+        approved_target_ids = [
+            component_id
+            for binding in approved_bindings
+            for component_id in binding[binding_fields["targetComponents"]]
+        ]
+        approved_bindings_shape_valid = len(approved_target_ids) == len(
+            set(approved_target_ids)
+        )
+    approved_binding_by_operation = (
+        {
+            binding[binding_fields["operationIdentity"]]: binding
+            for binding in approved_bindings
+        }
+        if approved_bindings_shape_valid
+        else {}
+    )
+
+    def approved_operation_is_complete(operation: dict[str, Any]) -> bool:
+        binding = approved_binding_by_operation[
+            operation[operation_fields["identity"]]
+        ]
+        operation_role = operation_role_by_value[
+            operation[operation_fields["operation"]]
+        ]
+        requirement = multi_contract["operationRequirements"][operation_role]
+        source_targets = [
+            source_plan_component_by_id[target_id]
+            for target_id in operation[operation_fields["targetRegions"]]
+        ]
+        source_anchors = [
+            source_plan_component_by_id[anchor_id]
+            for anchor_id in operation[operation_fields["stableAnchors"]]
+        ]
+        selected_targets = [
+            approved_component_by_id[component_id]
+            for component_id in binding[binding_fields["targetComponents"]]
+        ]
+        selected_anchors = [
+            approved_component_by_id[component_id]
+            for component_id in binding[binding_fields["stableAnchors"]]
+        ]
+        if (
+            [component[component_fields["role"]] for component in selected_targets]
+            != [component[component_fields["role"]] for component in source_targets]
+            or [component[component_fields["role"]] for component in selected_anchors]
+            != [component[component_fields["role"]] for component in source_anchors]
+        ):
+            return False
+        if operation_role == "identityReplace":
+            selected_identity_units = {
+                component[component_fields["identityUnit"]]
+                for component in selected_targets
+            }
+            if None in selected_identity_units or len(selected_identity_units) != 1:
+                return False
+            selected_identity = next(iter(selected_identity_units))
+            if {
+                component[component_fields["identity"]]
+                for component in components
+                if component[component_fields["identityUnit"]] == selected_identity
+            } != {
+                component[component_fields["identity"]]
+                for component in selected_targets
+            }:
+                return False
+        selected_ids = {
+            component[component_fields["identity"]] for component in selected_targets
+        }
+        selected_anchor_ids = {
+            component[component_fields["identity"]] for component in selected_anchors
+        }
+        selected_control_ids = {
+            component[component_fields["control"]]
+            for component in selected_targets
+            if component[component_fields["control"]] is not None
+        }
+        components_using_selected_controls = {
+            component[component_fields["identity"]]
+            for component in components
+            if component[component_fields["control"]] in selected_control_ids
+        }
+        requires_control = operation_role != "identityReplace" or any(
+            slot["type"] == subject_upload_type for slot in slots
+        )
+        if selected_control_ids != set(binding[binding_fields["controls"]]) or (
+            requires_control and not selected_control_ids
+        ) or not components_using_selected_controls <= selected_ids:
+            return False
+        selected_container_ids = {
+            component[component_fields["container"]]
+            for component in selected_targets
+            if component[component_fields["container"]] is not None
+        }
+        if requirement["targetContainersMustBeAnchors"] and not (
+            selected_container_ids <= selected_anchor_ids
+        ):
+            return False
+        selected_scope_ids = selected_ids | selected_anchor_ids | selected_container_ids
+        required_relation_types = {
+            multi_contract["relationTypes"][relation_role]
+            for relation_role in requirement["requiredRelationTypeKeys"]
+        }
+        source_preserved_relations = [
+            source_plan_relation_by_id[relation_id]
+            for relation_id in operation[operation_fields["preservedRelations"]]
+        ]
+        required_relation_types.update(
+            relation[relation_fields["type"]]
+            for relation in source_preserved_relations
+        )
+        ordered_relation_type = multi_contract["relationTypes"]["orderedBefore"]
+        scoped_approved_relations = [
+            relation
+            for relation in approved_relations
+            if {
+                relation[relation_fields["source"]],
+                relation[relation_fields["target"]],
+            }
+            <= selected_scope_ids
+            and (
+                bool(
+                    {
+                        relation[relation_fields["source"]],
+                        relation[relation_fields["target"]],
+                    }
+                    & selected_ids
+                )
+                or relation[relation_fields["type"]] == ordered_relation_type
+            )
+        ]
+        if not required_relation_types <= {
+            relation[relation_fields["type"]]
+            for relation in scoped_approved_relations
+        }:
+            return False
+
+        source_to_approved_component = {
+            **dict(
+                zip(
+                    operation[operation_fields["targetRegions"]],
+                    binding[binding_fields["targetComponents"]],
+                )
+            ),
+            **dict(
+                zip(
+                    operation[operation_fields["stableAnchors"]],
+                    binding[binding_fields["stableAnchors"]],
+                )
+            ),
+        }
+        if any(
+            relation[relation_fields["source"]] not in source_to_approved_component
+            or relation[relation_fields["target"]]
+            not in source_to_approved_component
+            for relation in source_preserved_relations
+        ):
+            return False
+        source_relation_signatures = [
+            (
+                relation[relation_fields["type"]],
+                source_to_approved_component[relation[relation_fields["source"]]],
+                source_to_approved_component[relation[relation_fields["target"]]],
+            )
+            for relation in source_preserved_relations
+        ]
+        approved_relation_signatures = [
+            (
+                relation[relation_fields["type"]],
+                relation[relation_fields["source"]],
+                relation[relation_fields["target"]],
+            )
+            for relation in scoped_approved_relations
+        ]
+        if any(
+            approved_relation_signatures.count(signature)
+            < source_relation_signatures.count(signature)
+            for signature in set(source_relation_signatures)
+        ):
+            return False
+        if requirement["requiresCompleteOrderedChain"]:
+            return _complete_typed_relation_chain(
+                selected_container_ids,
+                approved_relations,
+                multi_contract["relationTypes"]["orderedBefore"],
+                relation_fields,
+            )
+        return True
+
+    approved_operation_topology_complete = bool(
+        source_plan_graph_view is not None
+        and approved_bindings_shape_valid
+        and all(
+            approved_operation_is_complete(operation) for operation in plan_operations
+        )
+    )
+
+    repeated_identity_type = multi_contract["relationTypes"]["repeatedIdentity"]
+
+    def approved_repeated_subjects_are_connected() -> bool:
+        subjects_by_identity: dict[str, set[str]] = {}
+        for component in components:
+            identity_unit = component[component_fields["identityUnit"]]
+            if (
+                identity_unit is not None
+                and component[component_fields["role"]]
+                == multi_contract["componentRoles"]["subject"]
+            ):
+                subjects_by_identity.setdefault(identity_unit, set()).add(
+                    component[component_fields["identity"]]
+                )
+        repeated_edges = [
+            relation
+            for relation in approved_relations
+            if relation[relation_fields["type"]] == repeated_identity_type
+        ]
+        for subject_ids in subjects_by_identity.values():
+            if len(subject_ids) < 2:
+                continue
+            adjacency = {subject_id: set() for subject_id in subject_ids}
+            for relation in repeated_edges:
+                source_id = relation[relation_fields["source"]]
+                target_id = relation[relation_fields["target"]]
+                if source_id in subject_ids and target_id in subject_ids:
+                    adjacency[source_id].add(target_id)
+                    adjacency[target_id].add(source_id)
+            visited: set[str] = set()
+            pending = [next(iter(subject_ids))]
+            while pending:
+                current = pending.pop()
+                if current in visited:
+                    continue
+                visited.add(current)
+                pending.extend(adjacency[current] - visited)
+            if visited != subject_ids:
+                return False
+        return True
+    approved_control_bindings_valid = all(
+        component[component_fields["control"]] is None
+        or (
+            component[component_fields["control"]] in slot_by_id
+            and (
+                slot_by_id[component[component_fields["control"]]]["type"],
+                slot_by_id[component[component_fields["control"]]]["semanticRole"],
+            )
+            in allowed_control_bindings.get(
+                component[component_fields["role"]], set()
+            )
+        )
+        for component in components
+    )
+    approved_graph_valid = bool(
+        approved_graph_view is not None
+        and approved_identity_relations_valid
+        and approved_relation_roles_valid
+        and approved_component_relations_complete
+        and approved_operation_topology_complete
+        and approved_repeated_subjects_are_connected()
+        and approved_control_bindings_valid
+        and computed_control_ids == {slot["id"] for slot in slots}
+        and all(
+            not component[component_fields["visualInstance"]]
+            or component[component_fields["identityUnit"]] is not None
+            for component in components
+        )
+        and all(
+            component[component_fields["uploadAsset"]] is None
+            or (
+                component[component_fields["control"]] in slot_by_id
+                and slot_by_id[component[component_fields["control"]]]["type"]
+                == subject_upload_type
+            )
+            for component in components
+        )
+        and all(len(control_ids) == 1 for control_ids in controls_by_upload.values())
+        and all(
+            slot["type"] != subject_upload_type
+            or bool(uploads_by_control.get(slot["id"]))
+            for slot in slots
+        )
+        and all(
+            len(upload_ids) <= SUBJECT_IMAGE_MAX_COUNT
+            for upload_ids in uploads_by_control.values()
+        )
+    )
     asset_units_valid = bool(
-        isinstance(asset_units, dict)
+        approved_graph_valid
+        and isinstance(asset_units, dict)
         and set(asset_units) == {*count_fields, "evidence"}
         and all(
             isinstance(asset_units[field], int)
@@ -2288,6 +3363,7 @@ def _compile_editable_spec(
             and asset_units[field] >= 0
             for field in count_fields
         )
+        and all(asset_units[field] == value for field, value in graph_counts.items())
         and asset_units[control_count_field] == len(slots)
         and isinstance(asset_units.get("evidence"), str)
         and asset_units["evidence"].strip()
@@ -2297,9 +3373,13 @@ def _compile_editable_spec(
             rules,
             "blocked",
             "contractFailure",
-            "可见主体、身份、上传素材和控件数量缺少独立计数证据，或控件数与槽位不一致。",
+            "组件图无效，或画面实例、身份、上传素材和控件四类数量没有独立准确计算。",
             {},
         )
+    image_max_count_field = multi_contract["subjectImageMaxCountField"]
+    for slot in slots:
+        if slot["type"] == subject_upload_type:
+            slot[image_max_count_field] = len(uploads_by_control[slot["id"]])
     default_preference = slot_contract["defaultValuePreference"]
     preference_exceptions = analysis.get("defaultValuePreferenceExceptionEvidence", {})
     preference_exceptions_valid = bool(
@@ -2488,6 +3568,9 @@ def _compile_editable_spec(
     if subject_kind == person_kind:
         editable["subjectAttributeAssessments"] = analysis["subjectAttributeAssessments"]
     editable["assetUnitAnalysis"] = asset_units
+    editable[multi_contract["approvedFields"]["componentGraph"]] = copy.deepcopy(
+        approved_graph
+    )
     if preference_exceptions:
         editable["defaultValuePreferenceExceptionEvidence"] = preference_exceptions
     if needs_review is not None:
@@ -2497,7 +3580,9 @@ def _compile_editable_spec(
 
 def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
     slot_types = rules["slotCompilationContract"]["slotTypes"]
+    multi_contract = rules["multiInstanceContract"]
     if slot["type"] == slot_types["primarySubjectUpload"]:
+        image_max_count = slot[multi_contract["subjectImageMaxCountField"]]
         return {
             "id": slot["id"],
             "type": slot_types["primarySubjectUpload"],
@@ -2512,10 +3597,18 @@ def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any
             },
             "image": {
                 "enabled": True,
-                "promptValue": "用户上传图中的主体",
-                "hint": "上传1张清晰主体图，按模板参考图的媒介与区域职责完整重绘",
-                "extract": "提取该主体可辨识的身份特征，并在模板参考图的媒介与造型体系中重绘。",
-                "maxCount": 1,
+                "promptValue": "用户上传的主体素材",
+                "hint": (
+                    "上传1张清晰主体图，按模板参考图的媒介与区域职责完整重绘"
+                    if image_max_count == 1
+                    else f"按画面顺序上传最多{image_max_count}张清晰主体图"
+                ),
+                "extract": (
+                    "提取该主体可辨识的身份特征，并在模板参考图的媒介与造型体系中重绘。"
+                    if image_max_count == 1
+                    else "按上传顺序逐张提取主体身份特征，并匹配模板中的有序目标区域。"
+                ),
+                "maxCount": image_max_count,
                 "minWidth": 256,
                 "minHeight": 256,
                 "private": True,
@@ -3807,15 +4900,26 @@ def run_production(
             "generatedImageSha256": _sha_file(candidate_path),
             "generationPackageSha256": _sha_bytes(_canonical_bytes(generation_package)),
         }
+        operation_request_field = rules["multiInstanceContract"]["generationFields"][
+            "imageOperations"
+        ]
+        review_request = {
+            "bindings": copy.deepcopy(review_bindings),
+            operation_request_field: copy.deepcopy(
+                generation_package[operation_request_field]
+            ),
+        }
+        review_request_snapshot = copy.deepcopy(review_request)
         review = _adapter_snapshot_image_object_call(
             rules,
             "inspect_generated",
             adapters.inspect_generated,
             candidate_path,
             review_bindings["generatedImageSha256"],
-            copy.deepcopy(review_bindings),
+            review_request,
         )
         candidate_unchanged = _sha_file(candidate_path) == review_bindings["generatedImageSha256"]
+        review_request_unchanged = review_request == review_request_snapshot
         gate_stop = _evaluate_visual_gate(
             review,
             rules,
@@ -3823,16 +4927,22 @@ def run_production(
             identity_text_required=(
                 rules["identityReplacementContract"]["planFields"]["route"] in plan
             ),
+            expected_image_operations=plan[
+                rules["multiInstanceContract"]["planFields"]["imageOperations"]
+            ],
         )
-        if not candidate_unchanged:
+        if not candidate_unchanged or not review_request_unchanged:
             if isinstance(review, dict):
                 review["decision"] = rules["visualReviewContract"]["decisionValues"]["rejected"]
-                review["decisionEvidence"] = {"candidateBytesUnchanged": False}
+                review["decisionEvidence"] = {
+                    "candidateBytesUnchanged": candidate_unchanged,
+                    "reviewRequestUnchanged": review_request_unchanged,
+                }
             gate_stop = _stop(
                 rules,
                 "failed",
                 "externalFailure",
-                "视觉审核期间候选图字节发生变化，审核绑定已失效。",
+                "视觉审核期间候选图或审核请求发生变化，审核绑定已失效。",
                 {"path": candidate_rel},
             )
         review_name = _revisioned_name("visual-review.json", manifest["revision"])

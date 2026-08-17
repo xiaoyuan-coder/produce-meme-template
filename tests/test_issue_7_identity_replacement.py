@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+from tests.fixture_contracts import (
+    rebuild_approved_component_graph,
+    rebuild_source_component_graph_for_named_closure,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,11 +182,13 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
             }
             for value in analysis["frozenSet"]
         ]
+        rebuild_source_component_graph_for_named_closure(analysis, RULES)
         if self.source_transform:
             analysis = self.source_transform(analysis)
+        self.source_analysis = copy.deepcopy(analysis)
         return analysis
 
-    def inspect_generated(self, generated_image: Path, review_context: dict[str, str]) -> dict:
+    def inspect_generated(self, generated_image: Path, review_context: dict) -> dict:
         review = super().inspect_generated(generated_image, review_context)
         contract = RULES["visualReviewContract"]
         evidence_field = contract["evidenceFieldRoles"]["identityText"]
@@ -353,6 +359,87 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
             }
         if self.approved_transform:
             analysis = self.approved_transform(analysis)
+        analysis = rebuild_approved_component_graph(
+            analysis, RULES, getattr(self, "source_analysis", None)
+        )
+        multi_contract = RULES["multiInstanceContract"]
+        graph = analysis[multi_contract["approvedFields"]["componentGraph"]]
+        graph_fields = multi_contract["graphFields"]
+        component_fields = multi_contract["componentFields"]
+        relation_fields = multi_contract["relationFields"]
+        components = graph[graph_fields["components"]]
+        relations = graph[graph_fields["relations"]]
+        dependency_roles = self.scenario["dependencyTypeRoles"]
+        required_component_roles = [
+            multi_contract["componentRoles"][
+                IDENTITY_CONTRACT["dependencyComponentRoleKeys"][dependency_role][0]
+            ]
+            for dependency_role in dependency_roles
+        ]
+        primary = next(
+            component
+            for component in components
+            if component[component_fields["role"]]
+            == multi_contract["componentRoles"]["subject"]
+            and component[component_fields["identityUnit"]] is not None
+        )
+        for component in components:
+            if (
+                component[component_fields["role"]] in required_component_roles
+                and component[component_fields["control"]] is not None
+                and component[component_fields["identityUnit"]] is None
+            ):
+                component[component_fields["identityUnit"]] = primary[
+                    component_fields["identityUnit"]
+                ]
+        observed_by_role: dict[str, int] = {}
+        required_by_role: dict[str, int] = {}
+        for component in components:
+            role = component[component_fields["role"]]
+            observed_by_role[role] = observed_by_role.get(role, 0) + 1
+        for role in required_component_roles:
+            required_by_role[role] = required_by_role.get(role, 0) + 1
+        for role, required_count in required_by_role.items():
+            for _ in range(max(0, required_count - observed_by_role.get(role, 0))):
+                component_id = f"identity-approved-derived-{len(components)}"
+                components.append(
+                    {
+                        component_fields["identity"]: component_id,
+                        component_fields["role"]: role,
+                        component_fields["identityUnit"]: primary[
+                            component_fields["identityUnit"]
+                        ],
+                        component_fields["visualInstance"]: False,
+                        component_fields["uploadAsset"]: None,
+                        component_fields["control"]: None,
+                        component_fields["container"]: None,
+                        component_fields["explanation"]: "根据身份闭包补齐确认模板图的派生组件",
+                    }
+                )
+                relation_role = (
+                    "repeatedIdentity"
+                    if role == multi_contract["componentRoles"]["subject"]
+                    else "reflection"
+                    if role == multi_contract["componentRoles"]["reflection"]
+                    else "shadow"
+                    if role == multi_contract["componentRoles"]["shadow"]
+                    else None
+                )
+                if relation_role is not None:
+                    relations.append(
+                        {
+                            relation_fields["identity"]: f"identity-approved-relation-{len(relations)}",
+                            relation_fields["type"]: multi_contract["relationTypes"][
+                                relation_role
+                            ],
+                            relation_fields["source"]: component_id,
+                            relation_fields["target"]: primary[
+                                component_fields["identity"]
+                            ],
+                            relation_fields["explanation"]: "确认派生组件与主体的身份关系",
+                        }
+                    )
+                observed_by_role[role] = observed_by_role.get(role, 0) + 1
         return analysis
 
     def audit_semantics(self, content: dict) -> dict:
@@ -586,8 +673,8 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
         )
         result = self.run_case("incomplete-identity-dependency-closure", adapters)
 
-        self.assertEqual(RULES["resultStates"]["failed"], result.state)
-        self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertEqual([], adapters.generate_calls)
 
     def test_identity_topology_cannot_omit_a_component_that_remains_in_the_closure(self) -> None:
@@ -647,8 +734,8 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
         )
         result = self.run_case("identity-topology-without-full-body", adapters)
 
-        self.assertEqual(RULES["resultStates"]["failed"], result.state)
-        self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertEqual([], adapters.generate_calls)
 
     def test_identity_text_topology_cannot_point_to_a_non_text_dependency(self) -> None:
