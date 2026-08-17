@@ -7862,7 +7862,9 @@ def _run_single_production(
             "history": [],
             "artifacts": {},
             "invalidationEvents": [],
-            "historicalExperienceEvidence": rules["historicalExperienceEvidence"],
+            "historicalExperienceEvidence": rules[
+                "historicalExperienceContract"
+            ]["experienceIds"],
         }
     try:
         if not resume_visual and not resume_generation and not resume_prepared_generation:

@@ -1,0 +1,370 @@
+{
+  "schemaVersion": "1.0.0",
+  "experiences": [
+    {
+      "experienceId": "E01",
+      "topic": "单图事实隔离",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/shared-batch-policy.md", "anchor": "## 2. 默认隔离"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/batchProductionContract"},
+      "evidence": [{"testId": "tests.test_issue_12_batch_isolation.Issue12BatchIsolationTest.test_swapping_source_facts_between_items_fails_even_with_synced_digests", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_12_batch_isolation.py"], "expectedGateLocator": "/errorCodes/productionItemIntegrityFailure"}]
+    },
+    {
+      "experienceId": "E02",
+      "topic": "批量入口保持逐项独立",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/shared-batch-policy.md", "anchor": "## 1. 入口与边界"},
+      "implementation": {"kind": "python-symbol", "path": "scripts/produce_meme_template/workflow.py", "locator": "run_production"},
+      "evidence": [{"testId": "tests.test_issue_12_batch_isolation.Issue12BatchIsolationTest.test_default_batch_creates_only_independent_production_items", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/request.json"]}]
+    },
+    {
+      "experienceId": "E03",
+      "topic": "共享批次策略仅显式启用",
+      "migrationStatus": "conditional",
+      "legacyDisposition": "默认批量不再隐式创建跨图策略；只有 sharedPolicy 显式作用域启用。",
+      "authority": {"path": "references/shared-batch-policy.md", "anchor": "## 3. 显式共享策略"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/batchProductionContract/sharedPolicyFields"},
+      "evidence": [{"testId": "tests.test_issue_12_batch_isolation.Issue12BatchIsolationTest.test_explicit_shared_policy_is_resolved_with_per_image_priority", "polarity": "good-case", "fixturePaths": ["tests/test_issue_12_batch_isolation.py"]}]
+    },
+    {
+      "experienceId": "E04",
+      "topic": "来源图只提供机制与风险",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "废止来源网图直接生成最终标题、默认值和 Prompt 的旧阶段顺序。",
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 1. 视觉事实来源"},
+      "implementation": {"kind": "python-symbol", "path": "scripts/produce_meme_template/workflow.py", "locator": "_compile_draft"},
+      "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_e04_source_identity_leak_blocks_before_upload", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/source-analysis.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
+    },
+    {
+      "experienceId": "E05",
+      "topic": "单一主要替换目标",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/replacement-spec.md", "anchor": "### 3.3 决定替换对象"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/replacementStrategyContract"},
+      "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_e05_e07_autonomous_plan_has_one_same_category_target_and_closure", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/source-analysis.json"]}]
+    },
+    {
+      "experienceId": "E06",
+      "topic": "依赖闭包覆盖身份派生内容",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/replacement-spec.md", "anchor": "## 4. 依赖闭包"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/identityReplacementContract/dependencyTypes"},
+      "evidence": [{"testId": "tests.test_issue_9_multi_instance_operations.Issue9MultiInstanceOperationsTest.test_identity_operation_must_cover_repeated_instances_and_derivatives", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/multi-instance/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E07",
+      "topic": "自主同类替换",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/replacement-spec.md", "anchor": "### 3.5 自主策略的类别规则"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/sourceCategories"},
+      "evidence": [{"testId": "tests.test_issue_3_replacement_strategy.Issue3ReplacementStrategyTest.test_supported_categories_each_complete_an_autonomous_end_to_end_result", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/identity-routes/scenarios.json"]}]
+    },
+    {
+      "experienceId": "E08",
+      "topic": "普通真人生成新身份",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/replacement-spec.md", "anchor": "### 3.5 自主策略的类别规则"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/identityReplacementContract/routes"},
+      "evidence": [{"testId": "tests.test_issue_7_identity_replacement.Issue7IdentityReplacementTest.test_ordinary_public_and_known_ip_routes_complete_end_to_end", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/identity-routes/scenarios.json"]}]
+    },
+    {
+      "experienceId": "E09",
+      "topic": "知名 IP 同类替换候选卡",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/replacement-spec.md", "anchor": "### 3.4 生成替换值候选"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/identityReplacementContract/candidateCardFields"},
+      "evidence": [{"testId": "tests.test_issue_7_identity_replacement.Issue7IdentityReplacementTest.test_public_figure_and_known_ip_candidates_require_complete_candidate_cards", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/identity-routes/scenarios.json"], "expectedGateLocator": "/errorCodes/externalFailure"}]
+    },
+    {
+      "experienceId": "E10",
+      "topic": "六维画风保真",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/replacement-spec.md", "anchor": "## 6. 媒介与画面验收"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visualDimensions"},
+      "evidence": [{"testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_clear_pass_binds_every_gate_and_is_autonomously_approved", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/visual-review.json"]}]
+    },
+    {
+      "experienceId": "E11",
+      "topic": "硬门禁后自主确认",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/template-image-gate.md", "anchor": "## 3. 自主确认与风险升级"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visualReviewContract/decisionValues"},
+      "evidence": [
+        {"testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_hard_failures_cannot_be_overridden_or_become_approved_images", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/visual-review.json"], "expectedGateLocator": "/errorCodes/visualHardFailure"},
+        {"testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_ambiguity_and_evidence_risk_require_review_without_approving_the_image", "polarity": "human-review", "fixturePaths": ["fixtures/e2e/simple-animal/visual-review.json"], "expectedGateLocator": "/errorCodes/riskNeedsReview"}
+      ]
+    },
+    {
+      "experienceId": "E12",
+      "topic": "非目标内容不得漂移",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/template-image-gate.md", "anchor": "## 2. 硬门禁"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visualReviewContract/hardGateRoles"},
+      "evidence": [{"testId": "tests.test_issue_9_multi_instance_operations.Issue9MultiInstanceOperationsTest.test_operation_visual_failures_block_approval_and_upload", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/multi-instance/scenarios.json"], "expectedGateLocator": "/errorCodes/visualHardFailure"}]
+    },
+    {
+      "experienceId": "E13",
+      "topic": "全画布水印与签名检查",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/template-image-gate.md", "anchor": "## 2. 硬门禁"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visualReviewContract/cleanlinessFindingRoles"},
+      "evidence": [{"testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_approved_image_with_remove_action_is_a_visual_hard_failure", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/text-dense/scenarios.json"], "expectedGateLocator": "/errorCodes/visualHardFailure"}]
+    },
+    {
+      "experienceId": "E14",
+      "topic": "可见文字先分类角色与动作",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/visible-text-contract.md", "anchor": "## 1. 先建立完整文字清单"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visibleTextContract/roles"},
+      "evidence": [{"testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_three_text_dense_scenarios_compile_through_the_public_workflow", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/text-dense/scenarios.json"]}]
+    },
+    {
+      "experienceId": "E15",
+      "topic": "默认保持实际语种",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/visible-text-contract.md", "anchor": "## 3. 自由编辑与精确保真"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visibleTextContract/languageValues"},
+      "evidence": [{"testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_language_and_punctuation_are_driven_by_the_machine_contract", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/text-dense/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E16",
+      "topic": "逐 token 与版式精确文字",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/visible-text-contract.md", "anchor": "## 3. 自由编辑与精确保真"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visibleTextContract/exactEvidenceFields"},
+      "evidence": [{"testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_exact_text_fidelity_rejects_language_token_line_case_and_symbol_drift", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/text-dense/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E17",
+      "topic": "低价值文字不得占槽",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/visible-text-contract.md", "anchor": "## 2. 文字槽准入"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visibleTextContract/openSlotValueClasses"},
+      "evidence": [{"testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_attribution_brand_and_decorative_microtext_cannot_consume_slots", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/text-dense/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E18",
+      "topic": "次要文字保留全文编辑权限",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "次要可读文字从低价值结构化槽改为 Prompt Template 自由编辑内容。",
+      "authority": {"path": "references/visible-text-contract.md", "anchor": "## 3. 自由编辑与精确保真"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visibleTextContract/freeEditableValueClasses"},
+      "evidence": [{"testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_secondary_readable_text_must_stay_in_prompt_and_free_editable_content", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/text-dense/scenarios.json"]}]
+    },
+    {
+      "experienceId": "E19",
+      "topic": "主体槽逐图高价值评估",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/semanticRoles"},
+      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_audited_subject_omission_can_keep_two_other_high_value_slots", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]}]
+    },
+    {
+      "experienceId": "E20",
+      "topic": "人物派生槽独立评估",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/personAttributeRoles"},
+      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_person_attributes_require_independent_value_and_stability_assessments", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/identity-routes/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E21",
+      "topic": "二至五槽预算与单槽例外",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotBudget"},
+      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_exhaustive_single_slot_exception_is_allowed_and_preserved_as_evidence", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]}]
+    },
+    {
+      "experienceId": "E22",
+      "topic": "四类数量与独立素材单元",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/multi-instance-image-operations.md", "anchor": "## 1. 四类数量独立计算"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/multiInstanceContract/approvedFields"},
+      "evidence": [{"testId": "tests.test_issue_9_multi_instance_operations.Issue9MultiInstanceOperationsTest.test_four_counts_are_derived_independently_from_the_approved_component_graph", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/multi-instance/scenarios.json"]}]
+    },
+    {
+      "experienceId": "E23",
+      "topic": "五类图片操作分流",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/multi-instance-image-operations.md", "anchor": "## 3. 五类图片操作"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/multiInstanceContract/operations"},
+      "evidence": [{"testId": "tests.test_issue_9_multi_instance_operations.Issue9MultiInstanceOperationsTest.test_five_image_operations_compile_through_the_public_workflow", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/multi-instance/scenarios.json"]}]
+    },
+    {
+      "experienceId": "E24",
+      "topic": "默认值保持短而可读",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/defaultValuePreference"},
+      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_long_production_style_default_value_is_rejected", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/errorCodes/contractFailure"}]
+    },
+    {
+      "experienceId": "E25",
+      "topic": "推荐项同轴同颗粒度且去重",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/slotSuggestions"},
+      "evidence": [{"testId": "tests.test_issue_3_replacement_strategy.Issue3ReplacementStrategyTest.test_slot_suggestions_cannot_repeat_the_default_or_each_other", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
+    },
+    {
+      "experienceId": "E26",
+      "topic": "中性标题通过最大差异输入",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/maximumDifference"},
+      "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_title_must_survive_maximum_difference_subject_input", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
+    },
+    {
+      "experienceId": "E27",
+      "topic": "完整 Prompt 与两种编辑归一",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/prompt"},
+      "evidence": [{"testId": "tests.test_issue_14_template_json_test.Issue14TemplateJsonTest.test_slot_and_free_edit_normalize_to_the_actual_generation_prompt", "polarity": "good-case", "fixturePaths": ["tests/test_issue_14_template_json_test.py"]}]
+    },
+    {
+      "experienceId": "E28",
+      "topic": "用户字面权限不被隐藏层锁回",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. 隐藏约束"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/hiddenLayerResponsibilities"},
+      "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_hidden_constraints_cannot_lock_prompt_slot_or_free_content", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
+    },
+    {
+      "experienceId": "E29",
+      "topic": "六维视觉事实独立取证",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/template-image-gate.md", "anchor": "## 1. 确认输入与证据绑定"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/visualDimensions"},
+      "evidence": [{"testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_clear_pass_binds_every_gate_and_is_autonomously_approved", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/visual-review.json"]}]
+    },
+    {
+      "experienceId": "E30",
+      "topic": "正式 instruction 只保留允许职责",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. 隐藏约束"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/prompt/instructionAllowedSections"},
+      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_instruction_scope_and_hidden_layer_responsibilities_are_enforced", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E31",
+      "topic": "lockedConstraints 与 preserve 职责分离",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. 隐藏约束"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/prompt/hiddenLayerRoles"},
+      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_instruction_scope_and_hidden_layer_responsibilities_are_enforced", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/resultStates/blocked"}]
+    },
+    {
+      "experienceId": "E32",
+      "topic": "源码、发布、安装与 pin 同 revision",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/release-doctor-install.md", "anchor": "## 3. 安装与诊断"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/releaseManagementContract/productionPinFields"},
+      "evidence": [{"testId": "tests.test_issue_13_release_doctor_install.Issue13ReleaseDoctorInstallTest.test_release_lock_binds_all_files_and_three_version_lines", "polarity": "good-case", "fixturePaths": ["tests/test_issue_13_release_doctor_install.py"]}]
+    },
+    {
+      "experienceId": "E33",
+      "topic": "显式版本迁移保留旧 revision",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/release-doctor-install.md", "anchor": "## 4. 显式迁移"},
+      "implementation": {"kind": "python-symbol", "path": "scripts/produce_meme_template/release_management.py", "locator": "write_pin_migration_report"},
+      "evidence": [{"testId": "tests.test_issue_13_release_doctor_install.Issue13ReleaseDoctorInstallTest.test_migration_report_preserves_old_pin_and_records_version_diff", "polarity": "good-case", "fixturePaths": ["tests/test_issue_13_release_doctor_install.py"]}]
+    },
+    {
+      "experienceId": "E34",
+      "topic": "request ID 与 WAL 恢复",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/generation-execution-and-recovery.md", "anchor": "## 4. 恢复与失效"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/generationExecutionContract/walFields"},
+      "evidence": [{"testId": "tests.test_issue_10_generation_wal.Issue10GenerationWalTest.test_retryable_poll_failure_resumes_same_provider_request_without_resubmit", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/request.json"]}]
+    },
+    {
+      "experienceId": "E35",
+      "topic": "OSS 只回填同一 Approved Image",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/oss-finalization.md", "anchor": "## 1. 上传事实源"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/objectStorageContract/receiptFields"},
+      "evidence": [{"testId": "tests.test_issue_11_oss_finalization.Issue11OssFinalizationTest.test_controlled_real_adapter_binds_receipt_and_both_formal_urls", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-template-image.ppm"]}]
+    },
+    {
+      "experienceId": "E36",
+      "topic": "正式交付仅白名单 JSON",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 4. 四层验收与正式投影"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/formalProjection/topLevel"},
+      "evidence": [{"testId": "tests.test_issue_6_formal_gallery_contract.Issue6FormalGalleryContractTest.test_public_workflow_delivers_only_the_machine_whitelist", "polarity": "good-case", "fixturePaths": ["fixtures/contracts/latest-gallery-samples/heart.expected.json"]}]
+    },
+    {
+      "experienceId": "E37",
+      "topic": "T1 独立模板 JSON 生图测试",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/template-json-test.md", "anchor": "## 1. 入口与边界"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/templateTestContract"},
+      "evidence": [{"testId": "tests.test_issue_14_template_json_test.Issue14TemplateJsonTest.test_explicit_t1_runs_both_edit_modes_without_mutating_production", "polarity": "good-case", "fixturePaths": ["tests/test_issue_14_template_json_test.py"]}]
+    },
+    {
+      "experienceId": "E38",
+      "topic": "数据库、后端与自动发布职责废止",
+      "migrationStatus": "retired",
+      "legacyDisposition": "数据库导入、Worker、管理台与自动发布继续留在 Skill 职责外。",
+      "authority": {"path": "specs/新模板生产Skill实施规格.md", "anchor": "## Out of Scope"},
+      "implementation": {"kind": "documented-boundary", "path": "specs/新模板生产Skill实施规格.md", "locator": "数据库、UAT 或 production 的自动导入"},
+      "evidence": [{"testId": "tests.test_issue_15_historical_experience_regression.Issue15HistoricalExperienceRegressionTest.test_retired_capabilities_have_no_repository_entry_points", "polarity": "bad-case", "fixturePaths": ["skill-manifest.json"], "expectedGateLocator": "/historicalExperienceContract/retiredRepositoryPrefixes"}]
+    },
+    {
+      "experienceId": "E39",
+      "topic": "旧审计 metadata 仅进 sidecar",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "旧候选与审计 metadata 从正式 JSON 移入生产 sidecar，不双写兼容。",
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 4. 四层验收与正式投影"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/formalProjection/recognizedMetadataSidecars"},
+      "evidence": [{"testId": "tests.test_issue_6_formal_gallery_contract.Issue6FormalGalleryContractTest.test_production_sidecars_do_not_leak_into_the_formal_record", "polarity": "bad-case", "fixturePaths": ["fixtures/contracts/latest-gallery-samples/wedding.input.json"], "expectedGateLocator": "/resultStates/completed"}]
+    }
+  ],
+  "corpus": {
+    "latest-heart-input": {"path": "fixtures/contracts/latest-gallery-samples/heart.input.json", "selector": "/key", "sha256": "e0970eda3bbc77399ff222bce0023c38e8917dbf817830942489b36d18c0ad34"},
+    "latest-heart-expected": {"path": "fixtures/contracts/latest-gallery-samples/heart.expected.json", "selector": "/key", "sha256": "f01fe5f46bab758f70f55effed9dbea6a63235f504632445209e9ca5a90f91cb"},
+    "latest-wedding-input": {"path": "fixtures/contracts/latest-gallery-samples/wedding.input.json", "selector": "/key", "sha256": "5786703f093b64513e556a77ae0af9455e6af41d9bdd1d922444774174b5736e"},
+    "latest-wedding-expected": {"path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json", "selector": "/key", "sha256": "185b227136a7a88a622c36e3e0b9678c9426a2bc5a96ec982ddcf27c9c036cc5"},
+    "ordinary-person": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ordinary/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
+    "known-character-ip": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ip/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
+    "animal": {"path": "fixtures/e2e/simple-animal/source-image.ppm", "selector": null, "sha256": "b24c23d936effa3a455065e2be41498f85fe5b59204f80448daca56ec1e2f3b0"},
+    "visible-text": {"path": "fixtures/e2e/text-dense/scenarios.json", "selector": "/textCard/regionId", "sha256": "bea0b903b48d15c355b589bbb93e5069cee258d7593259e1548f3f89b3a27523"},
+    "complex-composition": {"path": "fixtures/e2e/multi-instance/scenarios.json", "selector": "/multiPersonGrid/operationRole", "sha256": "739a38ae32f001832f9c8054840c56c7cf05c2725da2a68b314832c18cfb93d5"}
+  }
+}

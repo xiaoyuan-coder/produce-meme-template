@@ -54,95 +54,102 @@ class RepositoryContractTest(unittest.TestCase):
             hashlib.sha256((ROOT / "contracts" / "gallery-template.schema.json").read_bytes()).hexdigest(),
         )
 
-    def test_issue_2_experience_ids_are_machine_traceable(self) -> None:
+    def test_historical_experience_contract_has_one_complete_typed_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E01", "E04", "E05", "E07", "E10", "E11", "E19", "E21", "E27", "E35", "E36", "E38"}
-            <= set(rules["historicalExperienceEvidence"])
+        contract = rules["historicalExperienceContract"]
+        matrix = load(ROOT / contract["matrixRelativePath"])
+        mapping_names = (
+            "requiredCorpusRoles",
+            "corpusContentKinds",
+            "corpusBindingFields",
+            "migrationStatuses",
+            "evidencePolarities",
+            "evidenceExpectationFields",
+            "implementationKinds",
+            "evidenceOutcomes",
+            "evidenceResultFields",
+            "outcomes",
+            "failureCategories",
+            "matrixFields",
+            "experienceFields",
+            "authorityFields",
+            "implementationFields",
+            "evidenceFields",
+            "corpusFields",
+            "reportFields",
+            "reportExperienceFields",
+            "reportEvidenceFields",
+            "reportCorpusFields",
+            "summaryFields",
         )
-
-    def test_issue_3_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E05", "E06", "E07", "E10", "E25"}
-            <= set(rules["historicalExperienceEvidence"])
+        for mapping_name in mapping_names:
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+            self.assertTrue(
+                all(isinstance(value, str) and value for value in mapping.values())
+            )
+        self.assertEqual(
+            [f"E{index:02d}" for index in range(1, 40)],
+            contract["experienceIds"],
         )
-
-    def test_issue_4_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E06", "E10", "E11", "E12", "E13", "E29", "E34"}
-            <= set(rules["historicalExperienceEvidence"])
+        experience_fields = contract["experienceFields"]
+        matrix_fields = contract["matrixFields"]
+        self.assertEqual(
+            contract["experienceIds"],
+            [
+                item[experience_fields["experienceId"]]
+                for item in matrix[matrix_fields["experiences"]]
+            ],
         )
-
-    def test_issue_5_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E18", "E19", "E20", "E21", "E22", "E24", "E25", "E26", "E27", "E28", "E30", "E31"}
-            <= set(rules["historicalExperienceEvidence"])
+        self.assertEqual(
+            set(contract["requiredCorpusRoles"].values()),
+            set(matrix[matrix_fields["corpus"]]),
         )
-
-    def test_issue_6_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E30", "E31", "E35", "E36", "E38", "E39"}
-            <= set(rules["historicalExperienceEvidence"])
+        self.assertEqual(
+            set(contract["requiredCorpusRoles"]),
+            set(contract["requiredCorpusBindings"]),
         )
-
-    def test_issue_7_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
+        binding_fields = set(contract["corpusBindingFields"].values())
         self.assertTrue(
-            {"E06", "E07", "E08", "E09", "E19", "E20", "E26", "E28"}
-            <= set(rules["historicalExperienceEvidence"])
+            all(
+                set(binding) == binding_fields
+                for binding in contract["requiredCorpusBindings"].values()
+            )
         )
-
-    def test_issue_8_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(contract["retiredRepositoryPrefixes"])
+        self.assertEqual(
+            set(contract["experienceIds"]),
+            set(contract["requiredEvidenceContracts"]),
+        )
+        expectation_fields = set(
+            contract["evidenceExpectationFields"].values()
+        )
         self.assertTrue(
-            {"E14", "E15", "E16", "E17", "E18", "E24", "E27", "E28"}
-            <= set(rules["historicalExperienceEvidence"])
+            all(
+                items
+                and all(set(item) == expectation_fields for item in items)
+                for items in contract["requiredEvidenceContracts"].values()
+            )
         )
-
-    def test_issue_9_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E06", "E12", "E20", "E22", "E23", "E29"}
-            <= set(rules["historicalExperienceEvidence"])
+        experience_digests = contract["requiredExperienceSha256ById"]
+        self.assertEqual(
+            set(contract["experienceIds"]), set(experience_digests)
         )
-
-    def test_issue_10_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E10", "E12", "E13", "E29", "E34"}
-            <= set(rules["historicalExperienceEvidence"])
-        )
-
-    def test_issue_11_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E35", "E36"} <= set(rules["historicalExperienceEvidence"])
-        )
-
-    def test_issue_12_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E01", "E02", "E03", "E32"}
-            <= set(rules["historicalExperienceEvidence"])
-        )
-
-    def test_issue_13_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E32", "E33", "E34"}
-            <= set(rules["historicalExperienceEvidence"])
-        )
-
-    def test_issue_14_experience_ids_are_machine_traceable(self) -> None:
-        rules = load(ROOT / "contracts" / "machine-rules.json")
-        self.assertTrue(
-            {"E27", "E28", "E37"}
-            <= set(rules["historicalExperienceEvidence"])
-        )
+        experience_fields = contract["experienceFields"]
+        for experience in matrix[matrix_fields["experiences"]]:
+            experience_id = experience[experience_fields["experienceId"]]
+            payload = json.dumps(
+                experience,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            self.assertEqual(
+                hashlib.sha256(payload).hexdigest(),
+                experience_digests[experience_id],
+            )
+        self.assertNotIn("historicalExperienceEvidence", rules)
 
     def test_template_test_contract_has_one_typed_machine_source(self) -> None:
         contract = load(ROOT / "contracts" / "machine-rules.json")[

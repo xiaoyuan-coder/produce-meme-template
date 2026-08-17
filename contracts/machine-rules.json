@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.13.0",
+  "schemaVersion": "0.14.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -8,7 +8,7 @@
     "runtimeIgnoredSuffixes": [],
     "buildValidationRunnerRelativePath": "scripts/release_validation_runner.py",
     "smokeFixtureRelativePath": "fixtures/e2e/simple-animal",
-    "validationTimeoutSeconds": 120,
+    "validationTimeoutSeconds": 240,
     "errorCodes": {
       "invalidReleaseMetadata": "INVALID_RELEASE_METADATA",
       "invalidGitCommit": "INVALID_GIT_COMMIT",
@@ -1317,5 +1317,300 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39"]
+  "historicalExperienceContract": {
+    "artifactType": "historical-experience-regression",
+    "matrixRelativePath": "fixtures/regression/historical-experience-matrix.json",
+    "evidenceRunnerRelativePath": "scripts/experience_evidence_runner.py",
+    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39"],
+    "requiredCorpusRoles": {
+      "latestHeartInput": "latest-heart-input",
+      "latestHeartExpected": "latest-heart-expected",
+      "latestWeddingInput": "latest-wedding-input",
+      "latestWeddingExpected": "latest-wedding-expected",
+      "ordinaryPerson": "ordinary-person",
+      "knownCharacterIp": "known-character-ip",
+      "animal": "animal",
+      "visibleText": "visible-text",
+      "complexComposition": "complex-composition"
+    },
+    "corpusContentKinds": {
+      "jsonPointer": "json-pointer",
+      "ppmImage": "ppm-image"
+    },
+    "corpusBindingFields": {
+      "path": "path",
+      "selectorPointer": "selectorPointer",
+      "selectorValue": "selectorValue",
+      "contentKind": "contentKind"
+    },
+    "requiredCorpusBindings": {
+      "latestHeartInput": {
+        "path": "fixtures/contracts/latest-gallery-samples/heart.input.json",
+        "selectorPointer": "/key",
+        "selectorValue": "layered-heart-anime-duo",
+        "contentKind": "json-pointer"
+      },
+      "latestHeartExpected": {
+        "path": "fixtures/contracts/latest-gallery-samples/heart.expected.json",
+        "selectorPointer": "/key",
+        "selectorValue": "layered-heart-anime-duo",
+        "contentKind": "json-pointer"
+      },
+      "latestWeddingInput": {
+        "path": "fixtures/contracts/latest-gallery-samples/wedding.input.json",
+        "selectorPointer": "/key",
+        "selectorValue": "wedding-couple-pet-parade",
+        "contentKind": "json-pointer"
+      },
+      "latestWeddingExpected": {
+        "path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json",
+        "selectorPointer": "/key",
+        "selectorValue": "wedding-couple-pet-parade",
+        "contentKind": "json-pointer"
+      },
+      "ordinaryPerson": {
+        "path": "fixtures/e2e/identity-routes/scenarios.json",
+        "selectorPointer": "/ordinary/routeRole",
+        "selectorValue": "ordinaryPerson",
+        "contentKind": "json-pointer"
+      },
+      "knownCharacterIp": {
+        "path": "fixtures/e2e/identity-routes/scenarios.json",
+        "selectorPointer": "/ip/routeRole",
+        "selectorValue": "knownCharacterIp",
+        "contentKind": "json-pointer"
+      },
+      "animal": {
+        "path": "fixtures/e2e/simple-animal/source-image.ppm",
+        "selectorPointer": null,
+        "selectorValue": "P3",
+        "contentKind": "ppm-image"
+      },
+      "visibleText": {
+        "path": "fixtures/e2e/text-dense/scenarios.json",
+        "selectorPointer": "/textCard/regionId",
+        "selectorValue": "headline-region",
+        "contentKind": "json-pointer"
+      },
+      "complexComposition": {
+        "path": "fixtures/e2e/multi-instance/scenarios.json",
+        "selectorPointer": "/multiPersonGrid/operationRole",
+        "selectorValue": "orderedSet",
+        "contentKind": "json-pointer"
+      }
+    },
+    "retiredRepositoryPrefixes": [
+      "apps",
+      "workers",
+      "database",
+      "scripts/publish"
+    ],
+    "migrationStatuses": {
+      "confirmed": "confirmed",
+      "conditional": "conditional",
+      "rewritten": "rewritten",
+      "retired": "retired"
+    },
+    "evidencePolarities": {
+      "goodCase": "good-case",
+      "badCase": "bad-case",
+      "humanReview": "human-review"
+    },
+    "evidenceExpectationFields": {
+      "polarityRole": "polarityRole",
+      "expectedGateLocator": "expectedGateLocator"
+    },
+    "requiredEvidenceContracts": {
+      "E01": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/productionItemIntegrityFailure"}],
+      "E02": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E03": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E04": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/contractFailure"}],
+      "E05": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E06": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E07": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E08": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E09": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}],
+      "E10": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E11": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/visualHardFailure"},{"polarityRole":"humanReview","expectedGateLocator":"/errorCodes/riskNeedsReview"}],
+      "E12": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/visualHardFailure"}],
+      "E13": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/visualHardFailure"}],
+      "E14": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E15": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E16": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E17": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E18": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E19": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E20": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E21": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E22": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E23": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E24": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/contractFailure"}],
+      "E25": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/contractFailure"}],
+      "E26": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/contractFailure"}],
+      "E27": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E28": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/contractFailure"}],
+      "E29": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E30": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E31": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E32": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E33": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E34": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E35": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E36": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E37": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E38": [{"polarityRole":"badCase","expectedGateLocator":"/historicalExperienceContract/retiredRepositoryPrefixes"}],
+      "E39": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/completed"}]
+    },
+    "requiredExperienceSha256ById": {
+      "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
+      "E02": "2e950a7156219e7b621165b0892812a16d3fe12bec161fd2d774d0cf1e80a7b7",
+      "E03": "67029c577c412e6c4688afd945ad7330998cfc400f55212773e450b14c8295e5",
+      "E04": "4774db529f3b09b7dadab6aa044e0b0c42caf0201510a3a92389e7e47e58bfad",
+      "E05": "1d2f3b237df6c37a79407768c1ce3d0575b6c38a4c3cdaa8778b3df0b6aa740c",
+      "E06": "2f85f64e5346cb6eea16d17eb2b3a8f2573589efc322114674e28b418604fe62",
+      "E07": "3f38f77e72dde651d2e34604d54e0a10ca61640f21f72cb6e532e7c03b6f556f",
+      "E08": "d195f83749dd801e372e6d0930c0fda3bbd17c3861303ef040678a60bc6a4e1c",
+      "E09": "f88535ab62bfe91e33a95c89ff4c6fd4206953f4942f4316dcd8e84ea9d31bb8",
+      "E10": "99260ba36c41decb6d7a925841a5fcde7314fff89b581d3dc46fba2539046977",
+      "E11": "fc1ce1345e8a0d3aa976f8b046d4a221700d8d3507a7b421fd0ad8214e290e6d",
+      "E12": "44fd3c4835865a043485b3dafc64b17b1a399ae069f9c8acb8c16a8d2045638c",
+      "E13": "040abe9c5dc7fd45d28384a819e5160d24d1dd6e216db3a5edda0f4ec521be24",
+      "E14": "b7ebae72f4c0a487da88bf2635ec6045c56890fdbdb5c220be490828f3fec70d",
+      "E15": "d529185267a6cdab61c225f8999f8886a9547954c47a5de02b6e039c76273be3",
+      "E16": "b9d784075717bc7a0aa8a4062181939cd4927b0e70722c8bf38df7dedb8e103a",
+      "E17": "6ec1be99e823e4d935fbd5335305fbc2a2eeec68e08b1dde7b414fcdc29c9b69",
+      "E18": "3af4ab187902031366a89787254cf361380eac4a6347b11853dfdb471f90b49a",
+      "E19": "c2cf89aa25ef91cdf392ad624531b8bdfeded0213f5fc30b3c1cdcca43f200b7",
+      "E20": "b682f85eead556cb03ac7baf7bad089f12e84be4d5a6ad971f5a5334567e6e89",
+      "E21": "c317ee858fafb72f998490c30a06e1eda9a172547229b2c37e9064f06dc2ab9c",
+      "E22": "3df4ba8238d4cef92384e4525b60078624205a712eea683478ccf7adcbad0c34",
+      "E23": "180713208b6948fb8b3449cbd5bb394a6494ebc47a4f1990da3f5d116cdf5b5d",
+      "E24": "31f31bb30f4369bfb5f68fcb2c4c053876c9a6bd0d8a00df9f74c9a3981e9e26",
+      "E25": "0bfaa3185936b8803e7ba9b670704645fbd075b4c48cd93d77e30f0d081db884",
+      "E26": "46d6554dc490279902367a73124357f99f96fd8d4a5b8396a6ea1af38a9dfae2",
+      "E27": "372d7cafe621e0bb2a9672f3057b83213abe60195d46a806fa655eebf8964cf9",
+      "E28": "3a5f1654a863ce4f6af4f12f09f0f1d5a4e565366952f9d5c43547ff9a85c84e",
+      "E29": "ce51c3aaf48990e634dd8c9b0ea690ce98f16d1bc6936ac159554b810d285327",
+      "E30": "a179654ef0510d360e319fd60ab6d453dcfb0a3701272083d2fb1679e7917c97",
+      "E31": "2a8fc13682fd73e88e22a8da3ccd037410a8c1183bb1d69aacf33b45653e2d3a",
+      "E32": "738ad6ae0d41823bd67df3a6b8b691527a1824c7ebe68d94709f53ee024c97f2",
+      "E33": "026332c0bd23c864fb35f6863f65261cbe47d4120be8142e6ca72ea3804bab71",
+      "E34": "b3f027e4d598ccf15a28f7396b6fa50d9d57436d4a1967ded37fabba983688db",
+      "E35": "d5a0133768abb9aa93ca1937d2ce08fd26195e5324d2c8bbe0ba3098d927dae1",
+      "E36": "2e9cc24693f67e9b98bfd3ab1e0ea109457cdc45698832bf6d4c9921ed7ecc63",
+      "E37": "061ee8e898b06cb8d18162d34bb776de3254f500b1c7e99a299106f8fc2ff837",
+      "E38": "cdf590d160e166b69cd01fd248ac10c8058f2e368f99adc66a88351cb5f6e582",
+      "E39": "bb87b4341904257d429f70f27e39fb9d7d46d4d13c58ffc0e6d607193ed82b5d"
+    },
+    "implementationKinds": {
+      "machineRule": "machine-rule",
+      "pythonSymbol": "python-symbol",
+      "documentedBoundary": "documented-boundary"
+    },
+    "evidenceOutcomes": {
+      "passed": "passed",
+      "failed": "failed",
+      "unavailable": "unavailable"
+    },
+    "evidenceResultFields": {
+      "outcome": "outcome",
+      "detail": "detail",
+      "observedGateLocator": "observedGateLocator",
+      "observedGateValue": "observedGateValue"
+    },
+    "outcomes": {
+      "passed": "PASS",
+      "failed": "FAIL"
+    },
+    "failureCategories": {
+      "ruleMissing": "RULE_NOT_IMPLEMENTED",
+      "fixtureMissing": "FIXTURE_MISSING",
+      "externalAdapterUnavailable": "EXTERNAL_ADAPTER_UNAVAILABLE",
+      "formalContractIncompatible": "FORMAL_CONTRACT_INCOMPATIBLE",
+      "versionDrift": "VERSION_DRIFT",
+      "evidenceFailure": "EVIDENCE_FAILURE"
+    },
+    "matrixFields": {
+      "schemaVersion": "schemaVersion",
+      "experiences": "experiences",
+      "corpus": "corpus"
+    },
+    "experienceFields": {
+      "experienceId": "experienceId",
+      "topic": "topic",
+      "migrationStatus": "migrationStatus",
+      "legacyDisposition": "legacyDisposition",
+      "authority": "authority",
+      "implementation": "implementation",
+      "evidence": "evidence"
+    },
+    "authorityFields": {
+      "path": "path",
+      "anchor": "anchor"
+    },
+    "implementationFields": {
+      "kind": "kind",
+      "path": "path",
+      "locator": "locator"
+    },
+    "evidenceFields": {
+      "testId": "testId",
+      "polarity": "polarity",
+      "fixturePaths": "fixturePaths",
+      "expectedGateLocator": "expectedGateLocator"
+    },
+    "corpusFields": {
+      "path": "path",
+      "selector": "selector",
+      "sha256": "sha256"
+    },
+    "reportFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "pass": "pass",
+      "outcome": "outcome",
+      "runtimePin": "runtimePin",
+      "runtimePinSha256": "runtimePinSha256",
+      "releaseManifestSha256": "releaseManifestSha256",
+      "machineRulesSha256": "machineRulesSha256",
+      "matrixSha256": "matrixSha256",
+      "experiences": "experiences",
+      "corpus": "corpus",
+      "failureCategories": "failureCategories",
+      "summary": "summary"
+    },
+    "reportExperienceFields": {
+      "experienceId": "experienceId",
+      "authority": "authority",
+      "implementation": "implementation",
+      "evidence": "evidence",
+      "migrationStatus": "migrationStatus",
+      "legacyDisposition": "legacyDisposition",
+      "pass": "pass",
+      "failureCategories": "failureCategories"
+    },
+    "reportEvidenceFields": {
+      "testId": "testId",
+      "polarity": "polarity",
+      "outcome": "outcome",
+      "detail": "detail",
+      "fixturePaths": "fixturePaths",
+      "expectedGateLocator": "expectedGateLocator",
+      "expectedGateValue": "expectedGateValue",
+      "observedGateLocator": "observedGateLocator",
+      "observedGateValue": "observedGateValue"
+    },
+    "reportCorpusFields": {
+      "path": "path",
+      "selector": "selector",
+      "sha256": "sha256",
+      "pass": "pass",
+      "failureCategory": "failureCategory"
+    },
+    "summaryFields": {
+      "total": "total",
+      "passed": "passed",
+      "failed": "failed"
+    }
+  }
 }
