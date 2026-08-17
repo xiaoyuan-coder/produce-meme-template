@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.11.0",
+  "schemaVersion": "0.12.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -38,6 +38,14 @@
     "autonomousDecision": "autonomous"
   },
   "replacementStrategyContract": {
+    "fieldRoles": {
+      "policyIdentity": "policyId",
+      "policyVersion": "policyVersion",
+      "replacementValue": "replacementValue",
+      "replacementCategory": "replacementCategory",
+      "preserve": "preserve",
+      "forbidValues": "forbidValues"
+    },
     "allowedFields": [
       "policyId",
       "policyVersion",
@@ -49,6 +57,68 @@
     "pairedFields": [["replacementValue", "replacementCategory"]],
     "listFields": ["preserve", "forbidValues"],
     "actionFields": ["replacementValue", "preserve", "forbidValues"]
+  },
+  "batchProductionContract": {
+    "requestFields": {
+      "batchIdentity": "batchId",
+      "items": "items",
+      "sharedPolicy": "sharedPolicy"
+    },
+    "resultFields": {
+      "batchIdentity": "batchId",
+      "items": "items",
+      "sharedPolicyApplied": "sharedPolicyApplied",
+      "errorCode": "errorCode",
+      "message": "message"
+    },
+    "sharedPolicyFields": {
+      "policyIdentity": "policyId",
+      "policyVersion": "policyVersion",
+      "policyRevision": "revision",
+      "scope": "scope",
+      "replacementPool": "replacementPool",
+      "preserve": "preserve",
+      "forbidValues": "forbidValues"
+    },
+    "replacementPoolEntryFields": {
+      "replacementValue": "replacementValue",
+      "replacementCategory": "replacementCategory"
+    },
+    "allocationAnalysisPoolField": "batchReplacementPool",
+    "resolutionArtifactType": "shared-policy-resolution",
+    "resolutionArtifactName": "shared-policy-resolution.json",
+    "artifactScopeDigestField": "productionItemScopeSha256",
+    "dependencyDigestField": "dependencySha256",
+    "mutableDependencyArtifactTypeRoles": ["wal"],
+    "resolutionFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "batchIdentity": "batchId",
+      "productionItemIdentity": "productionItemId",
+      "policyIdentity": "policyId",
+      "policyVersion": "policyVersion",
+      "policyRevision": "policyRevision",
+      "policySha256": "policySha256",
+      "sourceImageSha256": "sourceImageSha256",
+      "sourceIdentity": "sourceIdentity",
+      "sourceCategory": "sourceCategory",
+      "scope": "scope",
+      "priority": "priority",
+      "effectiveStrategy": "effectiveStrategy",
+      "fieldSources": "fieldSources",
+      "listValueSources": "listValueSources",
+      "allocationCandidateEvaluations": "allocationCandidateEvaluations",
+      "allocationPreserveConflictEvaluations": "allocationPreserveConflictEvaluations",
+      "allocationSeed": "allocationSeed"
+    },
+    "prioritySourceRoles": [
+      "perImageDecision",
+      "batchDecision",
+      "autonomousDecision"
+    ],
+    "minimumItems": 1,
+    "maximumItems": 100,
+    "maximumReplacementPoolItems": 100
   },
   "visualDimensions": ["medium", "form", "edge", "colorAndShading", "surface", "composition"],
   "visualReviewContract": {
@@ -964,5 +1034,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E34", "E35", "E36", "E38", "E39"]
+  "historicalExperienceEvidence": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E34", "E35", "E36", "E38", "E39"]
 }

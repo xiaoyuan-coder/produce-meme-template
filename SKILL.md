@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-当前已提供 Issue #2–#11 的单图纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字；多实例、镜像、容器、分格和接触关系通过组件图与五类图片操作进入同一 Replacement Plan。P2 在供应商提交前冻结生成任务和 WAL，提交后立即绑定 request ID，再执行视觉、身份文字、目标清除、稳定锚点和非目标漂移硬门禁。P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt；P7 使用 Approved Template Image SHA 确定对象键并保存完整 Asset Receipt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 双字段回填。仓库内置确定性 fixture、FAL 持久队列生成 adapter 和 Aliyun OSS 幂等上传 adapter；视觉审核、模板分析和语义审计继续通过同一公共工作流注入。
+当前已提供 Issue #2–#12 的纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字；多实例、镜像、容器、分格和接触关系通过组件图与五类图片操作进入同一 Replacement Plan。批量信封默认拆成独立 Production Item；显式共享策略使用稳定分配、逐字段来源和单项分辨 sidecar 进入同一单项生命周期。P2 在供应商提交前冻结生成任务和 WAL，提交后立即绑定 request ID，再执行全部硬门禁。P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt；P7 使用 Approved Template Image SHA 确定对象键并保存完整 Asset Receipt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 双字段回填。
 
 ## 开始工作
 
@@ -20,7 +20,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 - Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters)`。
 - 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir>`。
-- 一次请求只包含一个 `templateKey` 和一张 `sourceImage`；每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
+- 单项请求包含一个 `templateKey` 和一张 `sourceImage`；批量请求使用机器合同声明的信封字段包含多个同形单项请求。每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
 
 ## 调用边界
 
@@ -31,6 +31,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 ## 规则路由
 
 - P0–P2 的自主替换、依赖闭包和生图包读取 [第一阶段替换规范](references/replacement-spec.md)。
+- 批量信封的默认隔离、显式共享策略、稳定分配、分辨 sidecar 和逐项恢复读取 [批量隔离与共享策略合同](references/shared-batch-policy.md)。
 - P0–P3 遇到重复实例、镜像、阴影、容器、分格或接触遮挡时读取 [多实例组件图与图片操作合同](references/multi-instance-image-operations.md)。
 - P2 的视觉硬门禁、证据绑定、自主确认和不可变重做读取 [模板图确认与恢复合同](references/template-image-gate.md)。
 - P2 的生成数量、冻结任务、request ID WAL、失败分类和队列恢复读取 [生成执行与 WAL 恢复合同](references/generation-execution-and-recovery.md)。

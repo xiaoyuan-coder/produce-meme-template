@@ -5,10 +5,11 @@ from .adapters import (
     DeterministicFixtureAdapters,
     FalQueueWorkflowAdapters,
 )
-from .workflow import ProductionResult, run_production
+from .workflow import BatchProductionResult, ProductionResult, run_production
 
 __all__ = [
     "AliyunOssWorkflowAdapters",
+    "BatchProductionResult",
     "DeterministicFixtureAdapters",
     "FalQueueWorkflowAdapters",
     "ProductionResult",

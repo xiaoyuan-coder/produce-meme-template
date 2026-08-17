@@ -123,6 +123,127 @@ class RepositoryContractTest(unittest.TestCase):
             {"E35", "E36"} <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_12_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E01", "E02", "E03", "E32"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_batch_production_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["batchProductionContract"]
+        strategy_contract = rules["replacementStrategyContract"]
+        strategy_fields = strategy_contract["fieldRoles"]
+
+        for mapping_name in (
+            "requestFields",
+            "resultFields",
+            "sharedPolicyFields",
+            "replacementPoolEntryFields",
+            "resolutionFields",
+        ):
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+            self.assertTrue(
+                all(
+                    isinstance(value, str) and value
+                    for value in mapping.values()
+                )
+            )
+
+        pool_fields = contract["replacementPoolEntryFields"]
+        policy_fields = contract["sharedPolicyFields"]
+        self.assertEqual(
+            strategy_fields["replacementValue"],
+            pool_fields["replacementValue"],
+        )
+        self.assertEqual(
+            strategy_fields["replacementCategory"],
+            pool_fields["replacementCategory"],
+        )
+        for role in ("preserve", "forbidValues"):
+            self.assertEqual(strategy_fields[role], policy_fields[role])
+        self.assertEqual(
+            set(contract["prioritySourceRoles"]),
+            set(rules["strategySources"]),
+        )
+        self.assertEqual(
+            len(contract["prioritySourceRoles"]),
+            len(set(contract["prioritySourceRoles"])),
+        )
+        self.assertTrue(
+            set(contract["mutableDependencyArtifactTypeRoles"])
+            <= set(rules["generationExecutionContract"]["artifactTypes"])
+        )
+        self.assertTrue(contract["resolutionArtifactType"])
+        self.assertIsInstance(contract["allocationAnalysisPoolField"], str)
+        self.assertTrue(contract["allocationAnalysisPoolField"])
+        self.assertIsInstance(contract["maximumReplacementPoolItems"], int)
+        self.assertNotIsInstance(
+            contract["maximumReplacementPoolItems"], bool
+        )
+        self.assertGreaterEqual(contract["maximumReplacementPoolItems"], 1)
+        self.assertLessEqual(
+            contract["maximumReplacementPoolItems"],
+            contract["maximumItems"],
+        )
+        self.assertTrue(contract["resolutionArtifactName"].endswith(".json"))
+        for bound_name in ("minimumItems", "maximumItems"):
+            value = contract[bound_name]
+            self.assertIsInstance(value, int)
+            self.assertNotIsInstance(value, bool)
+            self.assertGreater(value, 0)
+        self.assertLessEqual(contract["minimumItems"], contract["maximumItems"])
+
+        protected_values = {
+            contract["requestFields"]["sharedPolicy"],
+            contract["resultFields"]["sharedPolicyApplied"],
+            contract["sharedPolicyFields"]["replacementPool"],
+            contract["resolutionArtifactType"],
+            contract["resolutionArtifactName"],
+            contract["allocationAnalysisPoolField"],
+            contract["artifactScopeDigestField"],
+            contract["dependencyDigestField"],
+            contract["resolutionFields"]["policyRevision"],
+            contract["resolutionFields"]["policySha256"],
+            contract["resolutionFields"]["effectiveStrategy"],
+            contract["resolutionFields"]["fieldSources"],
+            contract["resolutionFields"]["listValueSources"],
+            contract["resolutionFields"]["sourceCategory"],
+            contract["resolutionFields"]["allocationCandidateEvaluations"],
+            contract["resolutionFields"][
+                "allocationPreserveConflictEvaluations"
+            ],
+            contract["resolutionFields"]["allocationSeed"],
+        }
+        protected_values -= {
+            role
+            for mapping_name in (
+                "requestFields",
+                "resultFields",
+                "sharedPolicyFields",
+                "replacementPoolEntryFields",
+                "resolutionFields",
+            )
+            for role in contract[mapping_name]
+        }
+        for path in (
+            ROOT / "scripts" / "produce.py",
+            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "tests" / "test_issue_12_batch_isolation.py",
+        ):
+            literals = {
+                node.value
+                for node in ast.walk(
+                    ast.parse(path.read_text(encoding="utf-8"))
+                )
+                if isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+            }
+            self.assertTrue(protected_values.isdisjoint(literals), path.as_posix())
+
     def test_generation_execution_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["generationExecutionContract"]

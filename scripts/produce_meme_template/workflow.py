@@ -30,6 +30,8 @@ VISIBLE_TEXT_LEXEME = re.compile(
     r"[A-Za-z]+(?:['’][A-Za-z]+)*|\d+|[\u3400-\u4dbf\u4e00-\u9fff]{2,}"
 )
 GALLERY_SCHEMA = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
+MACHINE_RULES = json.loads(RULES_PATH.read_text(encoding="utf-8"))
+BATCH_PRODUCTION_CONTRACT = MACHINE_RULES["batchProductionContract"]
 INPUT_ID_PATTERN = GALLERY_SCHEMA["$defs"]["inputId"]["pattern"]
 SUBJECT_IMAGE_MAX_COUNT = GALLERY_SCHEMA["$defs"]["subjectImageConfig"]["properties"][
     "maxCount"
@@ -90,6 +92,25 @@ class ProductionResult:
             "errorCode": self.error_code,
             "message": self.message,
             "resumed": self.resumed,
+        }
+
+
+@dataclass(frozen=True)
+class BatchProductionResult:
+    batch_id: str
+    items: tuple[ProductionResult, ...]
+    shared_policy_applied: bool
+    error_code: str | None = None
+    message: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        fields = BATCH_PRODUCTION_CONTRACT["resultFields"]
+        return {
+            fields["batchIdentity"]: self.batch_id,
+            fields["sharedPolicyApplied"]: self.shared_policy_applied,
+            fields["items"]: [item.as_dict() for item in self.items],
+            fields["errorCode"]: self.error_code,
+            fields["message"]: self.message,
         }
 
 
@@ -318,6 +339,26 @@ def _production_item_integrity_errors(
             for dependency in dependencies:
                 if dependency not in artifacts:
                     errors.append(f"{name} dependency missing: {dependency}")
+            dependency_digest_field = BATCH_PRODUCTION_CONTRACT[
+                "dependencyDigestField"
+            ]
+            dependency_digests = artifact.get(dependency_digest_field)
+            immutable_dependencies = _immutable_dependency_names(dependencies)
+            if not isinstance(dependency_digests, dict) or set(
+                dependency_digests
+            ) != set(immutable_dependencies):
+                errors.append(f"{name} dependency digests invalid")
+            else:
+                for dependency in immutable_dependencies:
+                    dependency_record = artifacts.get(dependency)
+                    if (
+                        not isinstance(dependency_record, dict)
+                        or dependency_digests.get(dependency)
+                        != dependency_record.get("sha256")
+                    ):
+                        errors.append(
+                            f"{name} dependency digest mismatch: {dependency}"
+                        )
         artifact_relative_path = artifact.get("path", name)
         if not isinstance(artifact_relative_path, str) or not artifact_relative_path:
             errors.append(f"{name} path invalid")
@@ -329,8 +370,21 @@ def _production_item_integrity_errors(
         if not artifact_path.is_file():
             errors.append(f"{name} missing")
             continue
-        if _sha_file(artifact_path) != artifact.get("sha256"):
+        observed_sha = _sha_file(artifact_path)
+        if observed_sha != artifact.get("sha256"):
             errors.append(f"{name} digest mismatch")
+        scope_field = BATCH_PRODUCTION_CONTRACT["artifactScopeDigestField"]
+        expected_scope_sha = _sha_bytes(
+            _canonical_bytes(
+                {
+                    "productionItemId": production_item_id,
+                    "artifact": name,
+                    "sha256": observed_sha,
+                }
+            )
+        )
+        if artifact.get(scope_field) != expected_scope_sha:
+            errors.append(f"{name} production item scope mismatch")
     return errors
 
 
@@ -372,14 +426,44 @@ def _record_artifact(
     manifest: dict[str, Any], output_dir: Path, name: str, phase: str, dependencies: list[str]
 ) -> None:
     path = output_dir / name
+    artifact_sha = _sha_file(path)
+    immutable_dependencies = _immutable_dependency_names(dependencies)
     manifest["artifacts"][name] = {
         "path": name,
-        "sha256": _sha_file(path),
+        "sha256": artifact_sha,
         "bytes": path.stat().st_size,
         "phase": phase,
         "revision": manifest["revision"],
         "dependsOn": dependencies,
+        BATCH_PRODUCTION_CONTRACT["dependencyDigestField"]: {
+            dependency: manifest["artifacts"][dependency]["sha256"]
+            for dependency in immutable_dependencies
+        },
+        BATCH_PRODUCTION_CONTRACT["artifactScopeDigestField"]: _sha_bytes(
+            _canonical_bytes(
+                {
+                    "productionItemId": manifest["productionItemId"],
+                    "artifact": name,
+                    "sha256": artifact_sha,
+                }
+            )
+        ),
     }
+
+
+def _immutable_dependency_names(dependencies: list[str]) -> list[str]:
+    artifact_types = MACHINE_RULES["generationExecutionContract"]["artifactTypes"]
+    mutable_prefixes = tuple(
+        artifact_types[role]
+        for role in BATCH_PRODUCTION_CONTRACT[
+            "mutableDependencyArtifactTypeRoles"
+        ]
+    )
+    return [
+        dependency
+        for dependency in dependencies
+        if not Path(dependency).stem.startswith(mutable_prefixes)
+    ]
 
 
 def _artifact_descendants(manifest: dict[str, Any], root_name: str) -> list[str]:
@@ -717,6 +801,46 @@ def _generation_options_errors(request: dict[str, Any], rules: dict[str, Any]) -
     return errors
 
 
+def _production_request_errors(
+    request: dict[str, Any],
+    rules: dict[str, Any],
+    schema: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    template_key = request.get("templateKey")
+    production_item_id = request.get("productionItemId")
+    if (
+        not isinstance(template_key, str)
+        or re.fullmatch(schema["properties"]["key"]["pattern"], template_key)
+        is None
+    ):
+        errors.append("非法标识符：templateKey")
+    if production_item_id is not None and (
+        not isinstance(production_item_id, str)
+        or re.fullmatch(
+            rules["identifiers"]["productionItemIdPattern"],
+            production_item_id,
+        )
+        is None
+    ):
+        errors.append("非法标识符：productionItemId")
+    source_image = request.get("sourceImage")
+    if not isinstance(source_image, (str, os.PathLike)) or not str(
+        source_image
+    ).strip():
+        errors.append("sourceImage must be a non-empty path")
+    errors.extend(_replacement_strategy_errors(request, rules))
+    errors.extend(_generation_options_errors(request, rules))
+    return errors
+
+
+def _isolated_output_dir(output_root: Path, item_id: str) -> Path | None:
+    lexical_path = output_root / item_id
+    if lexical_path.is_symlink() or lexical_path.resolve() != lexical_path:
+        return None
+    return lexical_path
+
+
 def _normalized_generation_options(
     request: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, int]:
@@ -742,6 +866,1246 @@ def _normalize_replacement_strategy(request: dict[str, Any], rules: dict[str, An
         if field in normalized:
             normalized[field] = sorted(normalized[field])
     return normalized
+
+
+def _shared_policy_errors(
+    policy: Any, item_ids: set[str], rules: dict[str, Any]
+) -> list[str]:
+    contract = rules["batchProductionContract"]
+    fields = contract["sharedPolicyFields"]
+    pool_fields = contract["replacementPoolEntryFields"]
+    required = {
+        fields["policyIdentity"],
+        fields["policyVersion"],
+        fields["policyRevision"],
+        fields["scope"],
+        fields["replacementPool"],
+    }
+    allowed = set(fields.values())
+    if not isinstance(policy, dict):
+        return ["sharedPolicy must be an object"]
+    errors = [
+        f"sharedPolicy.{field} is not allowed"
+        for field in sorted(set(policy) - allowed)
+    ]
+    if not required <= set(policy):
+        errors.append("sharedPolicy is missing required fields")
+    for role in ("policyIdentity", "policyVersion", "policyRevision"):
+        value = policy.get(fields[role])
+        if not isinstance(value, str) or not value.strip():
+            errors.append(f"sharedPolicy.{fields[role]} must be a non-empty string")
+    scope = policy.get(fields["scope"])
+    if (
+        not isinstance(scope, list)
+        or not scope
+        or not all(isinstance(value, str) and value for value in scope)
+        or len(scope) != len(set(scope))
+        or not set(scope) <= item_ids
+    ):
+        errors.append("sharedPolicy.scope must identify unique batch items")
+    pool = policy.get(fields["replacementPool"])
+    categories = set(rules["sourceCategories"].values())
+    if (
+        not isinstance(pool, list)
+        or not pool
+        or len(pool) > contract["maximumReplacementPoolItems"]
+        or not all(
+            isinstance(entry, dict)
+            and set(entry) == set(pool_fields.values())
+            and isinstance(entry.get(pool_fields["replacementValue"]), str)
+            and entry[pool_fields["replacementValue"]].strip()
+            and entry.get(pool_fields["replacementCategory"]) in categories
+            for entry in pool
+        )
+        or len(
+            {
+                (
+                    entry[pool_fields["replacementValue"]],
+                    entry[pool_fields["replacementCategory"]],
+                )
+                for entry in pool
+                if isinstance(entry, dict)
+                and set(entry) == set(pool_fields.values())
+            }
+        )
+        != (len(pool) if isinstance(pool, list) else -1)
+    ):
+        errors.append(
+            "sharedPolicy.replacementPool must contain a bounded set of unique typed values"
+        )
+    for role in ("preserve", "forbidValues"):
+        field = fields[role]
+        if field not in policy:
+            continue
+        values = policy[field]
+        if (
+            not isinstance(values, list)
+            or not values
+            or not all(isinstance(value, str) and value.strip() for value in values)
+            or len(values) != len(set(values))
+        ):
+            errors.append(f"sharedPolicy.{field} must be a non-empty unique string list")
+    return errors
+
+
+def _normalize_shared_policy(
+    policy: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
+    normalized = copy.deepcopy(policy)
+    fields = rules["batchProductionContract"]["sharedPolicyFields"]
+    pool_fields = rules["batchProductionContract"]["replacementPoolEntryFields"]
+    normalized[fields["scope"]] = sorted(normalized[fields["scope"]])
+    normalized[fields["replacementPool"]] = sorted(
+        normalized[fields["replacementPool"]],
+        key=lambda entry: (
+            entry[pool_fields["replacementCategory"]],
+            entry[pool_fields["replacementValue"]],
+        ),
+    )
+    for role in ("preserve", "forbidValues"):
+        field = fields[role]
+        if field in normalized:
+            normalized[field] = sorted(normalized[field])
+    return normalized
+
+
+def _batch_priority(rules: dict[str, Any]) -> list[str]:
+    contract = rules["batchProductionContract"]
+    return [
+        rules["strategySources"][role]
+        for role in contract["prioritySourceRoles"]
+    ]
+
+
+def _source_analysis_identity_valid(
+    source_analysis: Any, rules: dict[str, Any]
+) -> bool:
+    target = source_analysis.get("target") if isinstance(source_analysis, dict) else None
+    return bool(
+        isinstance(target, dict)
+        and target.get("category") in set(rules["sourceCategories"].values())
+        and isinstance(target.get("role"), str)
+        and target["role"].strip()
+        and isinstance(target.get("identity"), str)
+        and target["identity"].strip()
+    )
+
+
+def _merge_shared_policy_strategy(
+    policy: dict[str, Any],
+    per_image_strategy: dict[str, Any],
+    assignment: dict[str, str],
+    rules: dict[str, Any],
+    batch_preserve_conflicts: set[str] | None = None,
+) -> tuple[dict[str, Any], dict[str, str], dict[str, dict[str, str]]]:
+    contract = rules["batchProductionContract"]
+    policy_fields = contract["sharedPolicyFields"]
+    strategy_fields = rules["replacementStrategyContract"]["fieldRoles"]
+    sources = rules["strategySources"]
+    batch_source = sources["batchDecision"]
+    per_image_source = sources["perImageDecision"]
+    field_sources: dict[str, str] = {}
+    effective: dict[str, Any] = {}
+    for role in ("policyIdentity", "policyVersion"):
+        strategy_field = strategy_fields[role]
+        policy_field = policy_fields[role]
+        if strategy_field in per_image_strategy:
+            effective[strategy_field] = per_image_strategy[strategy_field]
+            field_sources[strategy_field] = per_image_source
+        else:
+            effective[strategy_field] = policy[policy_field]
+            field_sources[strategy_field] = batch_source
+    for role in ("replacementValue", "replacementCategory"):
+        strategy_field = strategy_fields[role]
+        effective[strategy_field] = assignment[strategy_field]
+        field_sources[strategy_field] = (
+            per_image_source
+            if strategy_field in per_image_strategy
+            else batch_source
+        )
+    list_value_sources: dict[str, dict[str, str]] = {}
+    batch_preserve_conflicts = batch_preserve_conflicts or set()
+    for role in ("preserve", "forbidValues"):
+        strategy_field = strategy_fields[role]
+        policy_field = policy_fields[role]
+        per_image_replacement = per_image_strategy.get(
+            strategy_fields["replacementValue"]
+        )
+        value_sources = {
+            value: batch_source
+            for value in policy.get(policy_field, [])
+            if value != per_image_replacement
+            and not (
+                role == "preserve" and value in batch_preserve_conflicts
+            )
+        }
+        value_sources.update(
+            {
+                value: per_image_source
+                for value in per_image_strategy.get(strategy_field, [])
+            }
+        )
+        if value_sources:
+            effective[strategy_field] = sorted(value_sources)
+            field_sources[strategy_field] = (
+                per_image_source
+                if any(
+                    source == per_image_source
+                    for source in value_sources.values()
+                )
+                else batch_source
+            )
+            list_value_sources[strategy_field] = value_sources
+    return effective, field_sources, list_value_sources
+
+
+def _allocation_analysis_strategy(
+    policy: dict[str, Any],
+    per_image_strategy: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    contract = rules["batchProductionContract"]
+    policy_fields = contract["sharedPolicyFields"]
+    pool_fields = contract["replacementPoolEntryFields"]
+    strategy_fields = rules["replacementStrategyContract"]["fieldRoles"]
+    pool = policy[policy_fields["replacementPool"]]
+    explicit_value = per_image_strategy.get(
+        strategy_fields["replacementValue"]
+    )
+    explicit_category = per_image_strategy.get(
+        strategy_fields["replacementCategory"]
+    )
+    first_entry = pool[0]
+    assignment = {
+        strategy_fields["replacementValue"]: (
+            explicit_value
+            if isinstance(explicit_value, str)
+            else first_entry[pool_fields["replacementValue"]]
+        ),
+        strategy_fields["replacementCategory"]: (
+            explicit_category
+            if isinstance(explicit_category, str)
+            else first_entry[pool_fields["replacementCategory"]]
+        ),
+    }
+    effective, _, _ = _merge_shared_policy_strategy(
+        policy,
+        per_image_strategy,
+        assignment,
+        rules,
+    )
+    if not isinstance(explicit_value, str):
+        effective.pop(strategy_fields["replacementValue"], None)
+        effective.pop(strategy_fields["replacementCategory"], None)
+    effective[contract["allocationAnalysisPoolField"]] = copy.deepcopy(pool)
+    return effective
+
+
+def _allocation_candidate_evaluations(
+    source_analysis: dict[str, Any],
+    policy: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[dict[str, Any]] | None:
+    contract = rules["batchProductionContract"]
+    policy_fields = contract["sharedPolicyFields"]
+    pool_fields = contract["replacementPoolEntryFields"]
+    pool = policy[policy_fields["replacementPool"]]
+    source_category = source_analysis["target"]["category"]
+    raw_evaluations = source_analysis.get("replacementPool")
+    if not isinstance(raw_evaluations, list):
+        return None
+    evaluation_by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for evaluation in raw_evaluations:
+        if not isinstance(evaluation, dict):
+            return None
+        category = evaluation.get("category")
+        value = evaluation.get("value")
+        if not isinstance(category, str) or not isinstance(value, str):
+            return None
+        key = (category, value)
+        if key in evaluation_by_key:
+            return None
+        evaluation_by_key[key] = evaluation
+    ordered: list[dict[str, Any]] = []
+    for entry in pool:
+        if entry[pool_fields["replacementCategory"]] != source_category:
+            continue
+        key = (
+            entry[pool_fields["replacementCategory"]],
+            entry[pool_fields["replacementValue"]],
+        )
+        evaluation = evaluation_by_key.get(key)
+        if evaluation is None:
+            return None
+        ordered.append(copy.deepcopy(evaluation))
+    return ordered
+
+
+def _allocation_preserve_evaluations(
+    source_analysis: dict[str, Any],
+    policy: dict[str, Any],
+    per_image_strategy: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[dict[str, Any]] | None:
+    contract = rules["batchProductionContract"]
+    policy_fields = contract["sharedPolicyFields"]
+    strategy_fields = rules["replacementStrategyContract"]["fieldRoles"]
+    batch_values = {
+        value
+        for value in policy.get(policy_fields["preserve"], [])
+        if value
+        != per_image_strategy.get(strategy_fields["replacementValue"])
+    }
+    raw_evaluations = source_analysis.get("preserveConflictEvaluations", [])
+    if not isinstance(raw_evaluations, list):
+        return None
+    dependency_type_field = rules["identityReplacementContract"][
+        "dependencyFields"
+    ]["dependencyType"]
+    closure = source_analysis.get("dependencyClosure")
+    if not isinstance(closure, list):
+        return None
+    changed_component_ids = {
+        "primary-role",
+        "primary-identity",
+        *{
+            f"dependency-{index}-{item.get(dependency_type_field)}"
+            for index, item in enumerate(closure)
+            if isinstance(item, dict)
+            and isinstance(item.get(dependency_type_field), str)
+        },
+    }
+    selected: dict[str, dict[str, Any]] = {}
+    for evaluation in raw_evaluations:
+        if not isinstance(evaluation, dict):
+            return None
+        value = evaluation.get("preserveValue")
+        conflict = evaluation.get("conflictsWithChangedSet")
+        component_ids = evaluation.get("changedComponentIds")
+        if not isinstance(value, str) or value not in batch_values:
+            continue
+        if (
+            not isinstance(conflict, bool)
+            or not isinstance(component_ids, list)
+            or not all(
+                isinstance(component_id, str) and component_id
+                for component_id in component_ids
+            )
+            or len(component_ids) != len(set(component_ids))
+            or not set(component_ids) <= changed_component_ids
+            or conflict is not bool(component_ids)
+            or value in selected
+        ):
+            return None
+        selected[value] = copy.deepcopy(evaluation)
+    if set(selected) != batch_values:
+        return None
+    return [selected[value] for value in sorted(selected)]
+
+
+def _batch_preserve_conflicts(
+    evaluations: list[dict[str, Any]],
+    per_image_strategy: dict[str, Any],
+    rules: dict[str, Any],
+) -> set[str]:
+    replacement_field = rules["replacementStrategyContract"]["fieldRoles"][
+        "replacementValue"
+    ]
+    if not isinstance(per_image_strategy.get(replacement_field), str):
+        return set()
+    return {
+        evaluation["preserveValue"]
+        for evaluation in evaluations
+        if evaluation["conflictsWithChangedSet"] is True
+    }
+
+
+def _policy_resolution_valid(
+    resolution: Any,
+    *,
+    batch_id: str,
+    item_id: str,
+    template_key: str,
+    source_sha256: str,
+    policy: dict[str, Any],
+    per_image_strategy: dict[str, Any],
+    rules: dict[str, Any],
+) -> bool:
+    contract = rules["batchProductionContract"]
+    fields = contract["resolutionFields"]
+    policy_fields = contract["sharedPolicyFields"]
+    strategy_fields = rules["replacementStrategyContract"]["fieldRoles"]
+    effective = resolution.get(fields["effectiveStrategy"]) if isinstance(resolution, dict) else None
+    field_sources = resolution.get(fields["fieldSources"]) if isinstance(resolution, dict) else None
+    value_sources = resolution.get(fields["listValueSources"]) if isinstance(resolution, dict) else None
+    assignment = {
+        strategy_fields[role]: effective.get(strategy_fields[role])
+        for role in ("replacementValue", "replacementCategory")
+    } if isinstance(effective, dict) else {}
+    preserve_evaluations = (
+        resolution.get(fields["allocationPreserveConflictEvaluations"])
+        if isinstance(resolution, dict)
+        else None
+    )
+    preserve_evaluations_valid = bool(
+        isinstance(preserve_evaluations, list)
+        and all(
+            isinstance(evaluation, dict)
+            and isinstance(evaluation.get("preserveValue"), str)
+            and isinstance(evaluation.get("conflictsWithChangedSet"), bool)
+            and isinstance(evaluation.get("changedComponentIds"), list)
+            and all(
+                isinstance(component_id, str) and component_id
+                for component_id in evaluation["changedComponentIds"]
+            )
+            for evaluation in preserve_evaluations
+        )
+    )
+    expected_effective, expected_field_sources, expected_value_sources = (
+        _merge_shared_policy_strategy(
+            policy,
+            per_image_strategy,
+            assignment,
+            rules,
+            _batch_preserve_conflicts(
+                preserve_evaluations,
+                per_image_strategy,
+                rules,
+            ),
+        )
+        if preserve_evaluations_valid
+        and all(isinstance(value, str) and value for value in assignment.values())
+        else ({}, {}, {})
+    )
+    pool_fields = contract["replacementPoolEntryFields"]
+    assignment_key = (
+        assignment.get(strategy_fields["replacementCategory"]),
+        assignment.get(strategy_fields["replacementValue"]),
+    )
+    batch_assignment_valid = bool(
+        expected_field_sources.get(strategy_fields["replacementValue"])
+        != rules["strategySources"]["batchDecision"]
+        or (
+            assignment_key
+            in {
+                (
+                    entry[pool_fields["replacementCategory"]],
+                    entry[pool_fields["replacementValue"]],
+                )
+                for entry in policy[policy_fields["replacementPool"]]
+            }
+            and assignment_key[1]
+            not in set(policy.get(policy_fields["forbidValues"], []))
+        )
+    )
+    source_identity = (
+        resolution.get(fields["sourceIdentity"])
+        if isinstance(resolution, dict)
+        else None
+    )
+    source_category = (
+        resolution.get(fields["sourceCategory"])
+        if isinstance(resolution, dict)
+        else None
+    )
+    allocation_evaluations = (
+        resolution.get(fields["allocationCandidateEvaluations"])
+        if isinstance(resolution, dict)
+        else None
+    )
+    pool_fields = contract["replacementPoolEntryFields"]
+    expected_pool_keys = {
+        (
+            entry[pool_fields["replacementCategory"]],
+            entry[pool_fields["replacementValue"]],
+        )
+        for entry in policy[policy_fields["replacementPool"]]
+        if entry[pool_fields["replacementCategory"]] == source_category
+    }
+    evaluation_keys = (
+        [
+            (evaluation.get("category"), evaluation.get("value"))
+            for evaluation in allocation_evaluations
+        ]
+        if isinstance(allocation_evaluations, list)
+        and all(isinstance(evaluation, dict) for evaluation in allocation_evaluations)
+        else []
+    )
+    return bool(
+        isinstance(resolution, dict)
+        and set(resolution) == set(fields.values())
+        and resolution.get(fields["artifactType"]) == contract["resolutionArtifactType"]
+        and resolution.get(fields["schemaVersion"]) == rules["schemaVersion"]
+        and resolution.get(fields["batchIdentity"]) == batch_id
+        and resolution.get(fields["productionItemIdentity"]) == item_id
+        and resolution.get(fields["policyIdentity"])
+        == policy[policy_fields["policyIdentity"]]
+        and resolution.get(fields["policyVersion"])
+        == policy[policy_fields["policyVersion"]]
+        and resolution.get(fields["policyRevision"])
+        == policy[policy_fields["policyRevision"]]
+        and resolution.get(fields["policySha256"])
+        == _sha_bytes(_canonical_bytes(policy))
+        and resolution.get(fields["sourceImageSha256"]) == source_sha256
+        and isinstance(source_identity, str)
+        and source_identity.strip()
+        and source_category in set(rules["sourceCategories"].values())
+        and resolution.get(fields["scope"]) == policy[policy_fields["scope"]]
+        and resolution.get(fields["priority"]) == _batch_priority(rules)
+        and effective == expected_effective
+        and batch_assignment_valid
+        and not _replacement_strategy_errors(
+            {"replacementStrategy": effective}, rules
+        )
+        and field_sources == expected_field_sources
+        and value_sources == expected_value_sources
+        and preserve_evaluations_valid
+        and len(evaluation_keys) == len(expected_pool_keys)
+        and len(evaluation_keys) == len(set(evaluation_keys))
+        and set(evaluation_keys) == expected_pool_keys
+        and resolution.get(fields["allocationSeed"])
+        == f"{batch_id}+{template_key}+{source_identity}"
+    )
+
+
+def _shared_policy_plan_valid(
+    plan: Any,
+    resolution: Any,
+    rules: dict[str, Any],
+) -> bool:
+    if not isinstance(plan, dict) or not isinstance(resolution, dict):
+        return False
+    batch_contract = rules["batchProductionContract"]
+    resolution_fields = batch_contract["resolutionFields"]
+    strategy_fields = rules["replacementStrategyContract"]["fieldRoles"]
+    effective = resolution.get(resolution_fields["effectiveStrategy"])
+    field_sources = resolution.get(resolution_fields["fieldSources"])
+    targets = plan.get("primaryTargets")
+    if not (
+        isinstance(effective, dict)
+        and isinstance(field_sources, dict)
+        and isinstance(targets, list)
+        and len(targets) == 1
+        and isinstance(targets[0], dict)
+    ):
+        return False
+    replacement_source = field_sources.get(
+        strategy_fields["replacementValue"]
+    )
+    expected_plan_strategy = {
+        "source": replacement_source,
+        "decisionSource": replacement_source,
+        **{
+            field: effective[field]
+            for field in (
+                strategy_fields["policyIdentity"],
+                strategy_fields["policyVersion"],
+                strategy_fields["preserve"],
+                strategy_fields["forbidValues"],
+            )
+            if field in effective
+        },
+    }
+    target = targets[0]
+    return bool(
+        plan.get("strategy") == expected_plan_strategy
+        and target.get("replacementValue")
+        == effective.get(strategy_fields["replacementValue"])
+        and target.get("replacementCategory")
+        == effective.get(strategy_fields["replacementCategory"])
+        and target.get("decisionSource") == replacement_source
+    )
+
+
+def _resolve_shared_policy(
+    batch_id: str,
+    items: list[dict[str, Any]],
+    policy: dict[str, Any],
+    output_root: Path,
+    adapters: WorkflowAdapters,
+    rules: dict[str, Any],
+    invalid_item_ids: set[str],
+) -> tuple[
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, dict[str, Any]],
+    dict[str, WorkflowStop | None],
+]:
+    batch_contract = rules["batchProductionContract"]
+    policy_fields = batch_contract["sharedPolicyFields"]
+    pool_fields = batch_contract["replacementPoolEntryFields"]
+    resolution_fields = batch_contract["resolutionFields"]
+    strategy_fields = rules["replacementStrategyContract"]["fieldRoles"]
+    normalized_policy = _normalize_shared_policy(policy, rules)
+    policy_sha = _sha_bytes(_canonical_bytes(normalized_policy))
+    scope = set(normalized_policy[policy_fields["scope"]])
+    item_by_id = {str(item["productionItemId"]): item for item in items}
+    source_analyses: dict[str, dict[str, Any]] = {}
+    final_source_analyses: dict[str, dict[str, Any]] = {}
+    source_shas: dict[str, str] = {}
+    existing_resolutions: dict[str, dict[str, Any]] = {}
+    assignments: dict[str, dict[str, str]] = {}
+    compatible_candidate_keys: dict[str, set[tuple[str, str]]] = {}
+    allocation_evaluations: dict[str, list[dict[str, Any]]] = {}
+    preserve_evaluations: dict[str, list[dict[str, Any]]] = {}
+    usage: dict[tuple[str, str], int] = {}
+    preparation_failures: dict[str, WorkflowStop | None] = {}
+
+    for item_id in sorted(scope):
+        if item_id in invalid_item_ids:
+            preparation_failures[item_id] = None
+            continue
+        item = item_by_id[item_id]
+        source_value = item.get("sourceImage")
+        if not isinstance(source_value, (str, os.PathLike)):
+            preparation_failures[item_id] = None
+            continue
+        source_path = Path(source_value).resolve()
+        if not source_path.is_file():
+            preparation_failures[item_id] = None
+            continue
+        source_sha = _sha_file(source_path)
+        source_shas[item_id] = source_sha
+        per_image_strategy = _normalize_replacement_strategy(item, rules) or {}
+        resolution_name = batch_contract["resolutionArtifactName"]
+        resolution_path = (
+            output_root / item_id / resolution_name
+        )
+        resolution_is_tracked = False
+        if resolution_path.is_file():
+            manifest_path = output_root / item_id / "production-manifest.json"
+            try:
+                existing = _load_json(resolution_path)
+                persisted_manifest = (
+                    _load_json(manifest_path)
+                    if manifest_path.is_file()
+                    else None
+                )
+                if not isinstance(existing, dict) or (
+                    persisted_manifest is not None
+                    and not isinstance(persisted_manifest, dict)
+                ):
+                    raise TypeError("tracked shared-policy evidence must be objects")
+                manifest_artifacts = (
+                    persisted_manifest.get("artifacts", {})
+                    if isinstance(persisted_manifest, dict)
+                    else {}
+                )
+                if not isinstance(manifest_artifacts, dict):
+                    raise TypeError("manifest artifacts must be an object")
+                artifact = manifest_artifacts.get(resolution_name)
+                observed_resolution_sha = _sha_file(resolution_path)
+                expected_scope_sha = _sha_bytes(
+                    _canonical_bytes(
+                        {
+                            "productionItemId": item_id,
+                            "artifact": resolution_name,
+                            "sha256": observed_resolution_sha,
+                        }
+                    )
+                )
+                resolution_is_tracked = bool(
+                    isinstance(artifact, dict)
+                    and isinstance(persisted_manifest, dict)
+                    and persisted_manifest.get("productionItemId") == item_id
+                    and persisted_manifest.get("sourceImageSha256") == source_sha
+                    and artifact.get("path") == resolution_name
+                    and artifact.get("sha256") == observed_resolution_sha
+                    and artifact.get("bytes") == resolution_path.stat().st_size
+                    and artifact.get(
+                        batch_contract["artifactScopeDigestField"]
+                    )
+                    == expected_scope_sha
+                )
+            except (OSError, TypeError, ValueError, json.JSONDecodeError):
+                existing = None
+                if manifest_path.is_file():
+                    preparation_failures[item_id] = _stop(
+                        rules,
+                        "blocked",
+                        "productionItemIntegrityFailure",
+                        "已跟踪的共享分辨或 Manifest 形状无效。",
+                        {"productionItemId": item_id},
+                    )
+                    continue
+            if resolution_is_tracked and _policy_resolution_valid(
+                existing,
+                batch_id=batch_id,
+                item_id=item_id,
+                template_key=item["templateKey"],
+                source_sha256=source_sha,
+                policy=normalized_policy,
+                per_image_strategy=per_image_strategy,
+                rules=rules,
+            ):
+                source_analysis_path = output_root / item_id / "source-analysis.json"
+                source_artifact = persisted_manifest.get("artifacts", {}).get(
+                    "source-analysis.json"
+                )
+                try:
+                    persisted_source_analysis = _load_json(source_analysis_path)
+                    if not isinstance(persisted_source_analysis, dict):
+                        raise TypeError("source analysis must be an object")
+                    observed_source_analysis_sha = _sha_file(
+                        source_analysis_path
+                    )
+                    expected_source_scope_sha = _sha_bytes(
+                        _canonical_bytes(
+                            {
+                                "productionItemId": item_id,
+                                "artifact": "source-analysis.json",
+                                "sha256": observed_source_analysis_sha,
+                            }
+                        )
+                    )
+                    source_analysis_is_tracked = bool(
+                        isinstance(source_artifact, dict)
+                        and source_artifact.get("path")
+                        == "source-analysis.json"
+                        and source_artifact.get("sha256")
+                        == observed_source_analysis_sha
+                        and source_artifact.get("bytes")
+                        == source_analysis_path.stat().st_size
+                        and source_artifact.get(
+                            batch_contract["artifactScopeDigestField"]
+                        )
+                        == expected_source_scope_sha
+                        and persisted_source_analysis.get(
+                            "sourceImageSha256"
+                        )
+                        == source_sha
+                        and _source_analysis_identity_valid(
+                            persisted_source_analysis,
+                            rules,
+                        )
+                        and persisted_source_analysis["target"]["identity"]
+                        == existing[resolution_fields["sourceIdentity"]]
+                        and persisted_source_analysis["target"]["category"]
+                        == existing[resolution_fields["sourceCategory"]]
+                        and _allocation_preserve_evaluations(
+                            {
+                                **persisted_source_analysis,
+                                "preserveConflictEvaluations": existing[
+                                    resolution_fields[
+                                        "allocationPreserveConflictEvaluations"
+                                    ]
+                                ],
+                            },
+                            normalized_policy,
+                            per_image_strategy,
+                            rules,
+                        )
+                        is not None
+                    )
+                except (OSError, TypeError, ValueError, json.JSONDecodeError):
+                    source_analysis_is_tracked = False
+                    preparation_failures[item_id] = _stop(
+                        rules,
+                        "blocked",
+                        "productionItemIntegrityFailure",
+                        "已跟踪的共享分配来源事实形状无效。",
+                        {"productionItemId": item_id},
+                    )
+                    continue
+                if source_analysis_is_tracked:
+                    plan_path = output_root / item_id / "replacement-plan.json"
+                    if plan_path.exists():
+                        try:
+                            persisted_plan = _load_json(plan_path)
+                        except (
+                            OSError,
+                            TypeError,
+                            ValueError,
+                            json.JSONDecodeError,
+                        ):
+                            persisted_plan = None
+                        if not _shared_policy_plan_valid(
+                            persisted_plan,
+                            existing,
+                            rules,
+                        ):
+                            preparation_failures[item_id] = _stop(
+                                rules,
+                                "blocked",
+                                "productionItemIntegrityFailure",
+                                "已跟踪的共享分辨与当前 Replacement Plan 不一致。",
+                                {"productionItemId": item_id},
+                            )
+                            continue
+                    existing_resolutions[item_id] = existing
+                    source_analyses[item_id] = persisted_source_analysis
+                    allocation_evaluations[item_id] = copy.deepcopy(
+                        existing[
+                            resolution_fields["allocationCandidateEvaluations"]
+                        ]
+                    )
+                    preserve_evaluations[item_id] = copy.deepcopy(
+                        existing[
+                            resolution_fields[
+                                "allocationPreserveConflictEvaluations"
+                            ]
+                        ]
+                    )
+                    continue
+        try:
+            allocation_strategy = _allocation_analysis_strategy(
+                normalized_policy,
+                per_image_strategy,
+                rules,
+            )
+            source_analysis = _adapter_snapshot_image_object_call(
+                rules,
+                "analyze_source",
+                adapters.analyze_source,
+                source_path,
+                source_sha,
+                allocation_strategy,
+            )
+        except WorkflowStop as stop:
+            preparation_failures[item_id] = stop
+            continue
+        if (
+            source_analysis.get("sourceImageSha256") != source_sha
+            or not _source_analysis_identity_valid(source_analysis, rules)
+        ):
+            preparation_failures[item_id] = _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "共享策略分配所用的来源分析事实无效。",
+                {"productionItemId": item_id},
+            )
+            continue
+        source_analyses[item_id] = source_analysis
+        candidate_evaluations = _allocation_candidate_evaluations(
+            source_analysis,
+            normalized_policy,
+            rules,
+        )
+        if candidate_evaluations is None:
+            preparation_failures[item_id] = _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "共享候选分析未完整覆盖当前有界候选池。",
+                {"productionItemId": item_id},
+            )
+            continue
+        allocation_evaluations[item_id] = candidate_evaluations
+        batch_preserve_evaluations = _allocation_preserve_evaluations(
+            source_analysis,
+            normalized_policy,
+            per_image_strategy,
+            rules,
+        )
+        if batch_preserve_evaluations is None:
+            preparation_failures[item_id] = _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "共享保留项的优先级冲突证据无效。",
+                {"productionItemId": item_id},
+            )
+            continue
+        preserve_evaluations[item_id] = batch_preserve_evaluations
+
+    def validate_final_assignment(
+        item_id: str,
+        assignment: dict[str, str],
+    ) -> bool:
+        item = item_by_id[item_id]
+        per_image_strategy = _normalize_replacement_strategy(item, rules) or {}
+        effective, _, _ = _merge_shared_policy_strategy(
+            normalized_policy,
+            per_image_strategy,
+            assignment,
+            rules,
+            _batch_preserve_conflicts(
+                preserve_evaluations[item_id],
+                per_image_strategy,
+                rules,
+            ),
+        )
+        source_analysis = source_analyses[item_id]
+        assignment_key = (
+            assignment[strategy_fields["replacementCategory"]],
+            assignment[strategy_fields["replacementValue"]],
+        )
+        evaluation = next(
+            (
+                candidate
+                for candidate in allocation_evaluations[item_id]
+                if (candidate.get("category"), candidate.get("value"))
+                == assignment_key
+            ),
+            source_analysis.get("explicitReplacementEvaluation"),
+        )
+        if not isinstance(evaluation, dict):
+            preparation_failures[item_id] = _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "共享分配缺少最终候选的类型化评估。",
+                {"productionItemId": item_id},
+            )
+            return False
+        allocation_analysis = copy.deepcopy(source_analysis)
+        allocation_analysis["explicitReplacementEvaluation"] = copy.deepcopy(
+            evaluation
+        )
+        retained_preserve = set(
+            effective.get(strategy_fields["preserve"], [])
+        )
+        allocation_analysis["preserveConflictEvaluations"] = [
+            copy.deepcopy(preserve_evaluation)
+            for preserve_evaluation in allocation_analysis.get(
+                "preserveConflictEvaluations", []
+            )
+            if preserve_evaluation.get("preserveValue") in retained_preserve
+        ]
+        try:
+            _plan_replacement(
+                allocation_analysis,
+                rules,
+                item["templateKey"],
+                effective,
+            )
+        except WorkflowStop as stop:
+            preparation_failures[item_id] = stop
+            return False
+        seed = (
+            f"{batch_id}+{item['templateKey']}+"
+            f"{source_analysis['target']['identity']}"
+        )
+        existing_resolution = existing_resolutions.get(item_id)
+        reuse_existing_analysis = bool(
+            isinstance(existing_resolution, dict)
+            and existing_resolution.get(
+                resolution_fields["effectiveStrategy"]
+            )
+            == effective
+            and existing_resolution.get(
+                resolution_fields["allocationSeed"]
+            )
+            == seed
+        )
+        if reuse_existing_analysis:
+            final_source_analysis = copy.deepcopy(source_analysis)
+        else:
+            try:
+                final_source_analysis = _adapter_snapshot_image_object_call(
+                    rules,
+                    "analyze_source",
+                    adapters.analyze_source,
+                    Path(item["sourceImage"]).resolve(),
+                    source_shas[item_id],
+                    copy.deepcopy(effective),
+                )
+            except WorkflowStop as stop:
+                preparation_failures[item_id] = stop
+                return False
+        if (
+            final_source_analysis.get("sourceImageSha256")
+            != source_shas[item_id]
+            or not _source_analysis_identity_valid(final_source_analysis, rules)
+            or final_source_analysis["target"].get("identity")
+            != source_analysis["target"].get("identity")
+            or final_source_analysis["target"].get("category")
+            != source_analysis["target"].get("category")
+        ):
+            preparation_failures[item_id] = _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "共享策略分配前后的单图输入事实不一致。",
+                {"productionItemId": item_id},
+            )
+            return False
+        try:
+            _plan_replacement(
+                final_source_analysis,
+                rules,
+                item["templateKey"],
+                effective,
+            )
+        except WorkflowStop as stop:
+            preparation_failures[item_id] = stop
+            return False
+        final_source_analyses[item_id] = final_source_analysis
+        return True
+
+    for item_id in sorted(existing_resolutions):
+        if item_id in preparation_failures:
+            continue
+        existing_effective = existing_resolutions[item_id][
+            resolution_fields["effectiveStrategy"]
+        ]
+        assignment = {
+            strategy_fields["replacementValue"]: existing_effective[
+                strategy_fields["replacementValue"]
+            ],
+            strategy_fields["replacementCategory"]: existing_effective[
+                strategy_fields["replacementCategory"]
+            ],
+        }
+        if validate_final_assignment(item_id, assignment):
+            assignments[item_id] = assignment
+            key = (
+                assignment[strategy_fields["replacementCategory"]],
+                assignment[strategy_fields["replacementValue"]],
+            )
+            usage[key] = usage.get(key, 0) + 1
+
+    for item_id in sorted(scope):
+        if item_id not in source_analyses or item_id in preparation_failures:
+            continue
+        if item_id in assignments:
+            continue
+        per_image_strategy = _normalize_replacement_strategy(
+            item_by_id[item_id], rules
+        ) or {}
+        explicit_value = per_image_strategy.get(
+            strategy_fields["replacementValue"]
+        )
+        explicit_category = per_image_strategy.get(
+            strategy_fields["replacementCategory"]
+        )
+        if not (
+            isinstance(explicit_value, str)
+            and isinstance(explicit_category, str)
+        ):
+            continue
+        assignment = {
+            strategy_fields["replacementValue"]: explicit_value,
+            strategy_fields["replacementCategory"]: explicit_category,
+        }
+        if validate_final_assignment(item_id, assignment):
+            assignments[item_id] = assignment
+            key = (explicit_category, explicit_value)
+            usage[key] = usage.get(key, 0) + 1
+
+    unresolved = [
+        item_id
+        for item_id in scope
+        if item_id not in assignments
+        and item_id in source_analyses
+        and item_id not in preparation_failures
+    ]
+    unresolved.sort(
+        key=lambda item_id: (
+            _sha_bytes(
+                _canonical_bytes(
+                    {
+                        batch_contract["requestFields"]["batchIdentity"]: batch_id,
+                        "templateKey": item_by_id[item_id]["templateKey"],
+                        "sourceIdentity": source_analyses[item_id]["target"]["identity"],
+                    }
+                )
+            ),
+            item_id,
+        )
+    )
+    pool = normalized_policy[policy_fields["replacementPool"]]
+    for item_id in unresolved:
+        item = item_by_id[item_id]
+        source_analysis = source_analyses[item_id]
+        category = source_analysis["target"]["category"]
+        per_image_strategy = _normalize_replacement_strategy(item, rules) or {}
+        forbidden = set(
+            normalized_policy.get(policy_fields["forbidValues"], [])
+        )
+        forbidden.update(
+            per_image_strategy.get(strategy_fields["forbidValues"], [])
+        )
+        evaluation_by_key = {
+            (evaluation.get("category"), evaluation.get("value")): evaluation
+            for evaluation in allocation_evaluations[item_id]
+        }
+        candidate_stops: list[WorkflowStop] = []
+        for entry in pool:
+            candidate_value = entry[pool_fields["replacementValue"]]
+            candidate_category = entry[pool_fields["replacementCategory"]]
+            if candidate_category != category or candidate_value in forbidden:
+                continue
+            assignment = {
+                strategy_fields["replacementValue"]: candidate_value,
+                strategy_fields["replacementCategory"]: candidate_category,
+            }
+            effective, _, _ = _merge_shared_policy_strategy(
+                normalized_policy,
+                per_image_strategy,
+                assignment,
+                rules,
+                _batch_preserve_conflicts(
+                    preserve_evaluations[item_id],
+                    per_image_strategy,
+                    rules,
+                ),
+            )
+            evaluation = evaluation_by_key.get(
+                (candidate_category, candidate_value)
+            )
+            if evaluation is None:
+                continue
+            candidate_analysis = copy.deepcopy(source_analysis)
+            candidate_analysis["explicitReplacementEvaluation"] = (
+                copy.deepcopy(evaluation)
+            )
+            try:
+                _plan_replacement(
+                    candidate_analysis,
+                    rules,
+                    item["templateKey"],
+                    effective,
+                )
+            except WorkflowStop as stop:
+                candidate_stops.append(stop)
+                continue
+            compatible_candidate_keys.setdefault(item_id, set()).add(
+                (candidate_category, candidate_value)
+            )
+        if not compatible_candidate_keys.get(item_id) and candidate_stops:
+            review_stop = next(
+                (
+                    stop
+                    for stop in candidate_stops
+                    if stop.outcome == "needs_input"
+                ),
+                None,
+            )
+            failed_stop = next(
+                (
+                    stop
+                    for stop in candidate_stops
+                    if stop.outcome == "failed"
+                ),
+                None,
+            )
+            if review_stop is not None or failed_stop is not None:
+                preparation_failures[item_id] = review_stop or failed_stop
+
+    for item_id in unresolved:
+        if item_id in preparation_failures:
+            continue
+        source_analysis = source_analyses[item_id]
+        category = source_analysis["target"]["category"]
+        per_image_strategy = _normalize_replacement_strategy(item_by_id[item_id], rules)
+        forbidden = set(normalized_policy.get(policy_fields["forbidValues"], []))
+        if per_image_strategy:
+            forbidden.update(per_image_strategy.get(strategy_fields["forbidValues"], []))
+        candidates = [
+            entry
+            for entry in pool
+            if entry[pool_fields["replacementCategory"]] == category
+            and entry[pool_fields["replacementValue"]] not in forbidden
+            and (
+                entry[pool_fields["replacementCategory"]],
+                entry[pool_fields["replacementValue"]],
+            )
+            in compatible_candidate_keys.get(item_id, set())
+        ]
+        if not candidates:
+            continue
+        seed = (
+            f"{batch_id}+{item_by_id[item_id]['templateKey']}+"
+            f"{source_analysis['target']['identity']}"
+        )
+        selected = min(
+            candidates,
+            key=lambda entry: (
+                usage.get(
+                    (
+                        entry[pool_fields["replacementCategory"]],
+                        entry[pool_fields["replacementValue"]],
+                    ),
+                    0,
+                ),
+                _sha_bytes(
+                    _canonical_bytes(
+                        {
+                            "seed": seed,
+                            "category": entry[pool_fields["replacementCategory"]],
+                            "value": entry[pool_fields["replacementValue"]],
+                        }
+                    )
+                ),
+            ),
+        )
+        value = selected[pool_fields["replacementValue"]]
+        selected_category = selected[pool_fields["replacementCategory"]]
+        assignment = {
+            strategy_fields["replacementValue"]: value,
+            strategy_fields["replacementCategory"]: selected_category,
+        }
+        if validate_final_assignment(item_id, assignment):
+            assignments[item_id] = assignment
+            key = (selected_category, value)
+            usage[key] = usage.get(key, 0) + 1
+
+    effective_requests: dict[str, dict[str, Any]] = {}
+    resolutions: dict[str, dict[str, Any]] = {}
+    for item_id in sorted(scope):
+        item = item_by_id[item_id]
+        if item_id not in source_analyses or item_id not in assignments:
+            continue
+        per_image_strategy = _normalize_replacement_strategy(item, rules) or {}
+        assignment = assignments[item_id]
+        effective, field_sources, list_value_sources = (
+            _merge_shared_policy_strategy(
+                normalized_policy,
+                per_image_strategy,
+                assignment,
+                rules,
+                _batch_preserve_conflicts(
+                    preserve_evaluations[item_id],
+                    per_image_strategy,
+                    rules,
+                ),
+            )
+        )
+        source_analysis = final_source_analyses[item_id]
+        seed = (
+            f"{batch_id}+{item['templateKey']}+"
+            f"{source_analysis['target']['identity']}"
+        )
+        effective_requests[item_id] = {
+            **copy.deepcopy(item),
+            "replacementStrategy": effective,
+        }
+        resolution = {
+            resolution_fields["artifactType"]: batch_contract["resolutionArtifactType"],
+            resolution_fields["schemaVersion"]: rules["schemaVersion"],
+            resolution_fields["batchIdentity"]: batch_id,
+            resolution_fields["productionItemIdentity"]: item_id,
+            resolution_fields["policyIdentity"]: normalized_policy[
+                policy_fields["policyIdentity"]
+            ],
+            resolution_fields["policyVersion"]: normalized_policy[
+                policy_fields["policyVersion"]
+            ],
+            resolution_fields["policyRevision"]: normalized_policy[
+                policy_fields["policyRevision"]
+            ],
+            resolution_fields["policySha256"]: policy_sha,
+            resolution_fields["sourceImageSha256"]: source_shas[item_id],
+            resolution_fields["sourceIdentity"]: source_analysis["target"]["identity"],
+            resolution_fields["sourceCategory"]: source_analysis["target"]["category"],
+            resolution_fields["scope"]: normalized_policy[policy_fields["scope"]],
+            resolution_fields["priority"]: _batch_priority(rules),
+            resolution_fields["effectiveStrategy"]: effective,
+            resolution_fields["fieldSources"]: field_sources,
+            resolution_fields["listValueSources"]: list_value_sources,
+            resolution_fields["allocationCandidateEvaluations"]: copy.deepcopy(
+                allocation_evaluations[item_id]
+            ),
+            resolution_fields[
+                "allocationPreserveConflictEvaluations"
+            ]: copy.deepcopy(preserve_evaluations[item_id]),
+            resolution_fields["allocationSeed"]: seed,
+        }
+        source_analyses[item_id] = source_analysis
+        resolutions[item_id] = resolution
+    return effective_requests, source_analyses, resolutions, preparation_failures
 
 
 def _build_pin(rules: dict[str, Any], release: dict[str, Any]) -> dict[str, Any]:
@@ -1297,6 +2661,7 @@ def _plan_replacement(
     rules: dict[str, Any],
     template_key: str,
     replacement_strategy: dict[str, Any] | None = None,
+    shared_policy_resolution: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     category = source_analysis["target"]["category"]
     categories = rules["sourceCategories"]
@@ -1652,6 +3017,21 @@ def _plan_replacement(
     strategy_sources = rules["strategySources"]
     autonomous_source = strategy_sources["autonomousDecision"]
     per_image_source = strategy_sources["perImageDecision"]
+    strategy_field_roles = rules["replacementStrategyContract"]["fieldRoles"]
+    resolution_field_sources: dict[str, str] = {}
+    resolution_value_sources: dict[str, dict[str, str]] = {}
+    if shared_policy_resolution is not None:
+        resolution_fields = rules["batchProductionContract"]["resolutionFields"]
+        raw_field_sources = shared_policy_resolution.get(
+            resolution_fields["fieldSources"]
+        )
+        raw_value_sources = shared_policy_resolution.get(
+            resolution_fields["listValueSources"]
+        )
+        if isinstance(raw_field_sources, dict):
+            resolution_field_sources = raw_field_sources
+        if isinstance(raw_value_sources, dict):
+            resolution_value_sources = raw_value_sources
     decision_source = autonomous_source
     strategy = {"source": autonomous_source, "decisionSource": autonomous_source}
     preserve_values: list[str] = []
@@ -1666,9 +3046,12 @@ def _plan_replacement(
         review_candidates = [
             candidate for candidate in review_candidates if candidate["value"] not in forbidden_values
         ]
+        replacement_decision_source = resolution_field_sources.get(
+            strategy_field_roles["replacementValue"], per_image_source
+        )
         strategy = {
-            "source": per_image_source,
-            "decisionSource": per_image_source,
+            "source": replacement_decision_source,
+            "decisionSource": replacement_decision_source,
             **{
                 key: replacement_strategy[key]
                 for key in ("policyId", "policyVersion")
@@ -1732,7 +3115,9 @@ def _plan_replacement(
                     "replacementCategory": requested_category,
                 },
             )
-        decision_source = per_image_source
+        decision_source = resolution_field_sources.get(
+            strategy_field_roles["replacementValue"], per_image_source
+        )
     else:
         if not candidates:
             if review_candidates:
@@ -2020,7 +3405,15 @@ def _plan_replacement(
     frozen_decision_sources = {
         value: autonomous_source for value in source_analysis["frozenSet"]
     }
-    frozen_decision_sources.update({value: per_image_source for value in preserve_values})
+    preserve_sources = resolution_value_sources.get(
+        strategy_field_roles["preserve"], {}
+    )
+    frozen_decision_sources.update(
+        {
+            value: preserve_sources.get(value, per_image_source)
+            for value in preserve_values
+        }
+    )
     plan_fields = identity_contract["planFields"]
     candidate_card_field = identity_contract["candidateFields"]["card"]
     identity_plan_fields = (
@@ -5455,6 +6848,117 @@ def _current_finalization_errors(
     return errors
 
 
+def _current_item_fact_errors(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    try:
+        source_analysis = _load_json(output_dir / "source-analysis.json")
+        plan = _load_json(output_dir / "replacement-plan.json")
+        template_analysis = _load_json(output_dir / "template-analysis.json")
+        editable = _load_json(output_dir / "editable-template-spec.json")
+        hidden = _load_json(output_dir / "hidden-template-spec.json")
+        draft = _load_json(output_dir / "gallery-template.draft.json")
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return ["production item facts unreadable"]
+    if not all(
+        isinstance(item, dict)
+        for item in (
+            source_analysis,
+            plan,
+            template_analysis,
+            editable,
+            hidden,
+            draft,
+        )
+    ):
+        return ["production item facts shape invalid"]
+    errors: list[str] = []
+    if source_analysis.get("sourceImageSha256") != manifest.get(
+        "sourceImageSha256"
+    ):
+        errors.append("source analysis belongs to another source image")
+    if plan.get("templateKey") != manifest.get("templateKey"):
+        errors.append("replacement plan belongs to another template")
+    source_target = source_analysis.get("target")
+    plan_targets = plan.get("primaryTargets")
+    if not (
+        isinstance(source_target, dict)
+        and isinstance(plan_targets, list)
+        and len(plan_targets) == 1
+        and isinstance(plan_targets[0], dict)
+        and plan_targets[0].get("sourceCategory") == source_target.get("category")
+        and plan_targets[0].get("sourceRole") == source_target.get("role")
+        and plan_targets[0].get("sourceIdentity") == source_target.get("identity")
+    ):
+        errors.append("replacement plan does not match source facts")
+    batch_contract = rules["batchProductionContract"]
+    resolution_name = batch_contract["resolutionArtifactName"]
+    if resolution_name in manifest.get("artifacts", {}):
+        try:
+            resolution = _load_json(output_dir / resolution_name)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            errors.append("shared policy resolution unreadable")
+        else:
+            if not _shared_policy_plan_valid(plan, resolution, rules):
+                errors.append(
+                    "shared policy resolution does not match replacement plan"
+                )
+    delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
+    if delivery_errors:
+        errors.extend(delivery_errors)
+    elif template_analysis.get("visualFactSourceSha256") != delivery.get(
+        "approvedSha256"
+    ):
+        errors.append("template analysis belongs to another approved image")
+    try:
+        expected_editable = _compile_editable_spec(
+            template_analysis,
+            rules,
+            plan,
+        )
+        expected_hidden = _compile_hidden_spec(
+            template_analysis,
+            expected_editable,
+            rules,
+        )
+        expected_draft = _compile_draft(
+            manifest["templateKey"],
+            source_analysis.get("imageSize", "1024x1024"),
+            expected_editable,
+            expected_hidden,
+            rules,
+        )
+    except (KeyError, TypeError, ValueError, WorkflowStop):
+        errors.append("production item facts cannot be deterministically replayed")
+    else:
+        if editable != expected_editable:
+            errors.append("editable defaults do not match approved visual facts")
+        if hidden != expected_hidden:
+            errors.append("hidden template does not match approved visual facts")
+        if draft != expected_draft:
+            errors.append("draft does not match current item compilation")
+    return errors
+
+
+def _current_shared_policy_resolution_errors(
+    output_dir: Path,
+    expected_resolution: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    resolution_name = rules["batchProductionContract"][
+        "resolutionArtifactName"
+    ]
+    try:
+        persisted = _load_json(output_dir / resolution_name)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return ["shared policy resolution unreadable"]
+    if persisted != expected_resolution:
+        return ["shared policy resolution does not match current request"]
+    return []
+
+
 def _finalize_uploaded_item(
     output_dir: Path,
     manifest: dict[str, Any],
@@ -5540,19 +7044,17 @@ def _finalize_uploaded_item(
     )
 
 
-def run_production(
+def _run_single_production(
     request: dict[str, Any],
     output_root: str | Path,
     adapters: WorkflowAdapters,
     *,
     clock: Callable[[], datetime] | None = None,
+    prepared_source_analysis: dict[str, Any] | None = None,
+    shared_policy_resolution: dict[str, Any] | None = None,
+    preparation_stop: WorkflowStop | None = None,
 ) -> ProductionResult:
-    """Run one independent Production Item through P0-P8.
-
-    The request accepts one source image and optional per-image replacementStrategy.
-    Uncovered decisions use the default route, and no state is shared across Production Items.
-    Shared batch strategy is reserved for a later ticket.
-    """
+    """Run one independent Production Item through P0-P8."""
 
     rules = _load_json(RULES_PATH)
     release = _load_json(RELEASE_PATH)
@@ -5563,26 +7065,15 @@ def run_production(
     schema = _load_json(GALLERY_SCHEMA_PATH)
     template_key = str(request.get("templateKey", ""))
     production_item_id = request.get("productionItemId")
-    key_pattern = schema["properties"]["key"]["pattern"]
-    item_pattern = rules["identifiers"]["productionItemIdPattern"]
-    invalid_identifiers = []
-    if re.fullmatch(key_pattern, template_key) is None:
-        invalid_identifiers.append("templateKey")
-    if production_item_id is not None and re.fullmatch(item_pattern, str(production_item_id)) is None:
-        invalid_identifiers.append("productionItemId")
-    request_errors = [
-        *_replacement_strategy_errors(request, rules),
-        *_generation_options_errors(request, rules),
-    ]
-    if invalid_identifiers or request_errors:
-        details = [*(f"非法标识符：{field}" for field in invalid_identifiers), *request_errors]
+    request_errors = _production_request_errors(request, rules, schema)
+    if request_errors:
         return ProductionResult(
             "needs_input",
             str(production_item_id or "invalid-production-item"),
             rules["resultStates"]["needs_input"],
             output_root_path,
             error_code=rules["errorCodes"]["invalidProductionRequest"],
-            message="生产请求预检失败：" + "；".join(details),
+            message="生产请求预检失败：" + "；".join(request_errors),
         )
     replacement_strategy = _normalize_replacement_strategy(request, rules)
     generation_options = _normalized_generation_options(request, rules)
@@ -5590,11 +7081,19 @@ def run_production(
     if not source_image.is_file():
         raise FileNotFoundError(source_image)
     source_sha = _sha_file(source_image)
-    replacement_strategy_sha = _sha_bytes(_canonical_bytes(replacement_strategy))
+    replacement_strategy_identity: Any = replacement_strategy
+    if shared_policy_resolution is not None:
+        replacement_strategy_identity = {
+            "replacementStrategy": replacement_strategy,
+            "sharedPolicyResolution": shared_policy_resolution,
+        }
+    replacement_strategy_sha = _sha_bytes(
+        _canonical_bytes(replacement_strategy_identity)
+    )
     generation_options_sha = _sha_bytes(_canonical_bytes(generation_options))
     item_id = str(production_item_id or f"{template_key}-{source_sha[:12]}")
-    output_dir = (output_root_path / item_id).resolve()
-    if not output_dir.is_relative_to(output_root_path) or output_dir.parent != output_root_path:
+    output_dir = _isolated_output_dir(output_root_path, item_id)
+    if output_dir is None:
         return ProductionResult(
             "needs_input",
             item_id,
@@ -5616,7 +7115,22 @@ def run_production(
     generation_wal: dict[str, Any]
     generation_submission: dict[str, Any]
     if manifest_path.exists():
-        existing = _load_json(manifest_path)
+        try:
+            existing = _load_json(manifest_path)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            existing = None
+        if not isinstance(existing, dict):
+            return ProductionResult(
+                "blocked",
+                item_id,
+                rules["resultStates"]["blocked"],
+                output_dir,
+                error_code=rules["errorCodes"][
+                    "productionItemIntegrityFailure"
+                ],
+                message="Production Manifest 无法读取或顶层形状无效。",
+                resumed=True,
+            )
         completed_artifacts = ("production-pin.json", "gallery-template.json", "final-validation-report.json")
         identity_errors = _production_item_integrity_errors(
             output_dir,
@@ -5628,6 +7142,14 @@ def run_production(
             generation_options_sha256=generation_options_sha,
             required_artifacts=completed_artifacts if existing.get("state") == rules["resultStates"]["completed"] else (),
         )
+        if shared_policy_resolution is not None:
+            identity_errors.extend(
+                _current_shared_policy_resolution_errors(
+                    output_dir,
+                    shared_policy_resolution,
+                    rules,
+                )
+            )
         if existing.get("state") == rules["resultStates"]["completed"]:
             identity_errors.extend(_current_p2_artifact_errors(existing))
             identity_errors.extend(
@@ -5641,6 +7163,9 @@ def run_production(
             )
             identity_errors.extend(
                 _current_finalization_errors(output_dir, existing, rules)
+            )
+            identity_errors.extend(
+                _current_item_fact_errors(output_dir, existing, rules)
             )
         existing_revision_for_wal = existing.get("revision")
         if (
@@ -5787,6 +7312,9 @@ def run_production(
                     generation_options,
                     rules,
                 )
+            )
+            recovery_errors.extend(
+                _current_item_fact_errors(output_dir, existing, rules)
             )
             if recovery_errors:
                 return ProductionResult(
@@ -6222,24 +7750,68 @@ def run_production(
             evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
             _atomic_write_new(evidence_source, source_image.read_bytes())
             _record_artifact(manifest, output_dir, str(evidence_source.relative_to(output_dir)), p0, [])
-            source_analysis = _adapter_snapshot_image_object_call(
-                rules,
-                "analyze_source",
-                adapters.analyze_source,
-                source_image,
-                source_sha,
-                copy.deepcopy(replacement_strategy),
+            if preparation_stop is not None:
+                raise preparation_stop
+            source_analysis = (
+                copy.deepcopy(prepared_source_analysis)
+                if prepared_source_analysis is not None
+                else _adapter_snapshot_image_object_call(
+                    rules,
+                    "analyze_source",
+                    adapters.analyze_source,
+                    source_image,
+                    source_sha,
+                    copy.deepcopy(replacement_strategy),
+                )
             )
-            if source_analysis.get("sourceImageSha256") != source_sha:
-                raise _stop(rules, "failed", "externalFailure", "来源分析证据与输入图片 SHA 不一致。", {})
+            if (
+                source_analysis.get("sourceImageSha256") != source_sha
+                or not _source_analysis_identity_valid(source_analysis, rules)
+            ):
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "来源分析证据与输入图片或主体身份不一致。",
+                    {},
+                )
             _atomic_write_new(output_dir / "source-analysis.json", _json_bytes(source_analysis))
             _record_artifact(manifest, output_dir, "source-analysis.json", p0, [str(evidence_source.relative_to(output_dir))])
+            plan_dependencies = ["source-analysis.json"]
+            if shared_policy_resolution is not None:
+                resolution_name = rules["batchProductionContract"][
+                    "resolutionArtifactName"
+                ]
+                _atomic_write_new(
+                    output_dir / resolution_name,
+                    _json_bytes(shared_policy_resolution),
+                )
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    resolution_name,
+                    p0,
+                    ["source-analysis.json"],
+                )
+                plan_dependencies.append(resolution_name)
             _advance(manifest, rules, p0, timestamp)
             _persist_manifest(output_dir, manifest)
 
-            plan = _plan_replacement(source_analysis, rules, template_key, replacement_strategy)
+            plan = _plan_replacement(
+                source_analysis,
+                rules,
+                template_key,
+                replacement_strategy,
+                shared_policy_resolution,
+            )
             _atomic_write_new(output_dir / "replacement-plan.json", _json_bytes(plan))
-            _record_artifact(manifest, output_dir, "replacement-plan.json", p1, ["source-analysis.json"])
+            _record_artifact(
+                manifest,
+                output_dir,
+                "replacement-plan.json",
+                p1,
+                plan_dependencies,
+            )
             _advance(manifest, rules, p1, timestamp)
             _persist_manifest(output_dir, manifest)
 
@@ -6867,3 +8439,214 @@ def run_production(
             message=stop.message,
             resumed=resumed,
         )
+
+
+def _run_batch_item(
+    request: dict[str, Any],
+    output_root: str | Path,
+    adapters: WorkflowAdapters,
+    *,
+    clock: Callable[[], datetime] | None,
+    prepared_source_analysis: dict[str, Any] | None = None,
+    shared_policy_resolution: dict[str, Any] | None = None,
+    preparation_stop: WorkflowStop | None = None,
+) -> ProductionResult:
+    try:
+        return _run_single_production(
+            request,
+            output_root,
+            adapters,
+            clock=clock,
+            prepared_source_analysis=prepared_source_analysis,
+            shared_policy_resolution=shared_policy_resolution,
+            preparation_stop=preparation_stop,
+        )
+    except (KeyError, OSError, TypeError, ValueError):
+        rules = _load_json(RULES_PATH)
+        item_id = str(request.get("productionItemId", "invalid-production-item"))
+        return ProductionResult(
+            "needs_input",
+            item_id,
+            rules["resultStates"]["needs_input"],
+            Path(output_root).resolve() / item_id,
+            error_code=rules["errorCodes"]["invalidProductionRequest"],
+            message="批量中该 Production Item 的输入无法读取或解析。",
+        )
+
+
+def run_production(
+    request: Any,
+    output_root: str | Path,
+    adapters: WorkflowAdapters,
+    *,
+    clock: Callable[[], datetime] | None = None,
+) -> ProductionResult | BatchProductionResult:
+    """Run one Production Item or split a batch into independent P0-P8 items."""
+
+    rules = _load_json(RULES_PATH)
+    if not isinstance(request, dict):
+        return ProductionResult(
+            "needs_input",
+            "invalid-production-item",
+            rules["resultStates"]["needs_input"],
+            Path(output_root).resolve(),
+            error_code=rules["errorCodes"]["invalidProductionRequest"],
+            message="生产请求必须是对象。",
+        )
+    contract = rules["batchProductionContract"]
+    request_fields = contract["requestFields"]
+    batch_field = request_fields["batchIdentity"]
+    items_field = request_fields["items"]
+    shared_policy_field = request_fields["sharedPolicy"]
+    if batch_field not in request and items_field not in request:
+        return _run_single_production(
+            request, output_root, adapters, clock=clock
+        )
+    batch_id = request.get(batch_field)
+    raw_items = request.get(items_field)
+    item_ids = [
+        item.get("productionItemId")
+        for item in raw_items
+        if isinstance(item, dict)
+    ] if isinstance(raw_items, list) else []
+    envelope_fields = {batch_field, items_field, shared_policy_field}
+    if (
+        not isinstance(batch_id, str)
+        or re.fullmatch(rules["identifiers"]["productionItemIdPattern"], batch_id)
+        is None
+        or set(request) - envelope_fields
+        or not isinstance(raw_items, list)
+        or not contract["minimumItems"] <= len(raw_items) <= contract["maximumItems"]
+        or not all(isinstance(item, dict) for item in raw_items)
+        or not all(
+            isinstance(item_id, str)
+            and re.fullmatch(
+                rules["identifiers"]["productionItemIdPattern"], item_id
+            )
+            is not None
+            for item_id in item_ids
+        )
+        or len(item_ids) != len(set(item_ids))
+    ):
+        return BatchProductionResult(
+            batch_id=batch_id if isinstance(batch_id, str) and batch_id else "invalid-batch",
+            items=(),
+            shared_policy_applied=False,
+            error_code=rules["errorCodes"]["invalidProductionRequest"],
+            message="批量请求的标识符或 Production Item 列表无效。",
+        )
+    shared_policy = request.get(shared_policy_field)
+    if shared_policy is None:
+        results = tuple(
+            _run_batch_item(
+                item, output_root, adapters, clock=clock
+            )
+            for item in raw_items
+        )
+        return BatchProductionResult(
+            batch_id=batch_id,
+            items=results,
+            shared_policy_applied=False,
+        )
+    policy_errors = _shared_policy_errors(shared_policy, set(item_ids), rules)
+    if policy_errors:
+        return BatchProductionResult(
+            batch_id=batch_id,
+            items=(),
+            shared_policy_applied=False,
+            error_code=rules["errorCodes"]["invalidProductionRequest"],
+            message="共享批次策略预检失败：" + "；".join(policy_errors),
+        )
+    normalized_policy = _normalize_shared_policy(shared_policy, rules)
+    output_root_path = Path(output_root).resolve()
+    schema = _load_json(GALLERY_SCHEMA_PATH)
+    invalid_item_ids = {
+        item["productionItemId"]
+        for item in raw_items
+        if _production_request_errors(item, rules, schema)
+        or _isolated_output_dir(
+            output_root_path,
+            item["productionItemId"],
+        )
+        is None
+    }
+    try:
+        (
+            effective_requests,
+            analyses,
+            resolutions,
+            preparation_failures,
+        ) = _resolve_shared_policy(
+            batch_id,
+            raw_items,
+            normalized_policy,
+            output_root_path,
+            adapters,
+            rules,
+            invalid_item_ids,
+        )
+    except WorkflowStop as stop:
+        return BatchProductionResult(
+            batch_id=batch_id,
+            items=(),
+            shared_policy_applied=True,
+            error_code=stop.error_code,
+            message=stop.message,
+        )
+    scope = set(
+        normalized_policy[contract["sharedPolicyFields"]["scope"]]
+    )
+    item_results: list[ProductionResult] = []
+    for item in raw_items:
+        item_id = item["productionItemId"]
+        if item_id not in scope:
+            item_results.append(
+                _run_batch_item(
+                    item, output_root, adapters, clock=clock
+                )
+            )
+            continue
+        if item_id in preparation_failures:
+            failed_request = effective_requests.get(item_id, item)
+            item_results.append(
+                _run_batch_item(
+                    failed_request,
+                    output_root,
+                    adapters,
+                    clock=clock,
+                    preparation_stop=preparation_failures[item_id],
+                )
+            )
+            continue
+        if item_id not in effective_requests or item_id not in resolutions:
+            item_results.append(
+                _run_batch_item(
+                    item,
+                    output_root,
+                    adapters,
+                    clock=clock,
+                    preparation_stop=_stop(
+                        rules,
+                        "blocked",
+                        "noCompatibleReplacement",
+                        "共享批次策略没有为该生产项分配兼容值。",
+                        {"productionItemId": item_id},
+                    ),
+                )
+            )
+            continue
+        item_results.append(
+            _run_batch_item(
+                effective_requests[item_id],
+                output_root,
+                adapters,
+                clock=clock,
+                prepared_source_analysis=analyses.get(item_id),
+                shared_policy_resolution=resolutions[item_id],
+            )
+        )
+    return BatchProductionResult(
+        batch_id=batch_id,
+        items=tuple(item_results),
+        shared_policy_applied=True,
+    )

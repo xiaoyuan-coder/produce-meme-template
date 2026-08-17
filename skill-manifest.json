@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "updated_at": "2026-08-17",
-  "description": "实现 Issue #11 Aliyun OSS 幂等上传、完整 Asset Receipt、远端对象恢复与正式双字段回填。",
+  "description": "实现 Issue #12 默认批量隔离、显式共享策略、稳定分配与逐项恢复。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -69,6 +69,7 @@
     "references/multi-instance-image-operations.md",
     "references/oss-finalization.md",
     "references/replacement-spec.md",
+    "references/shared-batch-policy.md",
     "references/template-image-gate.md",
     "references/vertical-slice-runtime.md",
     "references/visible-text-contract.md",
@@ -101,6 +102,7 @@
     "tests/test_issue_9_multi_instance_operations.py",
     "tests/test_issue_10_generation_wal.py",
     "tests/test_issue_11_oss_finalization.py",
+    "tests/test_issue_12_batch_isolation.py",
     "tests/test_repository_contract.py"
   ]
 }

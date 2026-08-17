@@ -1,8 +1,8 @@
-# 单图纵向切片运行合同
+# 生产项纵向切片运行合同
 
 ## 1. 公共工作流
 
-Issue #2–#11 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+Issue #2–#12 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认不共享业务事实，显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
 机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。类别与策略来源使用“具名领域角色 → 机器值”映射，代码不依赖 JSON 成员顺序。代码、测试和 fixture 不再维护第二份枚举。
 
@@ -20,7 +20,7 @@ Issue #2–#11 只通过 `run_production(request, output_root, adapters)` 暴露
 | P7 | `ASSET_UPLOADED` | `asset-receipt.json` |
 | P8 | `FINALIZED` | `final-validation-report.json`、`gallery-template.json` |
 
-`production-manifest.json` 记录每个阶段、产物 SHA、依赖、revision 和外部结果，并把规范化单图策略 SHA 纳入 Production Item 身份。除 manifest 外，revision 产物使用原子排他创建；相同 Production Item 内容不一致时返回稳定的不可变冲突。请求标识符与策略结构在落盘前通过检查，解析后的 Production Item 真实路径还必须是 `output_root` 的直接子目录；预置符号链接不能把写入引向根外。相同来源图、key 和策略已完成后再次调用，需要先验证请求身份、pin 和全部产物摘要，再复用最终产物。
+`production-manifest.json` 记录每个阶段、产物 SHA、依赖、revision 和外部结果，并把规范化单图策略 SHA 纳入 Production Item 身份。显式共享策略还将当前 item 的分辨摘要纳入身份并保存 `shared-policy-resolution.json`。每个不可变产物记录 Production Item scope digest 与不可变依赖摘要，防止跨 item 事实交换。除 manifest 外，revision 产物使用原子排他创建；相同 Production Item 内容不一致时返回稳定的不可变冲突。请求标识符与策略结构在落盘前通过检查，解析后的 Production Item 真实路径还必须是 `output_root` 的直接子目录；预置符号链接不能把写入引向根外。相同来源图、key 和策略已完成后再次调用，需要先验证请求身份、pin 和全部产物摘要，再复用最终产物。
 
 ## 3. 适配器门禁
 
@@ -51,4 +51,4 @@ Issue #2–#11 只通过 `run_production(request, output_root, adapters)` 暴露
 
 ## 5. 迁移证据
 
-确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 覆盖 E05、E06、E07、E10 和 E25；Issue #4 覆盖 E06、E10、E11、E12、E13、E29 和 E34；Issue #5 覆盖 E18、E19、E20、E21、E22、E24、E25、E26、E27、E28、E30 和 E31；Issue #6 覆盖 E30、E31、E35、E36、E38 和 E39；Issue #7 的三类身份路由、候选卡、依赖闭包、身份文字硬失败与中性默认态覆盖 E06、E07、E08、E09、E19、E20、E26 和 E28；Issue #8 的文字区域清单、角色/操作分类、长文 span、精确文字保真和次要文字全文编辑覆盖 E14、E15、E16、E17、E18、E24、E27 和 E28；Issue #9 的多实例组件图、五类图片操作、接触遮挡保持与四类独立计数覆盖 E06、E12、E20、E22、E23 和 E29；Issue #10 的默认单图、冻结任务、request ID WAL、失败分类、断点恢复、真实 FAL adapter 和视觉硬失败重做覆盖 E10、E12、E13、E29 和 E34；Issue #11 的唯一 Approved Image 上传、完整 receipt、远端对象恢复和 `cover === referenceImage` 覆盖 E35 与 E36。
+确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 覆盖 E05、E06、E07、E10 和 E25；Issue #4 覆盖 E06、E10、E11、E12、E13、E29 和 E34；Issue #5 覆盖 E18、E19、E20、E21、E22、E24、E25、E26、E27、E28、E30 和 E31；Issue #6 覆盖 E30、E31、E35、E36、E38 和 E39；Issue #7 的三类身份路由、候选卡、依赖闭包、身份文字硬失败与中性默认态覆盖 E06、E07、E08、E09、E19、E20、E26 和 E28；Issue #8 的文字区域清单、角色/操作分类、长文 span、精确文字保真和次要文字全文编辑覆盖 E14、E15、E16、E17、E18、E24、E27 和 E28；Issue #9 的多实例组件图、五类图片操作、接触遮挡保持与四类独立计数覆盖 E06、E12、E20、E22、E23 和 E29；Issue #10 的默认单图、冻结任务、request ID WAL、失败分类、断点恢复、真实 FAL adapter 和视觉硬失败重做覆盖 E10、E12、E13、E29 和 E34；Issue #11 的唯一 Approved Image 上传、完整 receipt、远端对象恢复和 `cover === referenceImage` 覆盖 E35 与 E36；Issue #12 的默认批量隔离、显式共享策略、稳定分配、逐项失败/恢复和跨图事实串线阻断覆盖 E01、E02、E03 和 E32。

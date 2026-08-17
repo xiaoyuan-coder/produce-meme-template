@@ -166,6 +166,8 @@ Generation prompt 由下列段落编译：
 
 prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPlan`。生成器不能自行扩展替换范围。
 
+批量信封的默认隔离、显式共享策略、`per_image > batch > autonomous` 优先级、稳定候选分配和逐项分辨读取 [批量隔离与共享策略合同](shared-batch-policy.md)。
+
 网图像素只用于分析和参考。禁止局部复制、裁切粘贴或保留来源水印；即使替换区域较小，也要通过整图生成得到新的模板图。
 
 ## 6. 媒介与画面验收
@@ -195,7 +197,7 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
 ```json
 {
   "artifactType": "replacement-plan",
-  "schemaVersion": "0.11.0",
+  "schemaVersion": "0.12.0",
   "templateKey": "example-key",
   "strategy": {
     "source": "per_image | batch | autonomous",
