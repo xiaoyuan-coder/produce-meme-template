@@ -3881,6 +3881,14 @@ def _image_bytes_match_output_format(
         return False
 
 
+def image_bytes_match_output_format(
+    payload: Any, output_format: str, contract: dict[str, Any]
+) -> bool:
+    """Validate a generated single-image payload against the shared machine contract."""
+
+    return _image_bytes_match_output_format(payload, output_format, contract)
+
+
 def _generation_poll_shape_valid(
     poll_result: dict[str, Any], generation_task: dict[str, Any], rules: dict[str, Any]
 ) -> bool:
@@ -6655,6 +6663,15 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
         "coverMatchesReferenceImage": cover_matches_reference,
         "assetUrlsValid": asset_urls_valid,
     }
+
+
+def formal_template_contract_valid(
+    record: Any, rules: dict[str, Any]
+) -> bool:
+    """Return whether a persisted Gallery template satisfies the formal contract."""
+    if not isinstance(record, dict):
+        return False
+    return bool(_validate_final(record, rules)["pass"])
 
 
 def _delivery_image_context(

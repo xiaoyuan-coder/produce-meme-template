@@ -6,6 +6,7 @@ from .adapters import (
     FalQueueWorkflowAdapters,
 )
 from .workflow import BatchProductionResult, ProductionResult, run_production
+from .template_test import TemplateTestResult, run_template_test
 
 __all__ = [
     "AliyunOssWorkflowAdapters",
@@ -13,5 +14,7 @@ __all__ = [
     "DeterministicFixtureAdapters",
     "FalQueueWorkflowAdapters",
     "ProductionResult",
+    "TemplateTestResult",
     "run_production",
+    "run_template_test",
 ]

@@ -7,7 +7,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 当前状态
 
-当前已提供 Issue #2–#13 的纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字；多实例、镜像、容器、分格和接触关系通过组件图与五类图片操作进入同一 Replacement Plan。批量信封默认拆成独立 Production Item；显式共享策略使用稳定分配、逐字段来源和单项分辨 sidecar 进入同一单项生命周期。发布包、安装副本、doctor 和 production pin 通过三条独立版本线与完整文件摘要对账。P2 在供应商提交前冻结生成任务和 WAL，提交后立即绑定 request ID，再执行全部硬门禁。P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt；P7 使用 Approved Template Image SHA 确定对象键并保存完整 Asset Receipt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 双字段回填。
+当前已提供 Issue #2–#14 的纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字；多实例、镜像、容器、分格和接触关系通过组件图与五类图片操作进入同一 Replacement Plan。批量信封默认拆成独立 Production Item；显式共享策略使用稳定分配、逐字段来源和单项分辨 sidecar 进入同一单项生命周期。发布包、安装副本、doctor 和 production pin 通过三条独立版本线与完整文件摘要对账。P2 在供应商提交前冻结生成任务和 WAL，提交后立即绑定 request ID，再执行全部硬门禁。P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt；P7 使用 Approved Template Image SHA 确定对象键并保存完整 Asset Receipt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 双字段回填。用户明确指定现成正式 JSON 时，T1 以独立 task、WAL、图片和报告验证槽位编辑与全文编辑。
 
 ## 开始工作
 
@@ -39,6 +39,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 - P7–P8 的 Approved Image 上传、远端对象对账、Asset Receipt 恢复和双 URL 回填读取 [OSS 幂等终结合同](references/oss-finalization.md)。
 - P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - 三线版本、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
+- T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
 - P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 遇到可见文字、文字密集海报或文字槽时读取 [可见文字区域与文字槽合同](references/visible-text-contract.md)。
 - 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/gallery-template.schema.json`。

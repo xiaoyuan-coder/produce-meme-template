@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.12.0",
+  "schemaVersion": "0.13.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -135,6 +135,152 @@
     "migrationArtifactType": "production-pin-migration",
     "migrationFilePattern": "production-pin-migration-r{revision}.json",
     "migrationInvalidateFromPhaseIndex": 0
+  },
+  "templateTestContract": {
+    "requestFields": {
+      "templateJsonPath": "templateJson",
+      "templateRevision": "templateRevision",
+      "invocationIdentity": "testInvocationId",
+      "cases": "testCases"
+    },
+    "caseFields": {
+      "caseIdentity": "caseId",
+      "mode": "mode",
+      "slotValues": "slotValues",
+      "freePrompt": "freePrompt"
+    },
+    "modes": {
+      "slotEdit": "slot_edit",
+      "freeEdit": "free_edit"
+    },
+    "states": {
+      "prepared": "PREPARED",
+      "running": "RUNNING",
+      "completed": "COMPLETED",
+      "failed": "FAILED",
+      "needsInput": "NEEDS_INPUT",
+      "blocked": "BLOCKED"
+    },
+    "resultFields": {
+      "outcome": "outcome",
+      "invocationIdentity": "testInvocationId",
+      "state": "state",
+      "outputDirectory": "outputDir",
+      "reportPath": "reportPath",
+      "errorCode": "errorCode",
+      "message": "message",
+      "resumed": "resumed"
+    },
+    "manifestFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "invocationIdentity": "testInvocationId",
+      "state": "state",
+      "requestSha256": "requestSha256",
+      "templateJsonSha256": "templateJsonSha256",
+      "productionPinSha256": "productionPinSha256",
+      "referenceImageSha256": "referenceImageSha256",
+      "caseSubmissionSha256": "submissionSha256ByCase",
+      "caseWalBindings": "walBindingsByCase",
+      "reportSha256": "reportSha256",
+      "caseIdentities": "caseIds",
+      "updatedAt": "updatedAt"
+    },
+    "reportFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "invocationIdentity": "testInvocationId",
+      "templateKey": "templateKey",
+      "templateRevision": "templateRevision",
+      "templateJsonPath": "templateJsonPath",
+      "templateJsonSha256": "templateJsonSha256",
+      "templateImageUrl": "templateImageUrl",
+      "testerVersion": "testerVersion",
+      "productionPin": "productionPin",
+      "requestSha256": "requestSha256",
+      "cases": "cases",
+      "startedAt": "startedAt",
+      "completedAt": "completedAt",
+      "outcome": "outcome",
+      "errorCode": "errorCode"
+    },
+    "caseReportFields": {
+      "caseIdentity": "caseId",
+      "mode": "mode",
+      "userInput": "userInput",
+      "resolvedPrompt": "resolvedPrompt",
+      "generationRequest": "generationRequest",
+      "outputImagePath": "outputImagePath",
+      "outputImageSha256": "outputImageSha256",
+      "visibleDeviations": "visibleDeviations",
+      "reviewPass": "reviewPass",
+      "outcome": "outcome",
+      "errorCode": "errorCode",
+      "message": "message"
+    },
+    "generationRequestFields": {
+      "requestIdentity": "generationRequestId",
+      "prompt": "prompt",
+      "imageCount": "imageCount",
+      "primaryOutputIndex": "primaryOutputIndex",
+      "imageSize": "imageSize",
+      "outputFormat": "outputFormat"
+    },
+    "walBindingFields": {
+      "sha256": "sha256",
+      "status": "status",
+      "pollAttemptCount": "pollAttemptCount",
+      "failureClass": "failureClass"
+    },
+    "generationFailureRoutes": {
+      "retryable": {"stateRole": "running", "errorCodeRole": "generationRetryable"},
+      "replanRequired": {"stateRole": "blocked", "errorCodeRole": "generationReplanRequired"},
+      "humanReview": {"stateRole": "needsInput", "errorCodeRole": "generationHumanReview"},
+      "permanent": {"stateRole": "failed", "errorCodeRole": "generationPermanent"},
+      "submissionUnknown": {"stateRole": "needsInput", "errorCodeRole": "generationSubmissionUnknown"}
+    },
+    "reviewFields": {
+      "templateJsonSha256": "templateJsonSha256",
+      "testCaseSha256": "testCaseSha256",
+      "generatedImageSha256": "generatedImageSha256",
+      "pass": "pass",
+      "visibleDeviations": "visibleDeviations",
+      "explanation": "explanation"
+    },
+    "artifactNames": {
+      "manifest": "template-test-manifest.json",
+      "pin": "template-test-pin.json",
+      "request": "template-test-request.json",
+      "referenceImageStem": "template-reference-image",
+      "task": "generation-task.json",
+      "wal": "generation-wal.json",
+      "submission": "generation-submission.json",
+      "candidateStem": "generated-image",
+      "review": "template-test-review.json",
+      "report": "template-json-test-report.json"
+    },
+    "artifactTypes": {
+      "manifest": "template-test-manifest",
+      "report": "template-json-test-report"
+    },
+    "defaultImageCount": 1,
+    "defaultPrimaryOutputIndex": 0,
+    "defaultOutputFormatRole": "png",
+    "maximumCases": 20,
+    "maximumPromptLength": 8000,
+    "identityPattern": "^[a-z][a-z0-9-]{1,127}$",
+    "errorCodes": {
+      "invalidRequest": "INVALID_TEMPLATE_TEST_REQUEST",
+      "invalidTemplate": "INVALID_FORMAL_TEMPLATE",
+      "integrityFailure": "TEMPLATE_TEST_INTEGRITY_FAILURE",
+      "externalFailure": "TEMPLATE_TEST_EXTERNAL_FAILURE",
+      "generationRetryable": "TEMPLATE_TEST_GENERATION_RETRYABLE",
+      "generationSubmissionUnknown": "TEMPLATE_TEST_GENERATION_SUBMISSION_UNKNOWN",
+      "generationReplanRequired": "TEMPLATE_TEST_GENERATION_REPLAN_REQUIRED",
+      "generationHumanReview": "TEMPLATE_TEST_GENERATION_HUMAN_REVIEW",
+      "generationPermanent": "TEMPLATE_TEST_GENERATION_PERMANENT_FAILURE",
+      "reviewFailure": "TEMPLATE_TEST_REVIEW_FAILURE"
+    }
   },
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
@@ -1171,5 +1317,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E38", "E39"]
+  "historicalExperienceEvidence": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39"]
 }

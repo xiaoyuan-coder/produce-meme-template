@@ -14,16 +14,70 @@ if str(SCRIPT_DIR) not in sys.path:
 from produce_meme_template import (
     BatchProductionResult,
     DeterministicFixtureAdapters,
+    TemplateTestResult,
     run_production,
+    run_template_test,
 )
 
 
-def main() -> int:
+def _fixture_clock(fixture: Path):
+    fixed_time_path = fixture / "clock.txt"
+    if not fixed_time_path.exists():
+        return None
+    fixed = datetime.fromisoformat(
+        fixed_time_path.read_text(encoding="utf-8")
+        .strip()
+        .replace("Z", "+00:00")
+    )
+    return lambda: fixed
+
+
+def _run_t1(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        description="对现成正式模板 JSON 运行独立 T1 真实生图测试"
+    )
+    parser.add_argument("--request", required=True, type=Path, help="T1 请求 JSON")
+    parser.add_argument("--output", required=True, type=Path, help="独立 T1 输出根目录")
+    parser.add_argument(
+        "--deterministic-fixture", required=True, type=Path, help="确定性适配器 fixture 目录"
+    )
+    args = parser.parse_args(argv)
+    request_path = args.request.resolve()
+    rules = json.loads(
+        (SCRIPT_DIR.parent / "contracts" / "machine-rules.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    template_field = rules["templateTestContract"]["requestFields"][
+        "templateJsonPath"
+    ]
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        request = None
+    template_path = request.get(template_field) if isinstance(request, dict) else None
+    if isinstance(template_path, str) and not Path(template_path).is_absolute():
+        request[template_field] = str((request_path.parent / template_path).resolve())
+    adapters = DeterministicFixtureAdapters(args.deterministic_fixture)
+    result: TemplateTestResult = run_template_test(
+        request,
+        args.output,
+        adapters,
+        clock=_fixture_clock(args.deterministic_fixture),
+    )
+    print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
+    return 0 if result.outcome == "completed" else 1
+
+
+def main(argv: list[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if arguments and arguments[0] == "t1":
+        return _run_t1(arguments[1:])
     parser = argparse.ArgumentParser(description="运行单图或批量 produce-meme-template P0-P8 工作流")
     parser.add_argument("--request", required=True, type=Path, help="生产请求 JSON")
     parser.add_argument("--output", required=True, type=Path, help="Production Item 输出根目录")
     parser.add_argument("--deterministic-fixture", required=True, type=Path, help="确定性适配器 fixture 目录")
-    args = parser.parse_args()
+    args = parser.parse_args(arguments)
 
     request_path = args.request.resolve()
     request = json.loads(request_path.read_text(encoding="utf-8"))
@@ -41,11 +95,7 @@ def main() -> int:
         if not source.is_absolute():
             item["sourceImage"] = str((request_path.parent / source).resolve())
     adapters = DeterministicFixtureAdapters(args.deterministic_fixture)
-    fixed_time_path = args.deterministic_fixture / "clock.txt"
-    clock = None
-    if fixed_time_path.exists():
-        fixed = datetime.fromisoformat(fixed_time_path.read_text(encoding="utf-8").strip().replace("Z", "+00:00"))
-        clock = lambda: fixed
+    clock = _fixture_clock(args.deterministic_fixture)
     result = run_production(request, args.output, adapters, clock=clock)
     print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
     if isinstance(result, BatchProductionResult):

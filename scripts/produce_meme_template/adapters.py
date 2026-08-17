@@ -294,6 +294,31 @@ class DeterministicFixtureAdapters:
             ],
         }
 
+    def fetch_template_image(self, _url: str) -> bytes:
+        image_path = self.fixture_dir / "approved-template-image.ppm"
+        return self._fixture_image_result(image_path)["imageBytes"]
+
+    def inspect_template_test(
+        self, generated_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        fields = _read_json(RULES_PATH)["templateTestContract"][
+            "reviewFields"
+        ]
+        return {
+            fields["templateJsonSha256"]: review_request[
+                fields["templateJsonSha256"]
+            ],
+            fields["testCaseSha256"]: review_request[
+                fields["testCaseSha256"]
+            ],
+            fields["generatedImageSha256"]: hashlib.sha256(
+                generated_image.read_bytes()
+            ).hexdigest(),
+            fields["pass"]: True,
+            fields["visibleDeviations"]: [],
+            fields["explanation"]: "fixture review found no visible deviation",
+        }
+
     def inspect_generated(
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
@@ -733,6 +758,16 @@ class FalQueueWorkflowAdapters:
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.delegate.audit_semantics(content)
 
+    def fetch_template_image(self, url: str) -> bytes:
+        return self._download_bytes(url)
+
+    def inspect_template_test(
+        self, generated_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.inspect_template_test(
+            generated_image, review_request
+        )
+
     def upload(self, approved_image: Path, object_key: str) -> dict[str, Any]:
         return self.delegate.upload(approved_image, object_key)
 
@@ -948,6 +983,16 @@ class AliyunOssWorkflowAdapters:
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
         return self.delegate.inspect_generated(generated_image, review_request)
+
+    def fetch_template_image(self, url: str) -> bytes:
+        return self.delegate.fetch_template_image(url)
+
+    def inspect_template_test(
+        self, generated_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.inspect_template_test(
+            generated_image, review_request
+        )
 
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         return self.delegate.analyze_approved(approved_image)

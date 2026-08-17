@@ -137,6 +137,81 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_14_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E27", "E28", "E37"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_template_test_contract_has_one_typed_machine_source(self) -> None:
+        contract = load(ROOT / "contracts" / "machine-rules.json")[
+            "templateTestContract"
+        ]
+        for mapping_name in (
+            "requestFields",
+            "caseFields",
+            "modes",
+            "states",
+            "resultFields",
+            "manifestFields",
+            "reportFields",
+            "caseReportFields",
+            "generationRequestFields",
+            "walBindingFields",
+            "reviewFields",
+            "artifactNames",
+            "artifactTypes",
+            "errorCodes",
+        ):
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+            self.assertTrue(
+                all(isinstance(value, str) and value for value in mapping.values())
+            )
+        self.assertEqual(1, contract["defaultImageCount"])
+        self.assertEqual(0, contract["defaultPrimaryOutputIndex"])
+        self.assertGreater(contract["maximumCases"], 0)
+        self.assertGreater(contract["maximumPromptLength"], 0)
+        execution = load(ROOT / "contracts" / "machine-rules.json")[
+            "generationExecutionContract"
+        ]
+        routes = contract["generationFailureRoutes"]
+        self.assertEqual(set(execution["failureClasses"]), set(routes))
+        for role, route in routes.items():
+            self.assertEqual({"stateRole", "errorCodeRole"}, set(route))
+            self.assertIn(route["stateRole"], contract["states"])
+            self.assertIn(route["errorCodeRole"], contract["errorCodes"])
+            self.assertIn(role, execution["failureRoutes"])
+
+        protected = {
+            *contract["modes"].values(),
+            *contract["states"].values(),
+            *contract["artifactNames"].values(),
+            *contract["artifactTypes"].values(),
+            *contract["errorCodes"].values(),
+        }
+        protected -= {
+            *contract["modes"],
+            *contract["states"],
+            *contract["artifactNames"],
+            *contract["artifactTypes"],
+            *contract["errorCodes"],
+        }
+        for path in (
+            ROOT / "scripts" / "produce.py",
+            ROOT / "scripts" / "produce_meme_template" / "template_test.py",
+            ROOT / "tests" / "test_issue_14_template_json_test.py",
+        ):
+            literals = {
+                node.value
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+            }
+            self.assertTrue(protected.isdisjoint(literals), path.as_posix())
+
     def test_release_management_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["releaseManagementContract"]
