@@ -130,6 +130,140 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_13_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E32", "E33", "E34"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_release_management_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["releaseManagementContract"]
+        for mapping_name in (
+            "errorCodes",
+            "lockFields",
+            "fileFields",
+            "diagnosticFields",
+            "installRecordFields",
+            "migrationFields",
+            "productionPinFields",
+            "productionPinSkillFields",
+            "productionPinGalleryFields",
+            "installLayout",
+        ):
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+            self.assertTrue(
+                all(isinstance(value, str) and value for value in mapping.values())
+            )
+        self.assertTrue(contract["lockFileName"].endswith(".json"))
+        self.assertRegex(contract["lockSchemaVersion"], r"^\d+\.\d+\.\d+$")
+        self.assertIn("{revision}", contract["migrationFilePattern"])
+        phase_index = contract["migrationInvalidateFromPhaseIndex"]
+        self.assertIsInstance(phase_index, int)
+        self.assertNotIsInstance(phase_index, bool)
+        self.assertGreaterEqual(phase_index, 0)
+        self.assertLess(phase_index, len(rules["productionPhases"]))
+        for list_name in (
+            "runtimeIgnoredDirectoryNames",
+            "runtimeIgnoredSuffixes",
+        ):
+            values = contract[list_name]
+            self.assertIsInstance(values, list)
+            self.assertEqual(len(values), len(set(values)))
+            self.assertTrue(all(isinstance(value, str) and value for value in values))
+        legacy_roles = contract["legacyProductionPinRequiredFieldRoles"]
+        self.assertIsInstance(legacy_roles, list)
+        self.assertTrue(legacy_roles)
+        self.assertEqual(len(legacy_roles), len(set(legacy_roles)))
+        self.assertTrue(
+            set(legacy_roles) <= set(contract["productionPinFields"])
+        )
+
+        protected_values = {
+            contract["lockFileName"],
+            contract["lockArtifactType"],
+            contract["lockSchemaVersion"],
+            contract["productionPinArtifactType"],
+            contract["replacementSpecVersion"],
+            contract["buildValidationRunnerRelativePath"],
+            contract["validatorRelativePath"],
+            contract["replacementSpecRelativePath"],
+            contract["gallerySnapshotRelativePath"],
+            contract["galleryUpstreamSourceSha256"],
+            contract["migrationArtifactType"],
+            contract["migrationFilePattern"],
+            *contract["errorCodes"].values(),
+            *contract["installLayout"].values(),
+        }
+        protected_values -= {
+            *contract["errorCodes"],
+            *contract["installLayout"],
+        }
+        for path in (
+            ROOT / "scripts" / "release_tool.py",
+            ROOT / "scripts" / "release_validation_runner.py",
+            ROOT / "scripts" / "produce_meme_template" / "release_management.py",
+            ROOT / "tests" / "test_issue_13_release_doctor_install.py",
+        ):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            literals = {
+                node.value
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+            }
+            self.assertTrue(protected_values.isdisjoint(literals), path.as_posix())
+            direct_lock_fields: set[str] = set()
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.Subscript)
+                    and isinstance(node.value, ast.Name)
+                    and node.value.id in {"lock", "entry"}
+                    and isinstance(node.slice, ast.Constant)
+                    and isinstance(node.slice.value, str)
+                ):
+                    direct_lock_fields.add(node.slice.value)
+                if (
+                    isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "lock"
+                    and node.func.attr == "get"
+                    and node.args
+                    and isinstance(node.args[0], ast.Constant)
+                    and isinstance(node.args[0].value, str)
+                ):
+                    direct_lock_fields.add(node.args[0].value)
+            self.assertTrue(
+                (
+                    set(contract["lockFields"].values())
+                    | set(contract["fileFields"].values())
+                ).isdisjoint(direct_lock_fields),
+                path.as_posix(),
+            )
+
+        workflow_tree = ast.parse(
+            (ROOT / "scripts" / "produce_meme_template" / "workflow.py")
+            .read_text(encoding="utf-8")
+        )
+        build_pin = next(
+            node
+            for node in ast.walk(workflow_tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "_build_pin"
+        )
+        calls = {
+            node.func.id
+            for node in ast.walk(build_pin)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        self.assertEqual({"runtime_production_pin"}, calls)
+        self.assertFalse(
+            any(isinstance(node, ast.Dict) for node in ast.walk(build_pin))
+        )
+
     def test_batch_production_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["batchProductionContract"]

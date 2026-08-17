@@ -18,6 +18,7 @@ from urllib.parse import unquote, urlsplit
 from jsonschema import Draft202012Validator, FormatChecker
 from PIL import Image, UnidentifiedImageError
 
+from .release_management import doctor, runtime_production_pin
 from .validation import is_safe_public_https_url, is_valid_https_url
 
 
@@ -330,6 +331,10 @@ def _production_item_integrity_errors(
         if not isinstance(artifact, dict):
             errors.append(f"{name} artifact record invalid")
             continue
+        if artifact.get("phase") not in {
+            item["phase"] for item in MACHINE_RULES["productionPhases"]
+        }:
+            errors.append(f"{name} artifact phase invalid")
         dependencies = artifact.get("dependsOn")
         if not isinstance(dependencies, list) or not all(
             isinstance(dependency, str) and dependency for dependency in dependencies
@@ -370,6 +375,8 @@ def _production_item_integrity_errors(
         if not artifact_path.is_file():
             errors.append(f"{name} missing")
             continue
+        if artifact.get("bytes") != artifact_path.stat().st_size:
+            errors.append(f"{name} byte count mismatch")
         observed_sha = _sha_file(artifact_path)
         if observed_sha != artifact.get("sha256"):
             errors.append(f"{name} digest mismatch")
@@ -388,6 +395,102 @@ def _production_item_integrity_errors(
     return errors
 
 
+def validate_production_manifest_lineage(
+    output_dir: Path, manifest: Any
+) -> list[str]:
+    """Replay the workflow-owned lineage contract for any persisted item."""
+
+    if not isinstance(manifest, dict):
+        return ["production manifest must be an object"]
+    identity_fields = {
+        "productionItemId": manifest.get("productionItemId"),
+        "templateKey": manifest.get("templateKey"),
+        "sourceImageSha256": manifest.get("sourceImageSha256"),
+        "replacementStrategySha256": manifest.get(
+            "replacementStrategySha256"
+        ),
+        "generationOptionsSha256": manifest.get(
+            "generationOptionsSha256"
+        ),
+    }
+    if not (
+        manifest.get("artifactType") == "production-manifest"
+        and all(
+            isinstance(value, str) and value.strip()
+            for value in identity_fields.values()
+        )
+        and all(
+            re.fullmatch(r"[0-9a-f]{64}", identity_fields[field])
+            for field in (
+                "sourceImageSha256",
+                "replacementStrategySha256",
+                "generationOptionsSha256",
+            )
+        )
+    ):
+        return ["production manifest identity invalid"]
+    phases = {
+        item["phase"]: item["state"]
+        for item in MACHINE_RULES["productionPhases"]
+    }
+    phase = manifest.get("phase")
+    state = manifest.get("state")
+    outcome = manifest.get("outcome")
+    history = manifest.get("history")
+    result_states = MACHINE_RULES["resultStates"]
+    if not isinstance(history, list) or not all(
+        isinstance(item, dict)
+        and set(item) == {"phase", "state", "at"}
+        and item.get("phase") in phases
+        and item.get("state") == phases[item["phase"]]
+        and isinstance(item.get("at"), str)
+        and item["at"].strip()
+        for item in history
+    ):
+        return ["production manifest history invalid"]
+    if phase is None:
+        if history:
+            return ["production manifest phase/history mismatch"]
+    elif phase not in phases or not history or history[-1]["phase"] != phase:
+        return ["production manifest phase/history mismatch"]
+    if outcome is None:
+        expected_state = (
+            MACHINE_RULES["initialState"] if phase is None else phases[phase]
+        )
+        if state != expected_state:
+            return ["production manifest active state mismatch"]
+    elif outcome not in result_states or state != result_states[outcome]:
+        return ["production manifest outcome mismatch"]
+    elif outcome == "completed" and phase != MACHINE_RULES[
+        "productionPhases"
+    ][-1]["phase"]:
+        return ["completed production manifest phase mismatch"]
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return ["artifact lineage missing"]
+    artifact_phases = {
+        artifact.get("phase")
+        for artifact in artifacts.values()
+        if isinstance(artifact, dict)
+    }
+    if not {item["phase"] for item in history} <= artifact_phases:
+        return ["production manifest phase artifacts missing"]
+    return _production_item_integrity_errors(
+        output_dir,
+        manifest,
+        production_item_id=identity_fields["productionItemId"],
+        template_key=identity_fields["templateKey"],
+        source_sha256=identity_fields["sourceImageSha256"],
+        replacement_strategy_sha256=identity_fields[
+            "replacementStrategySha256"
+        ],
+        generation_options_sha256=identity_fields[
+            "generationOptionsSha256"
+        ],
+        required_artifacts=("production-pin.json",),
+    )
+
+
 def _revision_integrity_errors(manifest: dict[str, Any]) -> list[str]:
     revision = manifest.get("revision")
     artifacts = manifest.get("artifacts")
@@ -399,7 +502,7 @@ def _revision_integrity_errors(manifest: dict[str, Any]) -> list[str]:
     artifact_revisions: list[int] = []
     revisioned_name_pattern = re.compile(r"-r([1-9][0-9]*)$")
     revision_one_names = re.compile(
-        r"^(?:generation-package|generation-task|generation-wal|visual-review|evidence/(?:generated-candidate-image|approved-template-image))\.[a-z0-9]+$"
+        r"^(?:production-pin|generation-package|generation-task|generation-wal|visual-review|evidence/(?:generated-candidate-image|approved-template-image))\.[a-z0-9]+$"
     )
     for name, artifact in artifacts.items():
         artifact_revision = artifact.get("revision") if isinstance(artifact, dict) else None
@@ -2109,32 +2212,8 @@ def _resolve_shared_policy(
 
 
 def _build_pin(rules: dict[str, Any], release: dict[str, Any]) -> dict[str, Any]:
-    contract_bytes = GALLERY_SCHEMA_PATH.read_bytes()
-    skill_manifest_path = REPO_ROOT / "skill-manifest.json"
-    skill_manifest = _load_json(skill_manifest_path)
-    release_files = []
-    for relative in skill_manifest["tracked_files"]:
-        tracked_path = REPO_ROOT / relative
-        if not tracked_path.is_file():
-            raise FileNotFoundError(f"发布 manifest 中的文件不存在：{relative}")
-        release_files.append({"path": relative, "sha256": _sha_file(tracked_path)})
-    release_digest = _sha_bytes(_canonical_bytes({"files": release_files}))
-    return {
-        "artifactType": "production-pin",
-        "schemaVersion": rules["schemaVersion"],
-        "skill": {"name": release["skillName"], "version": release["skillVersion"]},
-        "artifactSchemaVersion": release["artifactSchemaVersion"],
-        "releaseSha256": release_digest,
-        "releaseManifestSha256": _sha_file(skill_manifest_path),
-        "releaseFileCount": len(release_files),
-        "machineRulesSha256": _sha_file(RULES_PATH),
-        "galleryContract": {
-            "id": release["supportedContracts"]["galleryTemplate"],
-            "snapshot": "contracts/gallery-template.schema.json",
-            "sha256": _sha_bytes(contract_bytes),
-            "upstreamSourceSha256": "1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619",
-        },
-    }
+    del rules, release
+    return runtime_production_pin(REPO_ROOT)
 
 
 def _component_graph_view(
@@ -7103,6 +7182,32 @@ def _run_single_production(
             message="Production Item 输出目录越出 output root。",
         )
     manifest_path = output_dir / "production-manifest.json"
+    existing_pin: dict[str, Any] | None = None
+    pin_path = output_dir / "production-pin.json"
+    if pin_path.is_file():
+        try:
+            raw_pin = _load_json(pin_path)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            raw_pin = None
+        if isinstance(raw_pin, dict):
+            existing_pin = raw_pin
+    runtime_diagnosis = doctor(REPO_ROOT, production_pin=existing_pin)
+    diagnostic_fields = rules["releaseManagementContract"][
+        "diagnosticFields"
+    ]
+    if not runtime_diagnosis["pass"]:
+        return ProductionResult(
+            "blocked",
+            item_id,
+            rules["resultStates"]["blocked"],
+            output_dir,
+            error_code=rules["errorCodes"]["versionDiagnosticFailure"],
+            message="运行前 doctor 检查未通过："
+            + "、".join(
+                runtime_diagnosis[diagnostic_fields["errorCodes"]]
+            ),
+            resumed=manifest_path.is_file(),
+        )
     resume_visual = False
     resume_generation = False
     resume_prepared_generation = False

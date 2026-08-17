@@ -1,5 +1,141 @@
 {
   "schemaVersion": "0.12.0",
+  "releaseManagementContract": {
+    "lockFileName": "release-lock.json",
+    "lockArtifactType": "release-lock",
+    "lockSchemaVersion": "1.0.0",
+    "runtimeIgnoredDirectoryNames": [],
+    "runtimeIgnoredSuffixes": [],
+    "buildValidationRunnerRelativePath": "scripts/release_validation_runner.py",
+    "smokeFixtureRelativePath": "fixtures/e2e/simple-animal",
+    "validationTimeoutSeconds": 120,
+    "errorCodes": {
+      "invalidReleaseMetadata": "INVALID_RELEASE_METADATA",
+      "invalidGitCommit": "INVALID_GIT_COMMIT",
+      "sourceGitMismatch": "SOURCE_GIT_MISMATCH",
+      "sourceFileSetMismatch": "SOURCE_FILE_SET_MISMATCH",
+      "releaseValidationFailure": "RELEASE_VALIDATION_FAILURE",
+      "dirtyWorktree": "DIRTY_WORKTREE",
+      "releaseAlreadyExists": "RELEASE_ALREADY_EXISTS",
+      "missingReleaseFile": "MISSING_RELEASE_FILE",
+      "invalidReleaseLock": "INVALID_RELEASE_LOCK",
+      "mutableReleaseRuntime": "MUTABLE_RELEASE_RUNTIME",
+      "extraInstallFile": "EXTRA_INSTALL_FILE",
+      "fileDigestMismatch": "FILE_DIGEST_MISMATCH",
+      "releaseDigestMismatch": "RELEASE_DIGEST_MISMATCH",
+      "mixedVersion": "MIXED_VERSION",
+      "installVersionExists": "INSTALL_VERSION_EXISTS",
+      "installPointerConflict": "INSTALL_POINTER_CONFLICT",
+      "installPathConflict": "INSTALL_PATH_CONFLICT",
+      "invalidInstallRecord": "INVALID_INSTALL_RECORD",
+      "productionPinMismatch": "PRODUCTION_PIN_MISMATCH",
+      "invalidSourceRuntime": "INVALID_SOURCE_RUNTIME",
+      "invalidProductionPin": "INVALID_PRODUCTION_PIN",
+      "invalidProductionManifest": "INVALID_PRODUCTION_MANIFEST",
+      "newRuntimeInvalid": "NEW_RUNTIME_INVALID",
+      "immutableMigrationConflict": "IMMUTABLE_MIGRATION_CONFLICT"
+    },
+    "lockFields": {
+      "artifactType": "artifactType",
+      "lockSchemaVersion": "lockSchemaVersion",
+      "skillName": "skillName",
+      "skillVersion": "skillVersion",
+      "artifactSchemaVersion": "artifactSchemaVersion",
+      "galleryContractVersion": "galleryContractVersion",
+      "galleryContractSha256": "galleryContractSha256",
+      "gitCommit": "gitCommit",
+      "builtAt": "builtAt",
+      "files": "files",
+      "contentDigest": "contentDigest",
+      "releaseDigest": "releaseDigest"
+    },
+    "fileFields": {
+      "path": "path",
+      "sha256": "sha256",
+      "bytes": "bytes"
+    },
+    "diagnosticFields": {
+      "runtimeRoot": "runtimeRoot",
+      "installSource": "installSource",
+      "skillVersion": "skillVersion",
+      "artifactSchemaVersion": "artifactSchemaVersion",
+      "galleryContractVersion": "galleryContractVersion",
+      "releaseDigest": "releaseDigest",
+      "releaseLockSha256": "releaseLockSha256",
+      "productionPin": "productionPin",
+      "errorCodes": "errorCodes",
+      "remediation": "remediation"
+    },
+    "installRecordFields": {
+      "skillVersion": "skillVersion",
+      "releaseDigest": "releaseDigest",
+      "packageSource": "packageSource",
+      "installedPath": "installedPath"
+    },
+    "migrationFields": {
+      "artifactType": "artifactType",
+      "revision": "revision",
+      "oldPinSha256": "oldPinSha256",
+      "newPinSha256": "newPinSha256",
+      "oldPin": "oldPin",
+      "newPin": "newPin",
+      "changedVersionLines": "changedVersionLines",
+      "invalidateFromPhase": "invalidateFromPhase",
+      "productionItemId": "productionItemId",
+      "templateRevision": "templateRevision",
+      "productionManifestSha256": "productionManifestSha256"
+    },
+    "productionPinArtifactType": "production-pin",
+    "productionPinFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "skill": "skill",
+      "artifactSchemaVersion": "artifactSchemaVersion",
+      "releaseSha256": "releaseSha256",
+      "releaseManifestSha256": "releaseManifestSha256",
+      "releaseFileCount": "releaseFileCount",
+      "machineRulesSha256": "machineRulesSha256",
+      "gitCommit": "gitCommit",
+      "validatorSha256": "validatorSha256",
+      "replacementSpecVersion": "replacementSpecVersion",
+      "replacementSpecSha256": "replacementSpecSha256",
+      "galleryContract": "galleryContract"
+    },
+    "productionPinSkillFields": {
+      "name": "name",
+      "version": "version"
+    },
+    "productionPinGalleryFields": {
+      "id": "id",
+      "snapshot": "snapshot",
+      "sha256": "sha256",
+      "upstreamSourceSha256": "upstreamSourceSha256"
+    },
+    "legacyProductionPinRequiredFieldRoles": [
+      "artifactType",
+      "schemaVersion",
+      "skill",
+      "artifactSchemaVersion",
+      "releaseSha256",
+      "releaseManifestSha256",
+      "releaseFileCount",
+      "machineRulesSha256",
+      "galleryContract"
+    ],
+    "validatorRelativePath": "scripts/produce_meme_template/workflow.py",
+    "replacementSpecRelativePath": "references/replacement-spec.md",
+    "replacementSpecVersion": "1.0.0",
+    "gallerySnapshotRelativePath": "contracts/gallery-template.schema.json",
+    "galleryUpstreamSourceSha256": "1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619",
+    "installLayout": {
+      "versionsDirectory": "versions",
+      "currentPointer": "current",
+      "recordsDirectory": "install-records"
+    },
+    "migrationArtifactType": "production-pin-migration",
+    "migrationFilePattern": "production-pin-migration-r{revision}.json",
+    "migrationInvalidateFromPhaseIndex": 0
+  },
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -1019,6 +1155,7 @@
     "imageExtensionPattern": "^\\.[a-z0-9]{1,10}$"
   },
   "errorCodes": {
+    "versionDiagnosticFailure": "VERSION_DIAGNOSTIC_FAILURE",
     "invalidProductionRequest": "INVALID_PRODUCTION_REQUEST",
     "productionItemIntegrityFailure": "PRODUCTION_ITEM_INTEGRITY_FAILURE",
     "explicitStrategyConflict": "EXPLICIT_STRATEGY_CONFLICT",
@@ -1034,5 +1171,5 @@
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
   },
-  "historicalExperienceEvidence": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E34", "E35", "E36", "E38", "E39"]
+  "historicalExperienceEvidence": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E38", "E39"]
 }
