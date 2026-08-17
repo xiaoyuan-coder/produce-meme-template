@@ -1,0 +1,241 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "一位短发青年以头肩肖像位于画面中央",
+    "人物正面看向镜头并露出轻微笑容",
+    "画面采用完整灰阶与柔和面部布光",
+    "竖幅老照片边缘、暗角与深色背景清楚可见"
+  ],
+  "inferences": [
+    "主体呈现亲切而克制的肖像表情"
+  ],
+  "confirmedMeaning": [
+    "人物身份、肖像边框与灰阶布光分别具有独立编辑价值"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 3,
+    "evidence": "画面只有一个人物实例、一个身份与一份可选上传素材"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "fixture-component-0",
+        "role": "subject",
+        "identityUnitId": "fixture-identity-0",
+        "visualInstance": true,
+        "uploadAssetId": "fixture-upload-0",
+        "controlId": "portrait_subject",
+        "containerId": "fixture-component-1",
+        "evidence": "确认模板图中央唯一可见的短发青年头肩肖像"
+      },
+      {
+        "componentId": "fixture-component-1",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "portrait_frame",
+        "containerId": null,
+        "evidence": "确认模板图的竖幅裁切、相纸边缘与暗角容器"
+      },
+      {
+        "componentId": "fixture-component-2",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "studio_tone",
+        "containerId": null,
+        "evidence": "确认模板图的深色灰阶背景与柔和面部布光"
+      }
+    ],
+    "relations": [],
+    "evidence": "确认模板图中的单一人物、肖像容器与灰阶背景分别清点"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "replace-portrait-identity",
+      "targetComponentIds": [
+        "fixture-component-0"
+      ],
+      "stableAnchorComponentIds": [
+        "fixture-component-1",
+        "fixture-component-2"
+      ],
+      "controlIds": [
+        "portrait_subject"
+      ],
+      "evidence": "确认模板图目标、稳定锚点与用户控件已显式绑定"
+    }
+  ],
+  "neutralTitle": "旧相纸里的微笑肖像",
+  "neutralDescription": "人物以头肩构图正面微笑，灰阶布光、深色背景与老相纸边缘共同保留年代感",
+  "promptTemplate": "一位{{ portrait_subject | \"短发青年\" }}以头肩肖像位于画面中央，保留{{ portrait_frame | \"竖幅老相纸边框\" }}，使用{{ studio_tone | \"柔和灰阶布光\" }}与深色背景，人物正面看向镜头并轻微微笑。",
+  "freeEditableContent": [
+    "以头肩肖像位于画面中央",
+    "人物正面看向镜头并轻微微笑"
+  ],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可见文字区域"
+  },
+  "slotCandidates": [
+    {
+      "id": "portrait_subject",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "画面人物",
+      "placeholder": "描述想替换的人物或角色",
+      "defaultValue": "短发青年",
+      "suggestions": [
+        "卷发青年",
+        "眼镜青年",
+        "长发青年"
+      ],
+      "hiddenConflictTokens": [
+        "主体身份",
+        "具体人物",
+        "具体角色"
+      ],
+      "titleForbiddenTokens": [
+        "GN03698肖像人物",
+        "一位全新短发青年",
+        "卷发青年",
+        "眼镜青年",
+        "长发青年"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "portrait_frame",
+      "type": "prompt",
+      "semanticRole": "container_appearance",
+      "label": "肖像边框",
+      "placeholder": "输入相纸边缘或暗角样式",
+      "defaultValue": "竖幅老相纸边框",
+      "suggestions": [
+        "椭圆暗角相纸",
+        "无边框银盐相纸",
+        "窄白边复古相纸"
+      ],
+      "hiddenConflictTokens": [
+        "边框材质配置",
+        "肖像边框配置",
+        "暗角强度配置"
+      ],
+      "titleForbiddenTokens": [
+        "竖幅老相纸边框",
+        "椭圆暗角相纸",
+        "银盐相纸",
+        "复古相纸"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "studio_tone",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "灰阶布光",
+      "placeholder": "输入肖像光线或灰阶氛围",
+      "defaultValue": "柔和灰阶布光",
+      "suggestions": [
+        "高反差侧光",
+        "均匀正面柔光",
+        "低调暗背景光"
+      ],
+      "hiddenConflictTokens": [
+        "灰阶氛围",
+        "肖像光线",
+        "背景明暗"
+      ],
+      "titleForbiddenTokens": [
+        "柔和灰阶布光",
+        "高反差",
+        "正面柔光",
+        "暗背景"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：保持老式黑白肖像摄影与银盐相纸颗粒。卖点：中央人物的微笑表情、头肩裁切与年代感。色彩：完整灰阶，可调整布光反差与相纸边缘。",
+    "lockedConstraints": [
+      "保持竖幅头肩肖像、主体占比与正面朝向",
+      "保持灰阶摄影、深色背景与老相纸边缘"
+    ],
+    "preserve": [
+      "保持人物微笑肖像与怀旧摄影的叙事职责"
+    ]
+  },
+  "tags": [
+    "人物",
+    "黑白肖像",
+    "复古摄影"
+  ],
+  "visualFactSourceSha256": "4d80f56c97e2ea988bc5b4b270f73dd36b95b16788a615c24699af895cb18c3f",
+  "subjectAttributeAssessments": {
+    "clothing": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 clothing，当前画面不具备独立开放价值"
+    },
+    "styling": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 styling，当前画面不具备独立开放价值"
+    },
+    "hairstyle": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 hairstyle，当前画面不具备独立开放价值"
+    },
+    "pose": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 pose，当前画面不具备独立开放价值"
+    },
+    "color": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 color，当前画面不具备独立开放价值"
+    }
+  }
+}

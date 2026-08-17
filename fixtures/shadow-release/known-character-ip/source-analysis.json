@@ -1,0 +1,176 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.15.0",
+  "mechanism": {
+    "setup": "一个黄色充气角色装置站在展会大厅中央",
+    "turn": "夸张的大头比例与真实会场人群形成反差",
+    "payoff": "角色身份可整体替换，会场空间、地面和旁观人群保持稳定",
+    "tone": "热闹、奇趣"
+  },
+  "target": {
+    "category": "known_character_ip",
+    "role": "画面中央的主要身份人物",
+    "identity": "皮卡丘"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "identity-component-0",
+        "role": "subject",
+        "identityUnitId": "fixture-source-identity",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "containerId": "fixture-stable-container",
+        "evidence": "会场中央唯一可见的黄色充气角色主体"
+      },
+      {
+        "componentId": "fixture-stable-container",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "承托充气角色的展会大厅地面"
+      },
+      {
+        "componentId": "fixture-stable-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "替换操作之外保持稳定的会场建筑、展位与旁观人群"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "fixture-character-contact-floor",
+        "type": "contact",
+        "sourceComponentId": "identity-component-0",
+        "targetComponentId": "fixture-stable-container",
+        "evidence": "充气角色底部稳定接触会场地面"
+      }
+    ],
+    "evidence": "单一角色身份、会场地面与旁观人群背景分别清点"
+  },
+  "imageOperations": [
+    {
+      "operationId": "replace-convention-character",
+      "operation": "identity_replace",
+      "targetRegionIds": [
+        "identity-component-0"
+      ],
+      "clearRequirements": [
+        "清除原角色的黄色配色、耳朵、脸部、身体轮廓与身份特征"
+      ],
+      "stableAnchorIds": [
+        "fixture-stable-container",
+        "fixture-stable-background"
+      ],
+      "preservedRelationIds": [
+        "fixture-character-contact-floor"
+      ],
+      "evidence": "完整替换充气角色身份，同时保持会场地面接触、建筑与人群"
+    }
+  ],
+  "replacementPool": [
+    {
+      "value": "《爱丽丝梦游仙境》白兔",
+      "category": "known_character_ip",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.96,
+      "reason": "同类身份、姿态可供性和画面玩法相容",
+      "distinctIdentityEvidence": {
+        "sourceIdentity": "皮卡丘",
+        "candidateIdentity": "《爱丽丝梦游仙境》白兔",
+        "distinctIdentity": true,
+        "evidence": "逐项比对身份名称、别名和识别锚点后确认是新身份"
+      },
+      "identityCandidateCard": {
+        "identityAnchors": [
+          "《爱丽丝梦游仙境》白兔的头部轮廓",
+          "《爱丽丝梦游仙境》白兔的标志性配色"
+        ],
+        "antiAnchors": [
+          "不沿用旧身份脸部特征",
+          "不混入其他角色标识"
+        ],
+        "playFusionRequirements": [
+          "保持来源姿态与画面职责",
+          "保持原媒介与构图骨架"
+        ]
+      }
+    }
+  ],
+  "dependencyClosure": [
+    {
+      "componentId": "identity-component-0",
+      "type": "full_body",
+      "value": "皮卡丘充气角色的头部、耳朵、脸部、身体、四肢与全部身份配色"
+    }
+  ],
+  "frozenSet": [
+    "构图骨架",
+    "人物的画面职责",
+    "原有媒介"
+  ],
+  "visualContract": {
+    "medium": "展会现场纪实摄影",
+    "form": "单个全身充气角色直立于会场中央，头部比例夸张",
+    "edge": "充气外轮廓清楚，背景人群与展位保留自然景深",
+    "colorAndShading": "高饱和黄色主体与灰白会场形成强烈对比，顶灯均匀",
+    "surface": "充气塑料表面、会场地面、展架与人群服装材质可辨",
+    "composition": "主体居中全身入镜，地面接触完整，背景保留展位和旁观人群"
+  },
+  "spatialRelations": [
+    "充气角色底部完整接触会场地面",
+    "主体位于画面中央且未遮挡两侧主要旁观人物",
+    "会场建筑线条与展位纵深保持稳定"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": [
+    "皮卡丘"
+  ],
+  "sourceImageSha256": "14ff12a2a8f3e5a280e490301d80e76beff247612cb90485eccf6e0484523fa2",
+  "identityTopology": {
+    "requiredComponentIds": [
+      "identity-component-0"
+    ],
+    "identityTextComponentIds": [],
+    "evidence": "逐区域确认只有一个可见充气角色身份，画面没有独立身份文字或派生实例"
+  },
+  "identityTextDecisions": [],
+  "identityRouteEvidence": {
+    "mode": "same_class_known_ip",
+    "localAssetRequired": false,
+    "completeIdentityRedraw": true,
+    "evidence": "完整人物与身份依赖统一重绘，身份参考资产只是可选质量辅助"
+  },
+  "identityFrozenConflictEvaluations": [
+    {
+      "frozenValue": "构图骨架",
+      "conflictsWithIdentityChange": false,
+      "conflictingComponentIds": [],
+      "evidence": "逐项对照身份拓扑后未发现与身份重绘重叠"
+    },
+    {
+      "frozenValue": "人物的画面职责",
+      "conflictsWithIdentityChange": false,
+      "conflictingComponentIds": [],
+      "evidence": "逐项对照身份拓扑后未发现与身份重绘重叠"
+    },
+    {
+      "frozenValue": "原有媒介",
+      "conflictsWithIdentityChange": false,
+      "conflictingComponentIds": [],
+      "evidence": "逐项对照身份拓扑后未发现与身份重绘重叠"
+    }
+  ]
+}

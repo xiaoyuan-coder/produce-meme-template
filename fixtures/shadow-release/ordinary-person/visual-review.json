@@ -1,0 +1,91 @@
+{
+  "artifactType": "visual-review",
+  "schemaVersion": "0.15.0",
+  "hardGates": {
+    "replacementComplete": true,
+    "dependencyClosureComplete": true,
+    "nonTargetPreserved": true,
+    "mechanismPreserved": true,
+    "contactGeometryValid": true,
+    "visibleTextClean": true,
+    "fullCanvasClean": true,
+    "watermarkFree": true,
+    "legacyIdentityFree": true
+  },
+  "visualDimensions": {
+    "medium": {
+      "pass": true,
+      "evidence": "保持老式黑白人像摄影与银盐相纸质感"
+    },
+    "form": {
+      "pass": true,
+      "evidence": "单人物头肩结构完整，正面微笑姿态清楚"
+    },
+    "edge": {
+      "pass": true,
+      "evidence": "人物轮廓、暗角与相纸边缘统一"
+    },
+    "colorAndShading": {
+      "pass": true,
+      "evidence": "灰阶面部柔光与深色背景方向一致"
+    },
+    "surface": {
+      "pass": true,
+      "evidence": "皮肤、短发、服装与老相纸颗粒连续"
+    },
+    "composition": {
+      "pass": true,
+      "evidence": "人物头肩、竖幅边框与背景占比保持"
+    }
+  },
+  "visibleTextEvidence": {
+    "pass": true,
+    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "identityTextEvidence": {
+    "applicable": true,
+    "sourceIdentityTermsAbsent": true,
+    "replacementIdentityTextConsistent": true,
+    "evidence": "全画布核对了旧身份与新身份文字的删除、中性化或同步结果"
+  },
+  "imageOperationEvidence": [
+    {
+      "operationId": "replace-portrait-identity",
+      "targetCleared": true,
+      "stableAnchorsPreserved": true,
+      "relationsPreserved": true,
+      "nonTargetContentPreserved": true,
+      "evidence": "原人物脸部、发型、服饰和身体轮廓均完成替换，肖像裁切与灰阶背景保持"
+    }
+  ],
+  "cleanlinessFindings": {
+    "ghostTextDetected": false,
+    "pseudoSignatureDetected": false,
+    "platformWatermarkDetected": false
+  },
+  "ambiguitySignals": {
+    "identityAmbiguous": false,
+    "aestheticRiskPresent": false,
+    "evidenceInsufficient": false,
+    "validAlternativesClose": false
+  },
+  "watermarkScan": [
+    "显眼标记无残留",
+    "半透明角标无残留",
+    "嵌入区域无残留"
+  ],
+  "method": {
+    "id": "deterministic-fixture-visual-review",
+    "version": "1"
+  },
+  "reviewedAt": "2026-08-16T08:00:00Z",
+  "bindings": {
+    "generatedImageSha256": "4d80f56c97e2ea988bc5b4b270f73dd36b95b16788a615c24699af895cb18c3f",
+    "generationPackageSha256": "997cb7de976ed2b88b8038b92d26d9bcda2d9dda66ec3a8e89b4ac258a991e45",
+    "evidenceSha256": "1511163f2d62b2555141b55f62af4ecfd24394ef896513c4d975045779868fec"
+  },
+  "decision": "approved",
+  "decisionEvidence": {
+    "hardGatesPassed": true
+  }
+}

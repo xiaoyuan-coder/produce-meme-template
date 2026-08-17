@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.14.0",
+  "schemaVersion": "0.15.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -1316,6 +1316,246 @@
     "contractFailure": "STATIC_CONTRACT_FAILURE",
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
+  },
+  "releaseReadinessContract": {
+    "artifactType": "release-readiness-report",
+    "corpusArtifactType": "release-shadow-corpus",
+    "recordedCorpusGenerator": "openai-built-in-imagegen",
+    "reportFileName": "release-readiness-report.json",
+    "requestFileName": "release-readiness-request.json",
+    "completionFileName": "release-readiness-completion.json",
+    "requestArtifactType": "release-readiness-request",
+    "completionArtifactType": "release-readiness-completion",
+    "productionManifestFileName": "production-manifest.json",
+    "corpusRelativePath": "fixtures/shadow-release/corpus.json",
+    "corpusFields": {
+      "artifactType": "artifactType",
+      "executionMode": "executionMode",
+      "generatedAt": "generatedAt",
+      "generator": "generator",
+      "scenarios": "scenarios"
+    },
+    "corpusScenarioFields": {
+      "role": "role",
+      "expectedSourceCategoryRole": "expectedSourceCategoryRole",
+      "sourcePath": "sourcePath",
+      "sourceSha256": "sourceSha256",
+      "sourcePageUrl": "sourcePageUrl",
+      "sourceLicense": "sourceLicense",
+      "approvedPath": "approvedPath",
+      "approvedSha256": "approvedSha256",
+      "replacementValue": "replacementValue"
+    },
+    "requestFields": {
+      "scenarios": "scenarios",
+      "forwardScenario": "forwardScenario",
+      "releaseGateEvidence": "releaseGateEvidence"
+    },
+    "scenarioFields": {
+      "role": "role",
+      "productionRequest": "productionRequest",
+      "executionMode": "executionMode",
+      "sourceProvenance": "sourceProvenance"
+    },
+    "sourceProvenanceFields": {
+      "sourcePageUrl": "sourcePageUrl",
+      "sourceSha256": "sourceSha256"
+    },
+    "productionRequestFields": {
+      "templateKey": "templateKey",
+      "sourceImage": "sourceImage",
+      "productionItemIdentity": "productionItemId"
+    },
+    "scenarioRoles": {
+      "ordinaryPerson": "ordinary_person",
+      "knownCharacterIp": "known_character_ip",
+      "genericAnimal": "generic_animal",
+      "genericObject": "generic_object",
+      "textDense": "text_dense",
+      "complexMultiInstance": "complex_multi_instance"
+    },
+    "forwardScenarioRole": "unseen_forward",
+    "forwardSourceCategoryRoleKey": "genericAnimal",
+    "fixtureDirectoryByScenarioRoleKey": {
+      "ordinaryPerson": "ordinary-person",
+      "knownCharacterIp": "known-character-ip",
+      "genericAnimal": "generic-animal",
+      "genericObject": "generic-object",
+      "textDense": "text-dense",
+      "complexMultiInstance": "complex-multi-instance",
+      "unseenForward": "unseen-forward"
+    },
+    "scenarioSourceCategoryRoleKeys": {
+      "ordinaryPerson": "ordinaryPerson",
+      "knownCharacterIp": "knownCharacterIp",
+      "genericAnimal": "genericAnimal",
+      "genericObject": "genericObject",
+      "textDense": "textContent",
+      "complexMultiInstance": "genericPerson"
+    },
+    "executionModes": {
+      "recordedReplay": "recorded_replay",
+      "liveExternal": "live_external"
+    },
+    "liveCredentialEnvironment": {
+      "falKey": "FAL_KEY",
+      "ossEndpoint": "OSS_ENDPOINT",
+      "ossBucketName": "OSS_BUCKET_NAME",
+      "ossAccessKeyId": "OSS_ACCESS_KEY_ID",
+      "ossAccessKeySecret": "OSS_ACCESS_KEY_SECRET",
+      "ossPublicBaseUrl": "OSS_PUBLIC_BASE_URL"
+    },
+    "liveReviewMethodIds": [
+      "independent-live-vision-review",
+      "human-approved-live-review"
+    ],
+    "liveReviewAdapterFields": {
+      "methodIdentity": "live_review_method_id"
+    },
+    "liveReviewEvidenceFields": {
+      "method": "method",
+      "methodIdentity": "id"
+    },
+    "externalExecutionStatuses": {
+      "ready": "READY",
+      "notRunMissingCredentials": "NOT_RUN_MISSING_CREDENTIALS",
+      "recordedReplayOnly": "RECORDED_REPLAY_ONLY",
+      "completed": "COMPLETED",
+      "failed": "FAILED"
+    },
+    "externalExecutionFields": {
+      "status": "status",
+      "missingCredentialRoles": "missingCredentialRoles"
+    },
+    "requestLedgerFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "requestSha256": "requestSha256",
+      "corpusSha256": "corpusSha256",
+      "request": "request"
+    },
+    "completionFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "requestSha256": "requestSha256",
+      "corpusSha256": "corpusSha256",
+      "reportSha256": "reportSha256"
+    },
+    "releaseGateFields": {
+      "historicalRegressionPass": "historicalRegressionPass",
+      "fullValidationPass": "fullValidationPass",
+      "releasePackageDigest": "releasePackageDigest",
+      "runtimePinSha256": "runtimePinSha256",
+      "freshInstallPass": "freshInstallPass",
+      "doctorPass": "doctorPass",
+      "installedForwardPass": "installedForwardPass",
+      "standardsReviewClean": "standardsReviewClean",
+      "specReviewClean": "specReviewClean"
+    },
+    "releaseGateEvidenceFields": {
+      "releasePackagePath": "releasePackagePath",
+      "expectedReleaseDigest": "expectedReleaseDigest",
+      "installedRuntimePath": "installedRuntimePath",
+      "installedForwardOutputPath": "installedForwardOutputPath",
+      "installedForwardManifestSha256": "installedForwardManifestSha256",
+      "standardsReviewReceiptPath": "standardsReviewReceiptPath",
+      "standardsReviewReceiptSha256": "standardsReviewReceiptSha256",
+      "specReviewReceiptPath": "specReviewReceiptPath",
+      "specReviewReceiptSha256": "specReviewReceiptSha256"
+    },
+    "reviewReceiptArtifactType": "code-review-receipt",
+    "reviewReceiptFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "axis": "axis",
+      "fixedPointGitCommit": "fixedPointGitCommit",
+      "runtimePinSha256": "runtimePinSha256",
+      "clean": "clean",
+      "findingCount": "findingCount"
+    },
+    "reviewAxes": {
+      "standards": "standards",
+      "spec": "spec"
+    },
+    "workspaceDirectories": {
+      "production": "production-items",
+      "templateTests": "template-tests"
+    },
+    "templateTest": {
+      "sampleCount": 2,
+      "selectionSalt": "release-readiness-t1-v1",
+      "slotCaseIdentity": "slot-literal-edit",
+      "freeCaseIdentity": "free-literal-edit",
+      "freePromptPrefix": "发行就绪自由编辑验证"
+    },
+    "requiredLineageArtifacts": {
+      "productionPin": "production-pin.json",
+      "sourceImage": "evidence/source-image",
+      "sourceAnalysis": "source-analysis.json",
+      "replacementPlan": "replacement-plan.json",
+      "generationRequest": "generation-package.json",
+      "generationTask": "generation-task.json",
+      "generationWal": "generation-wal.json",
+      "generatedCandidate": "evidence/generated-candidate-image",
+      "visualReview": "visual-review.json",
+      "approvedTemplateImage": "evidence/approved-template-image.png",
+      "approvedAnalysis": "template-analysis.json",
+      "editableSpec": "editable-template-spec.json",
+      "validationReport": "validation-report.json",
+      "formalDraft": "gallery-template.draft.json",
+      "formalTemplate": "gallery-template.json",
+      "assetReceipt": "asset-receipt.json",
+      "finalValidationReport": "final-validation-report.json"
+    },
+    "prefixLineageArtifactRoles": ["sourceImage", "generatedCandidate"],
+    "outcomes": {
+      "passed": "PASS",
+      "failed": "FAIL"
+    },
+    "errorCodes": {
+      "invalidRequest": "INVALID_RELEASE_READINESS_REQUEST",
+      "coverageMissing": "SHADOW_CORPUS_COVERAGE_MISSING",
+      "productionFailure": "SHADOW_PRODUCTION_FAILURE",
+      "lineageIncomplete": "SHADOW_LINEAGE_INCOMPLETE",
+      "provenanceMismatch": "SHADOW_PROVENANCE_MISMATCH",
+      "scenarioRoleMismatch": "SHADOW_SCENARIO_ROLE_MISMATCH",
+      "formalProjectionMismatch": "SHADOW_FORMAL_PROJECTION_MISMATCH",
+      "templateTestFailure": "SHADOW_TEMPLATE_TEST_FAILURE",
+      "liveEvidenceMismatch": "SHADOW_LIVE_EVIDENCE_MISMATCH",
+      "releaseGateIncomplete": "RELEASE_GATE_INCOMPLETE",
+      "reportConflict": "RELEASE_READINESS_REPORT_CONFLICT"
+    },
+    "scenarioReportFields": {
+      "role": "role",
+      "productionItemId": "productionItemId",
+      "executionMode": "executionMode",
+      "pass": "pass",
+      "outcome": "outcome",
+      "productionOutcome": "productionOutcome",
+      "errorCode": "errorCode",
+      "outputDirectory": "outputDirectory",
+      "lineageSha256ByRole": "lineageSha256ByRole",
+      "formalTemplateSha256": "formalTemplateSha256",
+      "templateTestOutcome": "templateTestOutcome",
+      "templateTestOutputDirectory": "templateTestOutputDirectory",
+      "templateTestReportSha256": "templateTestReportSha256"
+    },
+    "reportFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "requestSha256": "requestSha256",
+      "corpusSha256": "corpusSha256",
+      "pass": "pass",
+      "outcome": "outcome",
+      "errorCode": "errorCode",
+      "scenarios": "scenarios",
+      "forwardScenario": "forwardScenario",
+      "templateTestScenarioRoles": "templateTestScenarioRoles",
+      "externalExecution": "externalExecution",
+      "releaseGates": "releaseGates",
+      "releaseEligible": "releaseEligible",
+      "reportPath": "reportPath"
+    }
   },
   "historicalExperienceContract": {
     "artifactType": "historical-experience-regression",

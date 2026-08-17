@@ -1,0 +1,328 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "四组旅人分别位于左上、右上、左下、右下四格褪色照片",
+    "每格人物组、照片边框和二乘二阅读顺序可逐项识别",
+    "整幅图统一为低饱和棕褐色旅行档案拼贴"
+  ],
+  "inferences": [
+    "四格可承载不同群体与时刻，同时保留同一套历史照片叙事"
+  ],
+  "confirmedMeaning": [
+    "四组人物素材、照片边框风格和档案色调分别具有独立编辑价值"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 4,
+    "identityUnitCount": 4,
+    "uploadUnitCount": 4,
+    "controlUnitCount": 3,
+    "evidence": "由确认模板图组件图分别计算四类数量"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "approved-person-a",
+        "role": "subject",
+        "identityUnitId": "new-person-a",
+        "visualInstance": true,
+        "uploadAssetId": "person-asset-a",
+        "controlId": "panel_subjects",
+        "containerId": "approved-panel-a",
+        "evidence": "逐区域确认组件 approved-person-a"
+      },
+      {
+        "componentId": "approved-person-b",
+        "role": "subject",
+        "identityUnitId": "new-person-b",
+        "visualInstance": true,
+        "uploadAssetId": "person-asset-b",
+        "controlId": "panel_subjects",
+        "containerId": "approved-panel-b",
+        "evidence": "逐区域确认组件 approved-person-b"
+      },
+      {
+        "componentId": "approved-person-c",
+        "role": "subject",
+        "identityUnitId": "new-person-c",
+        "visualInstance": true,
+        "uploadAssetId": "person-asset-c",
+        "controlId": "panel_subjects",
+        "containerId": "approved-panel-c",
+        "evidence": "逐区域确认组件 approved-person-c"
+      },
+      {
+        "componentId": "approved-person-d",
+        "role": "subject",
+        "identityUnitId": "new-person-d",
+        "visualInstance": true,
+        "uploadAssetId": "person-asset-d",
+        "controlId": "panel_subjects",
+        "containerId": "approved-panel-d",
+        "evidence": "逐区域确认组件 approved-person-d"
+      },
+      {
+        "componentId": "approved-panel-a",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "panel_frame",
+        "containerId": null,
+        "evidence": "逐区域确认组件 approved-panel-a"
+      },
+      {
+        "componentId": "approved-panel-b",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "逐区域确认组件 approved-panel-b"
+      },
+      {
+        "componentId": "approved-panel-c",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "逐区域确认组件 approved-panel-c"
+      },
+      {
+        "componentId": "approved-panel-d",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "逐区域确认组件 approved-panel-d"
+      },
+      {
+        "componentId": "approved-grid-scene",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "archive_tone",
+        "containerId": null,
+        "evidence": "逐区域确认组件 approved-grid-scene"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "approved-a-before-b",
+        "type": "ordered_before",
+        "sourceComponentId": "approved-panel-a",
+        "targetComponentId": "approved-panel-b",
+        "evidence": "逐区域确认关系 approved-a-before-b"
+      },
+      {
+        "relationId": "approved-b-before-c",
+        "type": "ordered_before",
+        "sourceComponentId": "approved-panel-b",
+        "targetComponentId": "approved-panel-c",
+        "evidence": "逐区域确认关系 approved-b-before-c"
+      },
+      {
+        "relationId": "approved-c-before-d",
+        "type": "ordered_before",
+        "sourceComponentId": "approved-panel-c",
+        "targetComponentId": "approved-panel-d",
+        "evidence": "逐区域确认关系 approved-c-before-d"
+      }
+    ],
+    "evidence": "画面组件、身份、实例、容器与空间关系已分别清点"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "operation-orderedSet",
+      "targetComponentIds": [
+        "approved-person-a",
+        "approved-person-b",
+        "approved-person-c",
+        "approved-person-d"
+      ],
+      "stableAnchorComponentIds": [
+        "approved-panel-a",
+        "approved-panel-b",
+        "approved-panel-c",
+        "approved-panel-d"
+      ],
+      "controlIds": [
+        "panel_subjects"
+      ],
+      "evidence": "逐项绑定确认模板图的操作目标、稳定锚点和实际控件"
+    }
+  ],
+  "neutralTitle": "四格旅行档案",
+  "neutralDescription": "四组旅人按二乘二面板顺序组成褪色档案拼贴，每个上传单元与实际控件计数一致。",
+  "promptTemplate": "将{{ panel_subjects | \"四组旅人\" }}分别放入左上、右上、左下、右下四格照片，保留{{ panel_frame | \"窄边褪色相纸框\" }}与固定阅读顺序，并以{{ archive_tone | \"低饱和棕褐档案色\" }}统一画面。四格边界清楚，人物组不跨格，旧相纸颗粒与划痕连续。",
+  "freeEditableContent": [
+    "四格边界清楚",
+    "人物组不跨格",
+    "旧相纸颗粒与划痕连续"
+  ],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可见文字区域"
+  },
+  "slotCandidates": [
+    {
+      "id": "panel_subjects",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "四格人物组",
+      "placeholder": "描述四格中要呈现的人物组合",
+      "defaultValue": "四组旅人",
+      "suggestions": [
+        "四位球队成员",
+        "四位旅行伙伴",
+        "四位舞台演员"
+      ],
+      "hiddenConflictTokens": [
+        "人物组身份",
+        "面板成员",
+        "具体旅行者"
+      ],
+      "titleForbiddenTokens": [
+        "四组旅人",
+        "四位球队成员",
+        "四位旅行伙伴",
+        "四位舞台演员"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "panel_frame",
+      "type": "prompt",
+      "semanticRole": "container_appearance",
+      "label": "照片边框",
+      "placeholder": "输入四格照片边框或相纸样式",
+      "defaultValue": "窄边褪色相纸框",
+      "suggestions": [
+        "白边拍立得相纸",
+        "深褐档案卡纸框",
+        "磨损黑边胶片框"
+      ],
+      "hiddenConflictTokens": [
+        "照片边框",
+        "相纸样式",
+        "面板边界"
+      ],
+      "titleForbiddenTokens": [
+        "褪色相纸框",
+        "拍立得相纸",
+        "档案卡纸框",
+        "胶片框"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "archive_tone",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "档案色调",
+      "placeholder": "输入整组照片的档案色调",
+      "defaultValue": "低饱和棕褐档案色",
+      "suggestions": [
+        "暖灰褪色胶片",
+        "冷青旧报刊色",
+        "深褐博物馆档案色"
+      ],
+      "hiddenConflictTokens": [
+        "整体调色参数",
+        "胶片显色配置",
+        "拼贴统一色配置"
+      ],
+      "titleForbiddenTokens": [
+        "棕褐档案色",
+        "暖灰胶片",
+        "冷青报刊色",
+        "博物馆档案色"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：褪色胶片旅行合影与档案拼贴。卖点：四组人物按二乘二面板顺序形成连续旅行叙事。色彩：保持低饱和旧相纸质感，可随用户指定调整边框与档案色调。",
+    "lockedConstraints": [
+      "沿用模板参考图的二乘二面板、左上到右下顺序与方形画幅",
+      "保持每组人物完整留在对应照片格内",
+      "保持旧相纸、褪色、颗粒与细划痕组成的档案媒介"
+    ],
+    "preserve": [
+      "保持四格群像共同构成一页旅行档案的叙事关系"
+    ]
+  },
+  "tags": [
+    "旅行档案",
+    "四格群像",
+    "复古胶片"
+  ],
+  "subjectAttributeAssessments": {
+    "clothing": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "四格群像服装细节随人物素材进入，不作为跨四格统一编辑轴"
+    },
+    "styling": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "人物造型属于每个上传素材自身，不作为独立统一控件"
+    },
+    "hairstyle": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "发型随各人物素材变化，缺少跨面板独立稳定控制价值"
+    },
+    "pose": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "多人合影姿势由上传素材决定，面板容器只约束不跨格"
+    },
+    "color": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": true,
+      "mechanismPreserved": true,
+      "includedAsSlot": false,
+      "evidence": "人物自身服装和肤色不作为独立 color 槽；archive_tone 只控制整组照片媒介色调"
+    }
+  },
+  "visualFactSourceSha256": "974e045f21308a4d1520c7c8478809b503b83490811624ea61a0da19a5650148"
+}

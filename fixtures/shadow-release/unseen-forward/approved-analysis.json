@@ -1,0 +1,260 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "一只柯基犬坐在树根旁的地面上",
+    "四肢稳定支撑身体",
+    "柔和日光从画面侧面照入",
+    "背景是户外林地并带轻微景深"
+  ],
+  "inferences": [
+    "主体呈现平静和专注情绪"
+  ],
+  "confirmedMeaning": [
+    "主体、地面颜色和环境氛围分别具有独立编辑价值"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "non_person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 3,
+    "evidence": "单主体、单身份和单上传素材；三个控件来自三个独立高价值槽位"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "approved-animal-main",
+        "role": "subject",
+        "identityUnitId": "approved-animal",
+        "visualInstance": true,
+        "uploadAssetId": "pet-subject-asset",
+        "controlId": "pet_subject",
+        "containerId": "approved-ground",
+        "evidence": "确认模板图中的唯一主体实例"
+      },
+      {
+        "componentId": "approved-animal-reflection",
+        "role": "reflection",
+        "identityUnitId": "approved-animal",
+        "visualInstance": false,
+        "uploadAssetId": "pet-subject-asset",
+        "controlId": "pet_subject",
+        "containerId": null,
+        "evidence": "确认模板图中与主体同步的反光轮廓"
+      },
+      {
+        "componentId": "approved-animal-shadow",
+        "role": "shadow",
+        "identityUnitId": "approved-animal",
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "approved-ground",
+        "evidence": "主体接触地面形成的同步阴影"
+      },
+      {
+        "componentId": "approved-animal-mark",
+        "role": "prop",
+        "identityUnitId": "approved-animal",
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "已替换主体的身份特征标记"
+      },
+      {
+        "componentId": "approved-ground",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "ground_look",
+        "containerId": null,
+        "evidence": "承托主体并开放外观编辑"
+      },
+      {
+        "componentId": "approved-room",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "room_mood",
+        "containerId": null,
+        "evidence": "房间氛围与侧面光线编辑区域"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "approved-reflection",
+        "type": "reflection",
+        "sourceComponentId": "approved-animal-reflection",
+        "targetComponentId": "approved-animal-main",
+        "evidence": "反光轮廓与主体属于同一身份"
+      },
+      {
+        "relationId": "approved-shadow",
+        "type": "shadow",
+        "sourceComponentId": "approved-animal-shadow",
+        "targetComponentId": "approved-animal-main",
+        "evidence": "阴影随主体边界同步"
+      },
+      {
+        "relationId": "approved-contact-ground",
+        "type": "contact",
+        "sourceComponentId": "approved-animal-main",
+        "targetComponentId": "approved-ground",
+        "evidence": "四肢接触地面且四肢稳定支撑身体"
+      }
+    ],
+    "evidence": "分别记录一个画面实例、一个身份、一个上传素材和三个控件"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "replace-animal-identity",
+      "targetComponentIds": [
+        "approved-animal-main",
+        "approved-animal-reflection",
+        "approved-animal-shadow",
+        "approved-animal-mark"
+      ],
+      "stableAnchorComponentIds": [
+        "approved-ground",
+        "approved-room"
+      ],
+      "controlIds": [
+        "pet_subject"
+      ],
+      "evidence": "将确认模板图的主体、反光、阴影和身份标记显式绑定到当前身份替换操作"
+    }
+  ],
+  "neutralTitle": "树根旁的安静瞬间",
+  "neutralDescription": "主体坐在树根旁的地面上，侧面光线强化平静专注的神态",
+  "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}坐在{{ ground_look | \"暖黄色地面\" }}上，四肢稳定支撑身体，{{ room_mood | \"柔和日光\" }}从侧面照入，背景保留户外林地和轻微景深。",
+  "freeEditableContent": [
+    "四肢稳定支撑身体",
+    "户外林地",
+    "轻微景深"
+  ],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可见文字区域"
+  },
+  "slotCandidates": [
+    {
+      "id": "pet_subject",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "画面主体",
+      "placeholder": "描述想替换的小动物",
+      "defaultValue": "柯基犬",
+      "suggestions": [
+        "柴犬",
+        "垂耳兔",
+        "小羊"
+      ],
+      "hiddenConflictTokens": [
+        "主体身份",
+        "主体物种",
+        "具体动物"
+      ],
+      "titleForbiddenTokens": [
+        "宠物",
+        "狗",
+        "犬",
+        "兔",
+        "羊",
+        "柯基",
+        "柴犬",
+        "垂耳兔",
+        "小羊"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "ground_look",
+      "type": "prompt",
+      "semanticRole": "container_appearance",
+      "label": "地面样式",
+      "placeholder": "输入地面颜色或材质",
+      "defaultValue": "暖黄色地面",
+      "suggestions": [
+        "浅灰石地",
+        "青苔林地",
+        "浅棕沙土"
+      ],
+      "hiddenConflictTokens": [
+        "地面颜色",
+        "地面样式",
+        "地面材质"
+      ],
+      "titleForbiddenTokens": [
+        "黄色地面",
+        "白色绒垫",
+        "湖蓝",
+        "浅粉"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "room_mood",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "环境氛围",
+      "placeholder": "输入光线或房间氛围",
+      "defaultValue": "柔和日光",
+      "suggestions": [
+        "清晨薄雾光",
+        "雨天柔光",
+        "暖色夜灯"
+      ],
+      "hiddenConflictTokens": [
+        "环境氛围",
+        "环境光线",
+        "房间氛围"
+      ],
+      "titleForbiddenTokens": [
+        "柔和日光",
+        "清晨",
+        "雨天",
+        "夜灯"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：自然光户外动物摄影，短毛与土壤、树根细节清楚。卖点：主体蜷卧地面并把四肢支撑于地面接触处，平静神态突出。色彩：保持柔和冷暖对比，可随用户指定调整地面与环境光。",
+    "lockedConstraints": [
+      "沿用模板参考图的方形画幅、主体占比、伏卧姿态与浅景深",
+      "保持自然光户外摄影媒介、真实短毛、泥土与树根材质",
+      "保持四肢稳定接触地面的支撑关系"
+    ],
+    "preserve": [
+      "保持主体在树根旁平静停留的户外观察关系"
+    ]
+  },
+  "tags": [
+    "户外动物",
+    "树根",
+    "平静"
+  ],
+  "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd"
+}

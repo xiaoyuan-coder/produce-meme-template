@@ -1,0 +1,249 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "一只白色长耳充气兔角色站在展会大厅中央",
+    "角色穿红色背心、蓝色领结并手持怀表",
+    "充气角色底部完整接触会场地面",
+    "展位、建筑结构与旁观人群保留在背景中"
+  ],
+  "inferences": [
+    "夸张角色造型与真实会场环境形成奇趣反差"
+  ],
+  "confirmedMeaning": [
+    "角色身份、会场地面外观与展厅氛围分别具有独立编辑价值"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 3,
+    "evidence": "画面只有一个角色实例、一个身份与一份可选上传素材"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "fixture-component-0",
+        "role": "subject",
+        "identityUnitId": "fixture-identity-0",
+        "visualInstance": true,
+        "uploadAssetId": "fixture-upload-0",
+        "controlId": "character_subject",
+        "containerId": "fixture-component-1",
+        "evidence": "确认模板图中央唯一可见的白兔充气角色"
+      },
+      {
+        "componentId": "fixture-component-1",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "convention_floor",
+        "containerId": null,
+        "evidence": "确认模板图中承托角色的会场地面"
+      },
+      {
+        "componentId": "fixture-component-2",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "convention_mood",
+        "containerId": null,
+        "evidence": "确认模板图的会场建筑、展位、顶灯与旁观人群"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "fixture-character-contact-floor",
+        "type": "contact",
+        "sourceComponentId": "fixture-component-0",
+        "targetComponentId": "fixture-component-1",
+        "evidence": "确认充气角色底部与会场地面的稳定接触"
+      }
+    ],
+    "evidence": "确认模板图中的单一角色、会场地面和展厅背景分别清点"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "replace-convention-character",
+      "targetComponentIds": [
+        "fixture-component-0"
+      ],
+      "stableAnchorComponentIds": [
+        "fixture-component-1",
+        "fixture-component-2"
+      ],
+      "controlIds": [
+        "character_subject"
+      ],
+      "evidence": "确认模板图目标、稳定锚点与用户控件已显式绑定"
+    }
+  ],
+  "neutralTitle": "展会大厅里的奇趣角色",
+  "neutralDescription": "夸张充气角色站在会场中央，地面接触、展位结构与旁观人群共同保留现场感",
+  "promptTemplate": "一个{{ character_subject | \"白兔充气角色\" }}全身站在画面中央的{{ convention_floor | \"灰色展厅地面\" }}上，保留{{ convention_mood | \"明亮会展顶灯\" }}、展位建筑与旁观人群，角色底部完整接触地面。",
+  "freeEditableContent": [
+    "全身站在画面中央",
+    "角色底部完整接触地面"
+  ],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可读文字区域"
+  },
+  "slotCandidates": [
+    {
+      "id": "character_subject",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "充气角色",
+      "placeholder": "描述想替换的完整角色",
+      "defaultValue": "白兔充气角色",
+      "suggestions": [
+        "堂吉诃德",
+        "小王子",
+        "胡桃夹子王子"
+      ],
+      "hiddenConflictTokens": [
+        "主体身份",
+        "具体人物",
+        "具体角色"
+      ],
+      "titleForbiddenTokens": [
+        "皮卡丘",
+        "《爱丽丝梦游仙境》白兔",
+        "堂吉诃德",
+        "小王子",
+        "胡桃夹子王子"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "convention_floor",
+      "type": "prompt",
+      "semanticRole": "container_appearance",
+      "label": "会场地面",
+      "placeholder": "输入展厅地面颜色或材质",
+      "defaultValue": "灰色展厅地面",
+      "suggestions": [
+        "浅灰磨石地面",
+        "深色橡胶展会地面",
+        "浅木色临时展台地面"
+      ],
+      "hiddenConflictTokens": [
+        "地面颜色配置",
+        "会场地面配置",
+        "地面材质配置"
+      ],
+      "titleForbiddenTokens": [
+        "灰色展厅地面",
+        "磨石地面",
+        "橡胶展会地面",
+        "临时展台地面"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "convention_mood",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "会展氛围",
+      "placeholder": "输入会场光线或活动氛围",
+      "defaultValue": "明亮会展顶灯",
+      "suggestions": [
+        "暖色发布会灯光",
+        "冷白科技展灯光",
+        "自然采光展厅"
+      ],
+      "hiddenConflictTokens": [
+        "会展氛围配置",
+        "会场光线配置",
+        "活动氛围配置"
+      ],
+      "titleForbiddenTokens": [
+        "明亮会展顶灯",
+        "发布会灯光",
+        "科技展灯光",
+        "自然采光展厅"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：保持展会现场纪实摄影与充气塑料质感。卖点：夸张角色与真实会场人群的反差。色彩：可调整地面与会场灯光。",
+    "lockedConstraints": [
+      "保持主体全身入镜、中央占比与夸张头身比例",
+      "保持角色底部接触地面、展位建筑与旁观人群"
+    ],
+    "preserve": [
+      "保持充气角色置身真实会场的奇趣叙事职责"
+    ]
+  },
+  "tags": [
+    "角色装置",
+    "展会现场",
+    "充气造型"
+  ],
+  "visualFactSourceSha256": "23978bfb83123e7c964b8c40dd086368aa9805c367342add201f8d1b6bcbfa0f",
+  "subjectAttributeAssessments": {
+    "clothing": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 clothing，当前画面不具备独立开放价值"
+    },
+    "styling": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 styling，当前画面不具备独立开放价值"
+    },
+    "hairstyle": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 hairstyle，当前画面不具备独立开放价值"
+    },
+    "pose": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 pose，当前画面不具备独立开放价值"
+    },
+    "color": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "已独立评估 color，当前画面不具备独立开放价值"
+    }
+  }
+}

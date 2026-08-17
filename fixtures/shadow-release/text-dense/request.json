@@ -1,0 +1,11 @@
+{
+  "templateKey": "shadow-text-poster",
+  "sourceImage": "source-image.jpg",
+  "productionItemId": "shadow-text-dense",
+  "replacementStrategy": {
+    "policyId": "shadow-text-rewrite",
+    "policyVersion": "1",
+    "replacementValue": "TODAY REST TOMORROW CREATE",
+    "replacementCategory": "text_content"
+  }
+}

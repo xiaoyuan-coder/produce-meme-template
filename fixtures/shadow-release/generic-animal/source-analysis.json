@@ -1,0 +1,143 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.15.0",
+  "mechanism": {
+    "setup": "一只橘猫以近距离半身构图看向镜头",
+    "turn": "抬头视线、竖耳与浅景深形成亲近的注视感",
+    "payoff": "动物身份可替换，眼平视角、地面与红色斜线背景保持稳定",
+    "tone": "好奇、亲近"
+  },
+  "target": {
+    "category": "generic_animal",
+    "role": "画面中央蜷卧的主要动物",
+    "identity": "橘猫"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "animal-main",
+        "role": "subject",
+        "identityUnitId": "source-animal",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "ground",
+        "evidence": "画面中央唯一可见的橘猫头部与上半身"
+      },
+      {
+        "componentId": "ground",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "承托主体的浅灰户外地面"
+      },
+      {
+        "componentId": "room-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "虚化的浅灰户外背景与两条红色斜线"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "animal-contact-ground",
+        "type": "contact",
+        "sourceComponentId": "animal-main",
+        "targetComponentId": "ground",
+        "evidence": "动物身体下缘稳定接触户外地面"
+      }
+    ],
+    "evidence": "逐区域记录唯一动物主体、承托地面和虚化背景"
+  },
+  "imageOperations": [
+    {
+      "operationId": "replace-animal-identity",
+      "operation": "identity_replace",
+      "targetRegionIds": [
+        "animal-main"
+      ],
+      "clearRequirements": [
+        "清除橘猫脸部、竖耳、胡须、橙色条纹与全部身体轮廓"
+      ],
+      "stableAnchorIds": [
+        "ground",
+        "room-background"
+      ],
+      "preservedRelationIds": [
+        "animal-contact-ground"
+      ],
+      "evidence": "完整重绘唯一动物身份，户外地面、红色斜线和背景景深保持稳定"
+    }
+  ],
+  "replacementPool": [
+    {
+      "value": "柯基犬",
+      "category": "generic_animal",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.96,
+      "reason": "短身轮廓、伏卧姿态和亲近感都能承接原有笑点角色"
+    },
+    {
+      "value": "水豚",
+      "category": "generic_animal",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.88,
+      "reason": "慵懒气质兼容，伏卧轮廓可以保持构图"
+    },
+    {
+      "value": "马克杯",
+      "category": "generic_object",
+      "semanticCompatible": false,
+      "visualCompatible": false,
+      "rightsAndSafety": "pass",
+      "score": 0.2,
+      "reason": "跨类别且无法承接动物姿态"
+    }
+  ],
+  "dependencyClosure": [
+    {
+      "componentId": "animal-main",
+      "type": "full_body",
+      "value": "主要动物的头部、身体、四肢与耳朵"
+    }
+  ],
+  "frozenSet": [
+    "单主体近距离半身构图",
+    "抬头看向镜头的姿态",
+    "户外地面承托关系",
+    "浅灰背景、红色斜线与自然光",
+    "摄影媒介与浅景深"
+  ],
+  "visualContract": {
+    "medium": "自然光户外动物近景摄影",
+    "form": "单主体半身近景，头部抬起并正面看向镜头",
+    "edge": "毛发边缘自然，景深过渡柔和",
+    "colorAndShading": "暖橙主体与浅灰背景对比，自然日光均匀柔和",
+    "surface": "短毛、胡须、户外地面与背景红色斜线材质可辨",
+    "composition": "动物头部居中偏上，身体占左下区域，浅灰背景与红色斜线保留"
+  },
+  "spatialRelations": [
+    "身体下缘稳定接触浅灰户外地面",
+    "双眼与鼻部朝向镜头形成正面注视",
+    "两条红色斜线位于主体后方且不穿过脸部"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": [
+    "橘猫",
+    "猫咪",
+    "橙色条纹"
+  ],
+  "sourceImageSha256": "0a4180aee732794b7d53c4b2e872aba4d83687f7544ddc5c3c1414de1c8fad1e"
+}

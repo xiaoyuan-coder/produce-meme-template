@@ -1,0 +1,183 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "人物双手在画面中央握住一束白色、粉色和紫色小花",
+    "手指精确覆盖花束左右边缘并保持原有握持姿态",
+    "人物眼镜、面部、服装、戒指和浅灰室内背景保持稳定"
+  ],
+  "inferences": [
+    "聚焦手中花束形成温和、日常的赠花瞬间"
+  ],
+  "confirmedMeaning": [
+    "手持物与室内光线氛围分别具有独立编辑价值，双手接触关系保持固定"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "non_person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 2,
+    "evidence": "一个可上传手持物素材与一个室内氛围控件分别计数"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "approved-person",
+        "role": "subject",
+        "identityUnitId": "new-person",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "逐区域确认组件 approved-person"
+      },
+      {
+        "componentId": "approved-held-object",
+        "role": "prop",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": "held-object-asset",
+        "controlId": "held_object",
+        "containerId": null,
+        "evidence": "确认模板图中央被双手握持的小花束"
+      },
+      {
+        "componentId": "approved-contact-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "indoor_mood",
+        "containerId": null,
+        "evidence": "确认模板图的浅灰室内背景、自然光与浅景深"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "approved-hand-contact",
+        "type": "contact",
+        "sourceComponentId": "approved-person",
+        "targetComponentId": "approved-held-object",
+        "evidence": "逐区域确认关系 approved-hand-contact"
+      },
+      {
+        "relationId": "approved-hand-occlusion",
+        "type": "occlusion",
+        "sourceComponentId": "approved-person",
+        "targetComponentId": "approved-held-object",
+        "evidence": "逐区域确认关系 approved-hand-occlusion"
+      }
+    ],
+    "evidence": "画面组件、身份、实例、容器与空间关系已分别清点"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "operation-maskFill",
+      "targetComponentIds": [
+        "approved-held-object"
+      ],
+      "stableAnchorComponentIds": [
+        "approved-person",
+        "approved-contact-background"
+      ],
+      "controlIds": [
+        "held_object"
+      ],
+      "evidence": "逐项绑定确认模板图的操作目标、稳定锚点和实际控件"
+    }
+  ],
+  "neutralTitle": "手中物件的互动瞬间",
+  "neutralDescription": "手中目标可以替换，手指接触边界、遮挡层级与人物其他内容保持稳定。",
+  "promptTemplate": "人物双手在画面中央握住{{ held_object | \"小束鲜花\" }}，手指保持原有接触和遮挡，{{ indoor_mood | \"柔和室内自然光\" }}照亮双手与物件，人物眼镜、面部、服装、戒指和浅灰背景保持稳定。",
+  "freeEditableContent": [
+    "手指保持原有接触和遮挡",
+    "人物眼镜、面部、服装、戒指和浅灰背景保持稳定"
+  ],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可见文字区域"
+  },
+  "slotCandidates": [
+    {
+      "id": "held_object",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "手持物件",
+      "placeholder": "描述想让人物握住的物件",
+      "defaultValue": "小束鲜花",
+      "suggestions": [
+        "书本",
+        "小型相机",
+        "礼物盒"
+      ],
+      "hiddenConflictTokens": [
+        "手持物身份",
+        "目标物件类别",
+        "具体物件"
+      ],
+      "titleForbiddenTokens": [
+        "小束鲜花",
+        "书本",
+        "小型相机",
+        "礼物盒"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "indoor_mood",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "环境氛围",
+      "placeholder": "输入室内光线或背景氛围",
+      "defaultValue": "柔和室内自然光",
+      "suggestions": [
+        "清晨窗边柔光",
+        "阴天漫射光",
+        "暖色室内灯光"
+      ],
+      "hiddenConflictTokens": [
+        "室内氛围配置",
+        "室内光线配置",
+        "背景氛围配置"
+      ],
+      "titleForbiddenTokens": [
+        "柔和室内自然光",
+        "窗边柔光",
+        "阴天漫射光",
+        "暖色室内灯光"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：自然光室内生活方式摄影，双手、物件与戒指细节清楚。卖点：手持物变化与稳定握持关系形成视觉焦点。色彩：保持低饱和灰褐背景，可调整室内光线。",
+    "lockedConstraints": [
+      "沿用模板参考图的横幅画幅、双手与物件前景占比和浅景深",
+      "保持自然光摄影媒介、真实皮肤、指甲、戒指与物件材质",
+      "保持左右双手握持物件的接触和遮挡关系"
+    ],
+    "preserve": [
+      "保持手中物件成为前景视觉焦点的日常互动关系"
+    ]
+  },
+  "tags": [
+    "手持物件",
+    "生活方式摄影",
+    "浅景深"
+  ],
+  "visualFactSourceSha256": "ebd657aae8267d901ea15794c8fdb59d1d36a7a695c3216d86f8ce2ba4760d2a"
+}

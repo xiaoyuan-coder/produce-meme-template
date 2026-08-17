@@ -1,0 +1,91 @@
+{
+  "artifactType": "visual-review",
+  "schemaVersion": "0.15.0",
+  "hardGates": {
+    "replacementComplete": true,
+    "dependencyClosureComplete": true,
+    "nonTargetPreserved": true,
+    "mechanismPreserved": true,
+    "contactGeometryValid": true,
+    "visibleTextClean": true,
+    "fullCanvasClean": true,
+    "watermarkFree": true,
+    "legacyIdentityFree": true
+  },
+  "visualDimensions": {
+    "medium": {
+      "pass": true,
+      "evidence": "保持十九世纪石版印刷海报与旧纸纹理"
+    },
+    "form": {
+      "pass": true,
+      "evidence": "左上人物插画、下半部四行文字与竖幅海报结构完整"
+    },
+    "edge": {
+      "pass": true,
+      "evidence": "人物轮廓、手绘字形、多重边框与磨损边缘统一"
+    },
+    "colorAndShading": {
+      "pass": true,
+      "evidence": "赭黄、酒红与褐色平涂层级一致"
+    },
+    "surface": {
+      "pass": true,
+      "evidence": "旧纸、折痕、裂纹、剥落与印刷颗粒连续"
+    },
+    "composition": {
+      "pass": true,
+      "evidence": "左上人物、四行文字、右侧色块和多重边框占比保持"
+    }
+  },
+  "visibleTextEvidence": {
+    "pass": true,
+    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "identityTextEvidence": {
+    "applicable": false,
+    "sourceIdentityTermsAbsent": true,
+    "replacementIdentityTextConsistent": true,
+    "evidence": "通用动物场景没有现实人物或角色身份文字依赖"
+  },
+  "imageOperationEvidence": [
+    {
+      "operationId": "rewrite-poster-headline",
+      "targetCleared": true,
+      "stableAnchorsPreserved": true,
+      "relationsPreserved": true,
+      "nonTargetContentPreserved": true,
+      "evidence": "原法文主文字已完整清除并替换为四行英文，人物插画、旧纸纹理、边框和文字容器保持"
+    }
+  ],
+  "cleanlinessFindings": {
+    "ghostTextDetected": false,
+    "pseudoSignatureDetected": false,
+    "platformWatermarkDetected": false
+  },
+  "ambiguitySignals": {
+    "identityAmbiguous": false,
+    "aestheticRiskPresent": false,
+    "evidenceInsufficient": false,
+    "validAlternativesClose": false
+  },
+  "watermarkScan": [
+    "显眼标记无残留",
+    "半透明角标无残留",
+    "嵌入区域无残留"
+  ],
+  "method": {
+    "id": "deterministic-fixture-visual-review",
+    "version": "1"
+  },
+  "reviewedAt": "2026-08-16T08:00:00Z",
+  "bindings": {
+    "generatedImageSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+    "generationPackageSha256": "3f62575ff37d1de83f5f03168e037f972ab780c0ca9ceefa7179b55f70af6bf0",
+    "evidenceSha256": "deb48a4da1e1a1a3dcddeec9773d1d8eb30543a8f101edd0697eab7c4ffb9768"
+  },
+  "decision": "approved",
+  "decisionEvidence": {
+    "hardGatesPassed": true
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "artifactType": "release-shadow-corpus",
+  "executionMode": "recorded_replay",
+  "generatedAt": "2026-08-17",
+  "generator": "openai-built-in-imagegen",
+  "scenarios": [
+    {
+      "role": "ordinary_person",
+      "expectedSourceCategoryRole": "ordinaryPerson",
+      "sourcePath": "ordinary-person/source-image.jpg",
+      "sourceSha256": "cb246cda1c31a91d4851553cf9a25d19924cc5c4e30a882fa36eb1ffa791923a",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Portrait_of_a_young_woman(GN03698).jpg",
+      "sourceLicense": "CC0-1.0",
+      "approvedPath": "ordinary-person/approved-template-image.png",
+      "approvedSha256": "4d80f56c97e2ea988bc5b4b270f73dd36b95b16788a615c24699af895cb18c3f",
+      "replacementValue": "一位全新短发青年"
+    },
+    {
+      "role": "known_character_ip",
+      "expectedSourceCategoryRole": "knownCharacterIp",
+      "sourcePath": "known-character-ip/source-image.jpg",
+      "sourceSha256": "14ff12a2a8f3e5a280e490301d80e76beff247612cb90485eccf6e0484523fa2",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:ComicCon_13_-_Pikachu.jpg",
+      "sourceLicense": "CC-BY-2.0",
+      "approvedPath": "known-character-ip/approved-template-image.png",
+      "approvedSha256": "23978bfb83123e7c964b8c40dd086368aa9805c367342add201f8d1b6bcbfa0f",
+      "replacementValue": "《爱丽丝梦游仙境》白兔"
+    },
+    {
+      "role": "generic_animal",
+      "expectedSourceCategoryRole": "genericAnimal",
+      "sourcePath": "generic-animal/source-image.jpg",
+      "sourceSha256": "0a4180aee732794b7d53c4b2e872aba4d83687f7544ddc5c3c1414de1c8fad1e",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Cat03.jpg",
+      "sourceLicense": "GFDL-1.2-only OR CC-BY-NC-3.0",
+      "approvedPath": "generic-animal/approved-template-image.png",
+      "approvedSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd",
+      "replacementValue": "柯基犬"
+    },
+    {
+      "role": "generic_object",
+      "expectedSourceCategoryRole": "genericObject",
+      "sourcePath": "generic-object/source-image.jpg",
+      "sourceSha256": "9d35269d14ffa2b0c621c54c4b6a25216a55b8b14f331c33fef9425bd9db7228",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Woman_holding_a_glass_cup_with_coffee_in_a_cafe.jpg",
+      "sourceLicense": "CC-BY-2.0",
+      "approvedPath": "generic-object/approved-template-image.png",
+      "approvedSha256": "ebd657aae8267d901ea15794c8fdb59d1d36a7a695c3216d86f8ce2ba4760d2a",
+      "replacementValue": "小束鲜花"
+    },
+    {
+      "role": "text_dense",
+      "expectedSourceCategoryRole": "textContent",
+      "sourcePath": "text-dense/source-image.jpg",
+      "sourceSha256": "5276caa18cbfb05237fd6f74b71f25edac66e2b74d0f04ea98b4a1b832a6f629",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Firmin_Baes_-_Poster_for_the_1899_exhibition_of_Pour_l%27art.jpg",
+      "sourceLicense": "Public-Domain-Mark-1.0",
+      "approvedPath": "text-dense/approved-template-image.png",
+      "approvedSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+      "replacementValue": "TODAY REST TOMORROW CREATE"
+    },
+    {
+      "role": "complex_multi_instance",
+      "expectedSourceCategoryRole": "genericPerson",
+      "sourcePath": "complex-multi-instance/source-image.jpg",
+      "sourceSha256": "3e76fc6fae827a3d9279cbf4281c312390e236982c518961d0a05d5bec99ada7",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:-Contact_sheet_of_four_group_portraits_in_a_doorway-_MET_DP312742.jpg",
+      "sourceLicense": "CC0-1.0",
+      "approvedPath": "complex-multi-instance/approved-template-image.png",
+      "approvedSha256": "974e045f21308a4d1520c7c8478809b503b83490811624ea61a0da19a5650148",
+      "replacementValue": "四组旅人"
+    },
+    {
+      "role": "unseen_forward",
+      "expectedSourceCategoryRole": "genericAnimal",
+      "sourcePath": "unseen-forward/source-image.jpg",
+      "sourceSha256": "f97d5305a66462efecaeb889d7a69639f0c4cf9e3318eccf5c3e00e20a383c5e",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Capybara_portrait.jpg",
+      "sourceLicense": "CC-BY-2.0",
+      "approvedPath": "unseen-forward/approved-template-image.png",
+      "approvedSha256": "153ecdec170fd1da4c5585acfc8cb684780461a8e918fa7f779f770dfa1900a0",
+      "replacementValue": "柯基犬"
+    }
+  ]
+}

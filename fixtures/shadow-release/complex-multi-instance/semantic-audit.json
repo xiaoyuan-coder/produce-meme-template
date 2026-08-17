@@ -1,0 +1,106 @@
+{
+  "artifactType": "semantic-audit",
+  "schemaVersion": "0.15.0",
+  "contentSha256": "c3c8dbf36c53c52ac9392ddd4551cfdb581087a0e11d51cae77fba6724621cdd",
+  "checks": {
+    "promptResolutionsNatural": true,
+    "hiddenOpenAxesRemainEditable": true,
+    "titleSurvivesMaximumDifference": true,
+    "slotSuggestionsSameAxisAndGranularity": true,
+    "instructionScopeValid": true,
+    "hiddenLayersResponsibilitiesSeparated": true,
+    "identityNeutralDefaultsValid": true,
+    "visibleTextClassificationValid": true
+  },
+  "evidence": {
+    "promptResolutionCases": [
+      "defaults",
+      "panel_subjects=四位球队成员",
+      "panel_subjects=四位旅行伙伴",
+      "panel_subjects=四位舞台演员",
+      "panel_frame=白边拍立得相纸",
+      "panel_frame=深褐档案卡纸框",
+      "panel_frame=磨损黑边胶片框",
+      "archive_tone=暖灰褪色胶片",
+      "archive_tone=冷青旧报刊色",
+      "archive_tone=深褐博物馆档案色"
+    ],
+    "reviewedOpenAxes": [
+      "subject",
+      "container_appearance",
+      "scene_atmosphere"
+    ],
+    "maximumDifferenceInputs": [
+      "四位球队成员",
+      "白边拍立得相纸",
+      "暖灰褪色胶片"
+    ],
+    "slotSuggestionReviews": [
+      "panel_subjects",
+      "panel_frame",
+      "archive_tone"
+    ],
+    "instructionScopeReview": {
+      "allowedSections": [
+        "媒介",
+        "模板卖点",
+        "可选色彩"
+      ],
+      "outOfScopeContentDetected": false,
+      "evidence": "仅描述复古胶片媒介、二乘二群像卖点和可编辑边框与档案色调"
+    },
+    "hiddenLayerResponsibilityReview": {
+      "lockedConstraintsRole": "呈现维度",
+      "preserveRole": "语义锚点",
+      "overlapDetected": false,
+      "evidence": "逐项比较后未发现职责重复或整图复述"
+    },
+    "identityNeutralityReview": {
+      "applicable": false,
+      "identitySpecificDefaultDetected": false,
+      "evidence": "逐项复核开放主体旁的身份相关文字是否保持中性"
+    },
+    "visibleTextClassificationReview": {
+      "reviewedRegionIds": [],
+      "roleActionDecisions": [],
+      "slotOriginDecisions": [
+        {
+          "slotId": "panel_subjects",
+          "originTextRegionId": null,
+          "evidence": "独立判断槽值是否取自某个可见文字区域"
+        },
+        {
+          "slotId": "panel_frame",
+          "originTextRegionId": null,
+          "evidence": "独立判断槽值是否取自某个可见文字区域"
+        },
+        {
+          "slotId": "archive_tone",
+          "originTextRegionId": null,
+          "evidence": "独立判断槽值是否取自某个可见文字区域"
+        }
+      ],
+      "freeContentOriginDecisions": [
+        {
+          "content": "四格边界清楚",
+          "originTextRegionId": null,
+          "evidence": "独立判断自由编辑内容是否取自某个可见文字区域"
+        },
+        {
+          "content": "人物组不跨格",
+          "originTextRegionId": null,
+          "evidence": "独立判断自由编辑内容是否取自某个可见文字区域"
+        },
+        {
+          "content": "旧相纸颗粒与划痕连续",
+          "originTextRegionId": null,
+          "evidence": "独立判断自由编辑内容是否取自某个可见文字区域"
+        }
+      ],
+      "fixedRegionLeakIds": [],
+      "allVisibleTextClassified": true,
+      "evidence": "独立复核全部可见文字区域的角色、价值类别与处理决定"
+    }
+  },
+  "observedContentSha256": "c3c8dbf36c53c52ac9392ddd4551cfdb581087a0e11d51cae77fba6724621cdd"
+}

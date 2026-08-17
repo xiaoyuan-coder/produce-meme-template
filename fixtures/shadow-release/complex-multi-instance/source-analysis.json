@@ -1,0 +1,249 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.15.0",
+  "mechanism": {
+    "setup": "四张褪色群像照片按左上、右上、左下、右下组成二乘二档案网格",
+    "turn": "四格中的人物组分别替换，同时保留每格边框、顺序和复古档案版式",
+    "payoff": "不同旅人组合共享同一套历史照片语法，形成可连续讲述的旅行档案",
+    "tone": "怀旧、纪实、群像"
+  },
+  "target": {
+    "category": "generic_person",
+    "role": "四个有顺序的分格人物单元",
+    "identity": "四格门廊群像"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "person-a",
+        "role": "subject",
+        "identityUnitId": "source-person-a",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "grid-panel-a",
+        "evidence": "左上格的多人旅行合影"
+      },
+      {
+        "componentId": "person-b",
+        "role": "subject",
+        "identityUnitId": "source-person-b",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "grid-panel-b",
+        "evidence": "右上格的多人旅行合影"
+      },
+      {
+        "componentId": "person-c",
+        "role": "subject",
+        "identityUnitId": "source-person-c",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "grid-panel-c",
+        "evidence": "左下格的多人旅行合影"
+      },
+      {
+        "componentId": "person-d",
+        "role": "subject",
+        "identityUnitId": "source-person-d",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "grid-panel-d",
+        "evidence": "右下格的多人旅行合影"
+      },
+      {
+        "componentId": "grid-panel-a",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "左上褪色照片格及其边界"
+      },
+      {
+        "componentId": "grid-panel-b",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "右上褪色照片格及其边界"
+      },
+      {
+        "componentId": "grid-panel-c",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "左下褪色照片格及其边界"
+      },
+      {
+        "componentId": "grid-panel-d",
+        "role": "panel",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "右下褪色照片格及其边界"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "person-a-in-panel",
+        "type": "nested_in",
+        "sourceComponentId": "person-a",
+        "targetComponentId": "grid-panel-a",
+        "evidence": "逐区域确认关系 person-a-in-panel"
+      },
+      {
+        "relationId": "person-b-in-panel",
+        "type": "nested_in",
+        "sourceComponentId": "person-b",
+        "targetComponentId": "grid-panel-b",
+        "evidence": "逐区域确认关系 person-b-in-panel"
+      },
+      {
+        "relationId": "person-c-in-panel",
+        "type": "nested_in",
+        "sourceComponentId": "person-c",
+        "targetComponentId": "grid-panel-c",
+        "evidence": "逐区域确认关系 person-c-in-panel"
+      },
+      {
+        "relationId": "person-d-in-panel",
+        "type": "nested_in",
+        "sourceComponentId": "person-d",
+        "targetComponentId": "grid-panel-d",
+        "evidence": "逐区域确认关系 person-d-in-panel"
+      },
+      {
+        "relationId": "panel-a-before-b",
+        "type": "ordered_before",
+        "sourceComponentId": "grid-panel-a",
+        "targetComponentId": "grid-panel-b",
+        "evidence": "逐区域确认关系 panel-a-before-b"
+      },
+      {
+        "relationId": "panel-b-before-c",
+        "type": "ordered_before",
+        "sourceComponentId": "grid-panel-b",
+        "targetComponentId": "grid-panel-c",
+        "evidence": "逐区域确认关系 panel-b-before-c"
+      },
+      {
+        "relationId": "panel-c-before-d",
+        "type": "ordered_before",
+        "sourceComponentId": "grid-panel-c",
+        "targetComponentId": "grid-panel-d",
+        "evidence": "逐区域确认关系 panel-c-before-d"
+      }
+    ],
+    "evidence": "画面组件、身份、实例、容器与空间关系已分别清点"
+  },
+  "imageOperations": [
+    {
+      "operationId": "operation-orderedSet",
+      "operation": "ordered_set",
+      "targetRegionIds": [
+        "person-a",
+        "person-b",
+        "person-c",
+        "person-d"
+      ],
+      "clearRequirements": [
+        "清除目标区域的旧身份、旧内容和残留边缘"
+      ],
+      "stableAnchorIds": [
+        "grid-panel-a",
+        "grid-panel-b",
+        "grid-panel-c",
+        "grid-panel-d"
+      ],
+      "preservedRelationIds": [
+        "panel-a-before-b",
+        "panel-b-before-c",
+        "panel-c-before-d"
+      ],
+      "evidence": "四个人物组按面板位置独立替换，四格容器和阅读顺序保持不动"
+    }
+  ],
+  "replacementPool": [
+    {
+      "value": "四组旅人",
+      "category": "generic_person",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.97,
+      "reason": "与当前图片操作和空间机制相容"
+    },
+    {
+      "value": "跨机制干扰项",
+      "category": "generic_food",
+      "semanticCompatible": false,
+      "visualCompatible": false,
+      "rightsAndSafety": "pass",
+      "score": 0.1,
+      "reason": "不能承接当前图片操作的目标责任"
+    }
+  ],
+  "dependencyClosure": [
+    {
+      "componentId": "person-a",
+      "type": "ordered_member",
+      "value": "同步处理目标组件 person-a"
+    },
+    {
+      "componentId": "person-b",
+      "type": "ordered_member",
+      "value": "同步处理目标组件 person-b"
+    },
+    {
+      "componentId": "person-c",
+      "type": "ordered_member",
+      "value": "同步处理目标组件 person-c"
+    },
+    {
+      "componentId": "person-d",
+      "type": "ordered_member",
+      "value": "同步处理目标组件 person-d"
+    }
+  ],
+  "frozenSet": [
+    "稳定锚点的位置与尺寸",
+    "容器层级与面板顺序",
+    "非目标内容和接触遮挡边界"
+  ],
+  "visualContract": {
+    "medium": "褪色胶片旅行合影与档案拼贴",
+    "form": "四组人物分别完整落在二乘二独立面板内",
+    "edge": "每格照片边界清楚，人物轮廓保留旧照片的轻微柔化",
+    "colorAndShading": "统一低饱和棕褐色调，四格曝光和颗粒感协调",
+    "surface": "旧相纸、划痕、褪色和细颗粒纹理可辨",
+    "composition": "左上、右上、左下、右下四格顺序完整，留白和边框宽度一致"
+  },
+  "spatialRelations": [
+    "逐区域确认关系 person-a-in-panel",
+    "逐区域确认关系 person-b-in-panel",
+    "逐区域确认关系 person-c-in-panel",
+    "逐区域确认关系 person-d-in-panel",
+    "逐区域确认关系 panel-a-before-b",
+    "逐区域确认关系 panel-b-before-c",
+    "逐区域确认关系 panel-c-before-d"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": [
+    "来源图中的具体旅行者身份与原始群像组合"
+  ],
+  "sourceImageSha256": "3e76fc6fae827a3d9279cbf4281c312390e236982c518961d0a05d5bec99ada7",
+  "targetEligibility": {}
+}

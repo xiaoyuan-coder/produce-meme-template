@@ -42,6 +42,95 @@ class RepositoryContractTest(unittest.TestCase):
             (ROOT / "SKILL.md").read_text(encoding="utf-8"),
         )
 
+    def test_release_readiness_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["releaseReadinessContract"]
+        mapping_names = (
+            "corpusFields",
+            "corpusScenarioFields",
+            "requestFields",
+            "scenarioFields",
+            "sourceProvenanceFields",
+            "productionRequestFields",
+            "scenarioRoles",
+            "scenarioSourceCategoryRoleKeys",
+            "fixtureDirectoryByScenarioRoleKey",
+            "executionModes",
+            "liveCredentialEnvironment",
+            "liveReviewAdapterFields",
+            "liveReviewEvidenceFields",
+            "externalExecutionStatuses",
+            "externalExecutionFields",
+            "requestLedgerFields",
+            "completionFields",
+            "releaseGateFields",
+            "releaseGateEvidenceFields",
+            "reviewReceiptFields",
+            "reviewAxes",
+            "workspaceDirectories",
+            "requiredLineageArtifacts",
+            "outcomes",
+            "errorCodes",
+            "scenarioReportFields",
+            "reportFields",
+        )
+        for mapping_name in mapping_names:
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+            self.assertTrue(
+                all(isinstance(value, str) and value for value in mapping.values())
+            )
+        self.assertEqual(
+            set(contract["scenarioRoles"]),
+            set(contract["scenarioSourceCategoryRoleKeys"]),
+        )
+        self.assertTrue(
+            set(contract["scenarioSourceCategoryRoleKeys"].values())
+            <= set(rules["sourceCategories"])
+        )
+        self.assertIn(
+            contract["forwardSourceCategoryRoleKey"], rules["sourceCategories"]
+        )
+        self.assertEqual(
+            {*contract["scenarioRoles"], "unseenForward"},
+            set(contract["fixtureDirectoryByScenarioRoleKey"]),
+        )
+        self.assertTrue(
+            set(contract["prefixLineageArtifactRoles"])
+            <= set(contract["requiredLineageArtifacts"])
+        )
+        self.assertEqual(
+            len(contract["prefixLineageArtifactRoles"]),
+            len(set(contract["prefixLineageArtifactRoles"])),
+        )
+        sample_count = contract["templateTest"]["sampleCount"]
+        self.assertIsInstance(sample_count, int)
+        self.assertNotIsInstance(sample_count, bool)
+        self.assertGreater(sample_count, 0)
+        self.assertLessEqual(sample_count, len(contract["scenarioRoles"]))
+        self.assertTrue(contract["reportFileName"].endswith(".json"))
+        self.assertEqual(
+            len(contract["liveReviewMethodIds"]),
+            len(set(contract["liveReviewMethodIds"])),
+        )
+        self.assertTrue(
+            all(
+                isinstance(value, str) and value
+                for value in contract["liveReviewMethodIds"]
+            )
+        )
+        corpus = load(ROOT / contract["corpusRelativePath"])
+        corpus_fields = contract["corpusFields"]
+        scenario_fields = contract["corpusScenarioFields"]
+        self.assertEqual(set(corpus), set(corpus_fields.values()))
+        self.assertTrue(
+            all(
+                set(item) == set(scenario_fields.values())
+                for item in corpus[corpus_fields["scenarios"]]
+            )
+        )
+
     def test_formal_projection_and_schema_share_one_field_set(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         schema = load(ROOT / "contracts" / "gallery-template.schema.json")

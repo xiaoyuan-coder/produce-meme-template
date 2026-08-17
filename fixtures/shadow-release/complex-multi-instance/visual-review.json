@@ -1,0 +1,91 @@
+{
+  "artifactType": "visual-review",
+  "schemaVersion": "0.15.0",
+  "hardGates": {
+    "replacementComplete": true,
+    "dependencyClosureComplete": true,
+    "nonTargetPreserved": true,
+    "mechanismPreserved": true,
+    "contactGeometryValid": true,
+    "visibleTextClean": true,
+    "fullCanvasClean": true,
+    "watermarkFree": true,
+    "legacyIdentityFree": true
+  },
+  "visualDimensions": {
+    "medium": {
+      "pass": true,
+      "evidence": "保持褪色胶片旅行合影与档案拼贴媒介"
+    },
+    "form": {
+      "pass": true,
+      "evidence": "四组人物分别完整落在对应照片格内"
+    },
+    "edge": {
+      "pass": true,
+      "evidence": "四格边界清楚，人物轮廓保持旧照片柔化"
+    },
+    "colorAndShading": {
+      "pass": true,
+      "evidence": "四格低饱和棕褐色调与曝光一致"
+    },
+    "surface": {
+      "pass": true,
+      "evidence": "旧相纸、褪色、颗粒与细划痕连续"
+    },
+    "composition": {
+      "pass": true,
+      "evidence": "二乘二面板顺序、留白与边框宽度保持"
+    }
+  },
+  "visibleTextEvidence": {
+    "pass": true,
+    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "identityTextEvidence": {
+    "applicable": false,
+    "sourceIdentityTermsAbsent": true,
+    "replacementIdentityTextConsistent": true,
+    "evidence": "通用旅人群像没有现实人物或角色身份文字依赖"
+  },
+  "imageOperationEvidence": [
+    {
+      "operationId": "operation-orderedSet",
+      "targetCleared": true,
+      "stableAnchorsPreserved": true,
+      "relationsPreserved": true,
+      "nonTargetContentPreserved": true,
+      "evidence": "逐格核对四组人物替换、面板锚点、阅读顺序与非目标内容"
+    }
+  ],
+  "cleanlinessFindings": {
+    "ghostTextDetected": false,
+    "pseudoSignatureDetected": false,
+    "platformWatermarkDetected": false
+  },
+  "ambiguitySignals": {
+    "identityAmbiguous": false,
+    "aestheticRiskPresent": false,
+    "evidenceInsufficient": false,
+    "validAlternativesClose": false
+  },
+  "watermarkScan": [
+    "显眼标记无残留",
+    "半透明角标无残留",
+    "嵌入区域无残留"
+  ],
+  "method": {
+    "id": "deterministic-fixture-visual-review",
+    "version": "1"
+  },
+  "reviewedAt": "2026-08-16T08:00:00Z",
+  "bindings": {
+    "generatedImageSha256": "974e045f21308a4d1520c7c8478809b503b83490811624ea61a0da19a5650148",
+    "generationPackageSha256": "879cc0ec7db08c5a351009b32215498f21869d16ebbb9417be8de0dcfc1f9d5d",
+    "evidenceSha256": "37cd395adee7cd83db243be89c4da2ca0c69aae79e4503a83aae9f6256a064c1"
+  },
+  "decision": "approved",
+  "decisionEvidence": {
+    "hardGatesPassed": true
+  }
+}

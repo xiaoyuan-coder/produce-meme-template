@@ -1,0 +1,305 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "一张竖幅复古海报以赭黄、酒红和褐色构成",
+    "左上人物仰头并向画面中央伸出双手",
+    "下半部清楚写有 TODAY、REST、TOMORROW、CREATE 四行英文大字",
+    "多重红褐边框、右侧竖向色块、折痕和旧纸磨损清楚可见"
+  ],
+  "inferences": [
+    "四行短句形成休息与创作交替的宣言式节奏"
+  ],
+  "confirmedMeaning": [
+    "四行主文字与旧纸色调分别具有独立编辑价值，人物插画和版式保持稳定"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 3,
+    "evidence": "人物插画可选一份上传素材；人物、主文字与旧纸色调各对应一个控件"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "approved-poster-figure",
+        "role": "subject",
+        "identityUnitId": "approved-poster-figure-identity",
+        "visualInstance": true,
+        "uploadAssetId": "poster-figure-asset",
+        "controlId": "poster_figure",
+        "containerId": "approved-poster-frame",
+        "evidence": "确认模板图左上仰头并伸出手臂的人物插画"
+      },
+      {
+        "componentId": "approved-headline-text",
+        "role": "text",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "headline_text",
+        "containerId": "approved-poster-frame",
+        "evidence": "确认模板图下半部四行英文大字"
+      },
+      {
+        "componentId": "approved-poster-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "poster_tone",
+        "containerId": null,
+        "evidence": "确认模板图的赭黄旧纸、酒红色块、折痕与磨损"
+      },
+      {
+        "componentId": "approved-poster-frame",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "确认模板图的多重红褐线框与竖幅版式容器"
+      }
+    ],
+    "relations": [],
+    "evidence": "确认模板图中的人物插画、四行主文字、旧纸背景与海报边框分别清点"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "rewrite-poster-headline",
+      "targetComponentIds": [
+        "approved-headline-text"
+      ],
+      "stableAnchorComponentIds": [
+        "approved-poster-figure",
+        "approved-poster-background",
+        "approved-poster-frame"
+      ],
+      "controlIds": [
+        "headline_text"
+      ],
+      "evidence": "确认模板图目标、稳定锚点与用户控件已显式绑定"
+    }
+  ],
+  "neutralTitle": "旧海报里的四行宣言",
+  "neutralDescription": "左上人物插画与下半部四行大字共同组成复古宣言海报，边框、旧纸纹理和红褐色块保留年代感",
+  "promptTemplate": "让{{ poster_figure | \"复古仰头人物剪影\" }}位于左上并向画面中央伸出手臂，保留复古海报边框与旧纸纹理，在下半部以四行英文大字逐字写出{{ headline_text | \"TODAY\nREST\nTOMORROW\nCREATE\" }}，使用{{ poster_tone | \"赭黄与酒红旧纸色调\" }}，保持原有排版容器、字形层级和折痕磨损。",
+  "freeEditableContent": [
+    "位于左上并向画面中央伸出手臂",
+    "保持原有排版容器、字形层级和折痕磨损"
+  ],
+  "textRegions": [
+    {
+      "id": "headline-region",
+      "sourceText": "TODAY\nREST\nTOMORROW\nCREATE",
+      "role": "content",
+      "valueClass": "primary_visual",
+      "action": "open_slot",
+      "slotId": "headline_text",
+      "selectedText": "TODAY\nREST\nTOMORROW\nCREATE",
+      "exactTextEvidence": {
+        "language": "en",
+        "tokens": [
+          "TODAY",
+          "REST",
+          "TOMORROW",
+          "CREATE"
+        ],
+        "lines": [
+          "TODAY",
+          "REST",
+          "TOMORROW",
+          "CREATE"
+        ],
+        "caseSensitiveTokens": [
+          "TODAY",
+          "REST",
+          "TOMORROW",
+          "CREATE"
+        ],
+        "rareSymbols": [],
+        "symbolTopology": "四个全大写英文词按四行垂直排列",
+        "evidence": "逐字逐行核对 Approved Template Image 的英文大字和精确排版事实"
+      }
+    }
+  ],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [
+      "headline-region"
+    ],
+    "evidence": "全画布逐区清点后仅有一组主要视觉文字"
+  },
+  "slotCandidates": [
+    {
+      "id": "poster_figure",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "海报人物",
+      "placeholder": "描述左上方的复古人物剪影",
+      "defaultValue": "复古仰头人物剪影",
+      "suggestions": [
+        "仰头舞者剪影",
+        "伸手雕塑家剪影",
+        "侧身演说者剪影"
+      ],
+      "hiddenConflictTokens": [
+        "人物身份配置",
+        "人物造型配置",
+        "剪影角色配置"
+      ],
+      "titleForbiddenTokens": [
+        "复古仰头人物剪影",
+        "仰头舞者",
+        "雕塑家",
+        "演说者"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "headline_text",
+      "type": "text",
+      "semanticRole": "primary_visual_text",
+      "label": "画面主文字",
+      "placeholder": "输入主文字",
+      "defaultValue": "TODAY\nREST\nTOMORROW\nCREATE",
+      "suggestions": [
+        "PLAN\nBUILD\nLEARN\nREPEAT",
+        "PAUSE\nBREATHE\nBEGIN\nAGAIN",
+        "DREAM\nMAKE\nSHARE\nGROW"
+      ],
+      "hiddenConflictTokens": [
+        "画面主文字",
+        "文字内容",
+        "文字排版"
+      ],
+      "titleForbiddenTokens": [
+        "TODAY\nREST\nTOMORROW\nCREATE",
+        "PLAN\nBUILD\nLEARN\nREPEAT",
+        "PAUSE\nBREATHE\nBEGIN\nAGAIN",
+        "DREAM\nMAKE\nSHARE\nGROW"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      },
+      "textRegionId": "headline-region",
+      "exactVisibleText": true,
+      "exactVisibleTextEvidence": {
+        "approvedImageSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+        "visibleText": "TODAY\nREST\nTOMORROW\nCREATE",
+        "evidence": "逐字逐行核对四行英文主文字"
+      }
+    },
+    {
+      "id": "poster_tone",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "旧纸色调",
+      "placeholder": "输入海报纸张与印刷色调",
+      "defaultValue": "赭黄与酒红旧纸色调",
+      "suggestions": [
+        "褪色米黄与暗红",
+        "深褐与金黄石版色",
+        "灰绿与砖红旧印刷色"
+      ],
+      "hiddenConflictTokens": [
+        "旧纸色调配置",
+        "印刷色彩配置",
+        "海报纸张配置"
+      ],
+      "titleForbiddenTokens": [
+        "赭黄与酒红旧纸色调",
+        "褪色米黄与暗红",
+        "深褐与金黄",
+        "灰绿与砖红"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：十九世纪石版印刷海报与旧纸纹理，手绘线条和印刷颗粒清楚。卖点：左上人物与下半部四行宣言形成强烈版式。色彩：可调整旧纸与印刷色调。",
+    "lockedConstraints": [
+      "保持竖幅海报、左上人物、下半部四行主文字与右侧色块的版式",
+      "保持石版印刷媒介、纸张折痕、裂纹、剥落与装饰边框",
+      "保持四行英文逐字清楚、全大写并按原容器垂直排列"
+    ],
+    "preserve": [
+      "保持人物插画与宣言文字共同构成复古艺术海报"
+    ]
+  },
+  "tags": [
+    "复古海报",
+    "四行文字",
+    "石版印刷"
+  ],
+  "subjectAttributeAssessments": {
+    "clothing": {
+      "userMotivation": false,
+      "visuallyVisible": false,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "人物以单色剪影呈现，服装没有独立可辨与开放价值"
+    },
+    "styling": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "整体造型已由海报人物主体槽承载，不再拆分第二控制轴"
+    },
+    "hairstyle": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "发型与侧面剪影相连，无法在不改变人物轮廓时独立控制"
+    },
+    "pose": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": true,
+      "includedAsSlot": false,
+      "evidence": "仰头伸臂姿态是固定版式锚点，保持稳定且不开放"
+    },
+    "color": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": false,
+      "mechanismPreserved": false,
+      "includedAsSlot": false,
+      "evidence": "人物颜色跟随海报整体印刷色调，不建立独立颜色槽"
+    }
+  },
+  "visualFactSourceSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+  "defaultValuePreferenceExceptionEvidence": {
+    "headline_text": {
+      "reviewed": true,
+      "reason": "精确画内文字需要保留全大写英文与四行排版"
+    },
+    "poster_tone": {
+      "reviewed": true,
+      "reason": "需要同时描述纸张底色与印刷主色，保留可辨识的复古海报色彩轴"
+    }
+  }
+}

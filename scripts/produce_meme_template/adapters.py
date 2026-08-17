@@ -145,6 +145,7 @@ class DeterministicFixtureAdapters:
 
     def __init__(self, fixture_dir: str | Path):
         self.fixture_dir = Path(fixture_dir).resolve()
+        self.approved_image_path_override: Path | None = None
         self.generate_calls: list[dict[str, Any]] = []
         self.submission_calls: list[dict[str, Any]] = []
         self.poll_calls: list[dict[str, Any]] = []
@@ -206,11 +207,23 @@ class DeterministicFixtureAdapters:
                 "imageCount": generation_package["output"]["imageCount"],
             }
         )
-        image_path = self.fixture_dir / "approved-template-image.ppm"
+        image_path = self._fixture_approved_image_path()
         return {
             "requestId": generation_package["requestId"],
             **self._fixture_image_result(image_path),
         }
+
+    def _fixture_approved_image_path(self) -> Path:
+        if self.approved_image_path_override is not None:
+            return self.approved_image_path_override
+        candidates = [
+            path
+            for path in self.fixture_dir.glob("approved-template-image.*")
+            if path.is_file() and not path.is_symlink()
+        ]
+        if len(candidates) != 1:
+            raise ValueError("fixture must contain exactly one approved template image")
+        return candidates[0]
 
     @staticmethod
     def _fixture_image_result(image_path: Path) -> dict[str, Any]:
@@ -295,7 +308,7 @@ class DeterministicFixtureAdapters:
         }
 
     def fetch_template_image(self, _url: str) -> bytes:
-        image_path = self.fixture_dir / "approved-template-image.ppm"
+        image_path = self._fixture_approved_image_path()
         return self._fixture_image_result(image_path)["imageBytes"]
 
     def inspect_template_test(
@@ -509,9 +522,10 @@ class DeterministicFixtureAdapters:
             audit_fields["complete"]: True,
             audit_fields["explanation"]: "独立复核全部可见文字区域的角色、价值类别与处理决定",
         }
-        result["observedContentSha256"] = hashlib.sha256(
+        content_sha = hashlib.sha256(
             json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
+        result["observedContentSha256"] = content_sha
         identity_audit = roles["identityNeutrality"]
         identity_fields = rules["identityReplacementContract"]["neutralityAuditFields"]
         identity_regions = [
@@ -519,14 +533,25 @@ class DeterministicFixtureAdapters:
             for region in regions
             if region[region_fields["valueClass"]] == identity_value_class
         ]
-        neutrality_applicable = bool(subject_open and identity_regions)
-        identity_specific = bool(
-            neutrality_applicable
-            and any(
-                not region_identity_is_neutral(region)
-                for region in identity_regions
-            )
+        saved_identity_review = result["evidence"].get(
+            identity_audit["evidence"]
         )
+        if not identity_regions and isinstance(saved_identity_review, dict):
+            neutrality_applicable = saved_identity_review.get(
+                identity_fields["applicability"]
+            )
+            identity_specific = saved_identity_review.get(
+                identity_fields["specificIdentityDetected"]
+            )
+        else:
+            neutrality_applicable = bool(subject_open and identity_regions)
+            identity_specific = bool(
+                neutrality_applicable
+                and any(
+                    not region_identity_is_neutral(region)
+                    for region in identity_regions
+                )
+            )
         result["checks"][identity_audit["check"]] = not identity_specific
         result["evidence"][identity_audit["evidence"]] = {
             identity_fields["applicability"]: neutrality_applicable,

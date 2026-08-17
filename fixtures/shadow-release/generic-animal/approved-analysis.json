@@ -1,0 +1,213 @@
+{
+  "artifactType": "approved-template-analysis",
+  "schemaVersion": "0.15.0",
+  "visibleFacts": [
+    "一只黄白柯基犬以近距离半身构图看向镜头",
+    "大耳朵、白色鼻梁和黑色鼻头清楚可见",
+    "自然日光均匀照亮短毛与面部",
+    "浅灰户外地面和背景中的两条红色斜线保持虚化"
+  ],
+  "inferences": [
+    "主体呈现好奇而亲近的注视感"
+  ],
+  "confirmedMeaning": [
+    "动物身份、户外地面外观与自然光氛围分别具有独立编辑价值"
+  ],
+  "hasPrimarySubject": true,
+  "subjectKind": "non_person",
+  "assetUnitAnalysis": {
+    "visibleSubjectCount": 1,
+    "identityUnitCount": 1,
+    "uploadUnitCount": 1,
+    "controlUnitCount": 3,
+    "evidence": "单主体、单身份和单上传素材；三个控件来自三个独立高价值槽位"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "approved-animal-main",
+        "role": "subject",
+        "identityUnitId": "approved-animal",
+        "visualInstance": true,
+        "uploadAssetId": "pet-subject-asset",
+        "controlId": "pet_subject",
+        "containerId": "approved-ground",
+        "evidence": "确认模板图中的唯一柯基犬头部与上半身"
+      },
+      {
+        "componentId": "approved-ground",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "ground_look",
+        "containerId": null,
+        "evidence": "承托主体的浅灰户外地面并开放外观编辑"
+      },
+      {
+        "componentId": "approved-outdoor-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": "outdoor_mood",
+        "containerId": null,
+        "evidence": "浅灰虚化背景、红色斜线与自然光编辑区域"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "approved-contact-ground",
+        "type": "contact",
+        "sourceComponentId": "approved-animal-main",
+        "targetComponentId": "approved-ground",
+        "evidence": "动物身体下缘稳定接触户外地面"
+      }
+    ],
+    "evidence": "分别记录一个画面实例、一个身份、一个上传素材和三个控件"
+  },
+  "approvedOperationBindings": [
+    {
+      "operationId": "replace-animal-identity",
+      "targetComponentIds": [
+        "approved-animal-main"
+      ],
+      "stableAnchorComponentIds": [
+        "approved-ground",
+        "approved-outdoor-background"
+      ],
+      "controlIds": [
+        "pet_subject"
+      ],
+      "evidence": "将确认模板图中的唯一动物主体显式绑定到当前身份替换操作"
+    }
+  ],
+  "neutralTitle": "抬头看镜头的好奇瞬间",
+  "neutralDescription": "动物以近距离半身构图抬头注视镜头，自然光、浅灰地面与红色斜线背景保留户外现场感",
+  "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}以近距离半身构图抬头看向镜头，身体下缘接触{{ ground_look | \"浅灰户外地面\" }}，{{ outdoor_mood | \"均匀自然日光\" }}照亮短毛，背景保留两条红色斜线和轻微景深。",
+  "freeEditableContent": [
+    "抬头看向镜头",
+    "背景保留两条红色斜线",
+    "轻微景深"
+  ],
+  "textRegions": [],
+  "visibleTextInventory": {
+    "complete": true,
+    "regionIds": [],
+    "evidence": "全画布检查后没有独立可见文字区域"
+  },
+  "slotCandidates": [
+    {
+      "id": "pet_subject",
+      "type": "subject",
+      "semanticRole": "subject",
+      "label": "画面主体",
+      "placeholder": "描述想替换的小动物",
+      "defaultValue": "柯基犬",
+      "suggestions": [
+        "柴犬",
+        "垂耳兔",
+        "小羊"
+      ],
+      "hiddenConflictTokens": [
+        "主体身份",
+        "主体物种",
+        "具体动物"
+      ],
+      "titleForbiddenTokens": [
+        "宠物",
+        "狗",
+        "犬",
+        "兔",
+        "羊",
+        "柯基",
+        "柴犬",
+        "垂耳兔",
+        "小羊"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "ground_look",
+      "type": "prompt",
+      "semanticRole": "container_appearance",
+      "label": "户外地面",
+      "placeholder": "输入地面颜色或材质",
+      "defaultValue": "浅灰户外地面",
+      "suggestions": [
+        "浅色石板地面",
+        "暖灰水泥地面",
+        "细砂户外地面"
+      ],
+      "hiddenConflictTokens": [
+        "地面颜色配置",
+        "户外地面配置",
+        "地面材质配置"
+      ],
+      "titleForbiddenTokens": [
+        "浅灰户外地面",
+        "石板地面",
+        "水泥地面",
+        "细砂地面"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    },
+    {
+      "id": "outdoor_mood",
+      "type": "prompt",
+      "semanticRole": "scene_atmosphere",
+      "label": "户外光线",
+      "placeholder": "输入户外光线或天气氛围",
+      "defaultValue": "均匀自然日光",
+      "suggestions": [
+        "清晨柔光",
+        "阴天漫射光",
+        "傍晚暖光"
+      ],
+      "hiddenConflictTokens": [
+        "户外氛围配置",
+        "自然光线配置",
+        "天气氛围配置"
+      ],
+      "titleForbiddenTokens": [
+        "均匀自然日光",
+        "清晨柔光",
+        "阴天漫射光",
+        "傍晚暖光"
+      ],
+      "valueGates": {
+        "userMotivation": true,
+        "visuallyVisible": true,
+        "modelControllable": true,
+        "mechanismPreserved": true
+      }
+    }
+  ],
+  "promptEnhancement": {
+    "instruction": "媒介：自然光户外动物近景摄影，短毛、眼睛与鼻部细节清楚。卖点：动物抬头直视镜头的亲近感。色彩：保持暖色主体与浅灰背景对比，可调整地面与自然光。",
+    "lockedConstraints": [
+      "沿用模板参考图的方形画幅、近距离半身占比、抬头注视与浅景深",
+      "保持自然光摄影媒介、真实短毛与眼鼻细节",
+      "保持身体下缘接触地面、红色斜线位于主体后方"
+    ],
+    "preserve": [
+      "保持主体直视镜头形成的亲近叙事"
+    ]
+  },
+  "tags": [
+    "动物近景",
+    "直视镜头",
+    "户外自然光"
+  ],
+  "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd"
+}

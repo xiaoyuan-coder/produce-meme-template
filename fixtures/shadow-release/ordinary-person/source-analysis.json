@@ -1,0 +1,151 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.15.0",
+  "mechanism": {
+    "setup": "一位人物以半身肖像占据画面中央",
+    "turn": "正面微笑与老式黑白摄影质感形成鲜明识别点",
+    "payoff": "人物身份可替换，肖像裁切、布光和年代感保持稳定",
+    "tone": "亲切、怀旧"
+  },
+  "target": {
+    "category": "ordinary_person",
+    "role": "画面中央的主要身份人物",
+    "identity": "GN03698肖像人物"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "identity-component-0",
+        "role": "subject",
+        "identityUnitId": "fixture-source-identity",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "画面中央唯一可见的人物头肩肖像"
+      },
+      {
+        "componentId": "fixture-stable-container",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "固定的竖幅肖像裁切与椭圆暗角边界"
+      },
+      {
+        "componentId": "fixture-stable-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "替换操作之外保持稳定的灰阶摄影背景"
+      }
+    ],
+    "relations": [],
+    "evidence": "单一人物身份与肖像裁切、背景锚点分别清点"
+  },
+  "imageOperations": [
+    {
+      "operationId": "replace-portrait-identity",
+      "operation": "identity_replace",
+      "targetRegionIds": [
+        "identity-component-0"
+      ],
+      "clearRequirements": [
+        "清除原人物全部脸部、发型、服饰与身体轮廓残留"
+      ],
+      "stableAnchorIds": [
+        "fixture-stable-container",
+        "fixture-stable-background"
+      ],
+      "preservedRelationIds": [],
+      "evidence": "仅重绘完整人物身份，肖像裁切与灰阶背景保持稳定"
+    }
+  ],
+  "replacementPool": [
+    {
+      "value": "一位全新短发青年",
+      "category": "ordinary_person",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.96,
+      "reason": "同类身份、姿态可供性和画面玩法相容",
+      "distinctIdentityEvidence": {
+        "sourceIdentity": "GN03698肖像人物",
+        "candidateIdentity": "一位全新短发青年",
+        "distinctIdentity": true,
+        "evidence": "逐项比对身份名称、别名和识别锚点后确认是新身份"
+      }
+    }
+  ],
+  "dependencyClosure": [
+    {
+      "componentId": "identity-component-0",
+      "type": "full_body",
+      "value": "GN03698肖像人物的头部、发型、服饰与可见身体区域"
+    }
+  ],
+  "frozenSet": [
+    "构图骨架",
+    "人物的画面职责",
+    "原有媒介"
+  ],
+  "visualContract": {
+    "medium": "老式黑白人像摄影与银盐相纸质感",
+    "form": "单人物头肩肖像，正面朝向镜头并轻微微笑",
+    "edge": "人物轮廓柔和，老照片暗角与相纸边缘清楚",
+    "colorAndShading": "完整灰阶，面部柔光与深色背景形成明暗对比",
+    "surface": "皮肤、短发、深色服装与旧相纸颗粒可辨",
+    "composition": "人物居中，头肩占画面主体，竖幅裁切与背景留白稳定"
+  },
+  "spatialRelations": [
+    "头部位于竖幅上半区中央",
+    "双肩在下方形成稳定的三角形轮廓",
+    "面部高光与深色背景保持清晰分离"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": [
+    "GN03698肖像人物"
+  ],
+  "sourceImageSha256": "cb246cda1c31a91d4851553cf9a25d19924cc5c4e30a882fa36eb1ffa791923a",
+  "identityTopology": {
+    "requiredComponentIds": [
+      "identity-component-0"
+    ],
+    "identityTextComponentIds": [],
+    "evidence": "逐区域确认画面只有一个可见人物身份，且没有身份文字或派生实例"
+  },
+  "identityTextDecisions": [],
+  "identityRouteEvidence": {
+    "mode": "prompt_only_new_identity",
+    "localAssetRequired": false,
+    "completeIdentityRedraw": true,
+    "evidence": "完整人物与身份依赖统一重绘，身份参考资产只是可选质量辅助"
+  },
+  "identityFrozenConflictEvaluations": [
+    {
+      "frozenValue": "构图骨架",
+      "conflictsWithIdentityChange": false,
+      "conflictingComponentIds": [],
+      "evidence": "逐项对照身份拓扑后未发现与身份重绘重叠"
+    },
+    {
+      "frozenValue": "人物的画面职责",
+      "conflictsWithIdentityChange": false,
+      "conflictingComponentIds": [],
+      "evidence": "逐项对照身份拓扑后未发现与身份重绘重叠"
+    },
+    {
+      "frozenValue": "原有媒介",
+      "conflictsWithIdentityChange": false,
+      "conflictingComponentIds": [],
+      "evidence": "逐项对照身份拓扑后未发现与身份重绘重叠"
+    }
+  ]
+}

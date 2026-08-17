@@ -1,0 +1,91 @@
+{
+  "artifactType": "visual-review",
+  "schemaVersion": "0.15.0",
+  "hardGates": {
+    "replacementComplete": true,
+    "dependencyClosureComplete": true,
+    "nonTargetPreserved": true,
+    "mechanismPreserved": true,
+    "contactGeometryValid": true,
+    "visibleTextClean": true,
+    "fullCanvasClean": true,
+    "watermarkFree": true,
+    "legacyIdentityFree": true
+  },
+  "visualDimensions": {
+    "medium": {
+      "pass": true,
+      "evidence": "保持自然光室内生活方式摄影"
+    },
+    "form": {
+      "pass": true,
+      "evidence": "双手握持物件的结构和手指数量正确"
+    },
+    "edge": {
+      "pass": true,
+      "evidence": "手指、花束边缘与背景景深统一"
+    },
+    "colorAndShading": {
+      "pass": true,
+      "evidence": "室内柔光与双手、花束明暗方向一致"
+    },
+    "surface": {
+      "pass": true,
+      "evidence": "皮肤、指甲、戒指、花瓣与织物材质连续"
+    },
+    "composition": {
+      "pass": true,
+      "evidence": "双手、手持物、人物面部和背景占比保持"
+    }
+  },
+  "visibleTextEvidence": {
+    "pass": true,
+    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "identityTextEvidence": {
+    "applicable": false,
+    "sourceIdentityTermsAbsent": true,
+    "replacementIdentityTextConsistent": true,
+    "evidence": "手持物替换场景没有现实人物或角色身份文字依赖"
+  },
+  "imageOperationEvidence": [
+    {
+      "operationId": "operation-maskFill",
+      "targetCleared": true,
+      "stableAnchorsPreserved": true,
+      "relationsPreserved": true,
+      "nonTargetContentPreserved": true,
+      "evidence": "咖啡杯已完整替换为花束，人物、双手、戒指、接触遮挡与背景均与计划一致"
+    }
+  ],
+  "cleanlinessFindings": {
+    "ghostTextDetected": false,
+    "pseudoSignatureDetected": false,
+    "platformWatermarkDetected": false
+  },
+  "ambiguitySignals": {
+    "identityAmbiguous": false,
+    "aestheticRiskPresent": false,
+    "evidenceInsufficient": false,
+    "validAlternativesClose": false
+  },
+  "watermarkScan": [
+    "显眼标记无残留",
+    "半透明角标无残留",
+    "嵌入区域无残留"
+  ],
+  "method": {
+    "id": "deterministic-fixture-visual-review",
+    "version": "1"
+  },
+  "reviewedAt": "2026-08-16T08:00:00Z",
+  "bindings": {
+    "generatedImageSha256": "ebd657aae8267d901ea15794c8fdb59d1d36a7a695c3216d86f8ce2ba4760d2a",
+    "generationPackageSha256": "b5bbb5efed3ec32ac4eecd148814eba30d1952c0b2f7839154b82f4a312bdbd8",
+    "evidenceSha256": "54de34a56df51fc28db25bb4bd0b3169e6cfcb2e9cdada4613be21cbabb2a9bf"
+  },
+  "decision": "approved",
+  "decisionEvidence": {
+    "hardGatesPassed": true
+  }
+}

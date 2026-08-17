@@ -1,0 +1,91 @@
+{
+  "artifactType": "visual-review",
+  "schemaVersion": "0.15.0",
+  "hardGates": {
+    "replacementComplete": true,
+    "dependencyClosureComplete": true,
+    "nonTargetPreserved": true,
+    "mechanismPreserved": true,
+    "contactGeometryValid": true,
+    "visibleTextClean": true,
+    "fullCanvasClean": true,
+    "watermarkFree": true,
+    "legacyIdentityFree": true
+  },
+  "visualDimensions": {
+    "medium": {
+      "pass": true,
+      "evidence": "保持自然光户外动物近景摄影"
+    },
+    "form": {
+      "pass": true,
+      "evidence": "单主体半身结构完整，抬头直视镜头"
+    },
+    "edge": {
+      "pass": true,
+      "evidence": "短毛、耳缘与背景景深边缘统一"
+    },
+    "colorAndShading": {
+      "pass": true,
+      "evidence": "均匀自然日光与面部明暗方向一致"
+    },
+    "surface": {
+      "pass": true,
+      "evidence": "短毛、眼鼻、地面与背景材质连续"
+    },
+    "composition": {
+      "pass": true,
+      "evidence": "主体近景、浅灰地面与红色斜线背景占比保持"
+    }
+  },
+  "visibleTextEvidence": {
+    "pass": true,
+    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+  },
+  "identityTextEvidence": {
+    "applicable": false,
+    "sourceIdentityTermsAbsent": true,
+    "replacementIdentityTextConsistent": true,
+    "evidence": "通用动物场景没有现实人物或角色身份文字依赖"
+  },
+  "imageOperationEvidence": [
+    {
+      "operationId": "replace-animal-identity",
+      "targetCleared": true,
+      "stableAnchorsPreserved": true,
+      "relationsPreserved": true,
+      "nonTargetContentPreserved": true,
+      "evidence": "橘猫脸部、耳朵、胡须、条纹与身体轮廓均完成替换，户外地面和红色斜线保持"
+    }
+  ],
+  "cleanlinessFindings": {
+    "ghostTextDetected": false,
+    "pseudoSignatureDetected": false,
+    "platformWatermarkDetected": false
+  },
+  "ambiguitySignals": {
+    "identityAmbiguous": false,
+    "aestheticRiskPresent": false,
+    "evidenceInsufficient": false,
+    "validAlternativesClose": false
+  },
+  "watermarkScan": [
+    "显眼标记无残留",
+    "半透明角标无残留",
+    "嵌入区域无残留"
+  ],
+  "method": {
+    "id": "deterministic-fixture-visual-review",
+    "version": "1"
+  },
+  "reviewedAt": "2026-08-16T08:00:00Z",
+  "bindings": {
+    "generatedImageSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd",
+    "generationPackageSha256": "2ac3eded3f90b82783342b45fa692c3ccaa3c9deabf61ad1d7a1a33a71cad7bb",
+    "evidenceSha256": "deb48a4da1e1a1a3dcddeec9773d1d8eb30543a8f101edd0697eab7c4ffb9768"
+  },
+  "decision": "approved",
+  "decisionEvidence": {
+    "hardGatesPassed": true
+  }
+}

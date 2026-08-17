@@ -1,0 +1,205 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.15.0",
+  "mechanism": {
+    "setup": "一只水豚伏在树根旁的地面上",
+    "turn": "圆润身形和平静侧脸在近景中很突出",
+    "payoff": "庞大体型与平静神态形成治愈感",
+    "tone": "平静、治愈"
+  },
+  "target": {
+    "category": "generic_animal",
+    "role": "画面中央坐姿的主要动物",
+    "identity": "水豚"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "animal-main",
+        "role": "subject",
+        "identityUnitId": "source-animal",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "ground",
+        "evidence": "画面中央树根旁的主要水豚实例"
+      },
+      {
+        "componentId": "animal-reflection",
+        "role": "reflection",
+        "identityUnitId": "source-animal",
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "地面反光中的同一动物轮廓"
+      },
+      {
+        "componentId": "animal-shadow",
+        "role": "shadow",
+        "identityUnitId": "source-animal",
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "ground",
+        "evidence": "主体压住地面形成的接触阴影"
+      },
+      {
+        "componentId": "animal-mark",
+        "role": "prop",
+        "identityUnitId": "source-animal",
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "棕褐色粗硬毛发、圆耳和宽鼻口的水豚身份特征"
+      },
+      {
+        "componentId": "ground",
+        "role": "container",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "承托主体的林地地面与树根"
+      },
+      {
+        "componentId": "room-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "室外林地背景与柔和日光"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "same-animal-reflection",
+        "type": "reflection",
+        "sourceComponentId": "animal-reflection",
+        "targetComponentId": "animal-main",
+        "evidence": "反光轮廓属于同一动物身份"
+      },
+      {
+        "relationId": "animal-contact-ground",
+        "type": "contact",
+        "sourceComponentId": "animal-main",
+        "targetComponentId": "ground",
+        "evidence": "四肢接触地面且四肢稳定支撑身体"
+      },
+      {
+        "relationId": "animal-shadow-contact",
+        "type": "shadow",
+        "sourceComponentId": "animal-shadow",
+        "targetComponentId": "animal-main",
+        "evidence": "阴影随主体接触边界同步"
+      }
+    ],
+    "evidence": "逐区域记录主体、反光、阴影、身份标记、容器和背景"
+  },
+  "imageOperations": [
+    {
+      "operationId": "replace-animal-identity",
+      "operation": "identity_replace",
+      "targetRegionIds": [
+        "animal-main",
+        "animal-reflection",
+        "animal-shadow",
+        "animal-mark"
+      ],
+      "clearRequirements": [
+        "清除水豚圆耳、宽鼻口、棕褐色粗毛和全部派生轮廓"
+      ],
+      "stableAnchorIds": [
+        "ground",
+        "room-background"
+      ],
+      "preservedRelationIds": [
+        "animal-contact-ground"
+      ],
+      "evidence": "同一动物身份的主体、反光、阴影和标记需要完整同步替换"
+    }
+  ],
+  "replacementPool": [
+    {
+      "value": "柯基犬",
+      "category": "generic_animal",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.96,
+      "reason": "短身轮廓、伏卧姿态和亲近感都能承接原有笑点角色"
+    },
+    {
+      "value": "水豚",
+      "category": "generic_animal",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.88,
+      "reason": "平静专注的动物肖像语义兼容，伏卧轮廓可以保持构图"
+    },
+    {
+      "value": "马克杯",
+      "category": "generic_object",
+      "semanticCompatible": false,
+      "visualCompatible": false,
+      "rightsAndSafety": "pass",
+      "score": 0.2,
+      "reason": "跨类别且无法承接动物姿态"
+    }
+  ],
+  "dependencyClosure": [
+    {
+      "componentId": "animal-main",
+      "type": "full_body",
+      "value": "主要动物的头部、身体、四肢与耳朵"
+    },
+    {
+      "componentId": "animal-reflection",
+      "type": "reflection",
+      "value": "地面附近的动物轮廓"
+    },
+    {
+      "componentId": "animal-shadow",
+      "type": "shadow",
+      "value": "身体与地面相接的投影"
+    },
+    {
+      "componentId": "animal-mark",
+      "type": "identity_mark",
+      "value": "棕褐色粗毛、圆耳与宽鼻口特征"
+    }
+  ],
+  "frozenSet": [
+    "单主体坐姿构图",
+    "主体贴近地面的姿态",
+    "地面与树根容器关系",
+    "室外林地背景与柔和日光",
+    "摄影媒介与浅景深"
+  ],
+  "visualContract": {
+    "medium": "自然光室外动物摄影",
+    "form": "单主体伏卧，头部侧向镜头，身体贴近地面",
+    "edge": "毛发边缘自然，景深过渡柔和",
+    "colorAndShading": "暖色主体与冷灰背景，侧面柔光",
+    "surface": "粗硬毛发、泥土地面和树根材质可辨",
+    "composition": "主体居中偏下，地面占下三分之一，背景留白"
+  },
+  "spatialRelations": [
+    "四肢接触地面形成接触凹陷",
+    "前后肢位置和身体坐姿关系清楚",
+    "投影贴合地面表面"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": [
+    "水豚",
+    "卡巴匹拉",
+    "棕褐色粗毛"
+  ],
+  "sourceImageSha256": "f97d5305a66462efecaeb889d7a69639f0c4cf9e3318eccf5c3e00e20a383c5e"
+}

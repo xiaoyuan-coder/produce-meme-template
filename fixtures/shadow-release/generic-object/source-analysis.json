@@ -1,0 +1,139 @@
+{
+  "artifactType": "source-analysis",
+  "schemaVersion": "0.15.0",
+  "mechanism": {
+    "setup": "人物手指握住一个小物体并形成遮挡",
+    "turn": "透明玻璃杯与双手、手指形成精确接触和遮挡",
+    "payoff": "手持物可以替换，人物、双手、戒指、景深与室内背景保持稳定",
+    "tone": "专注、日常"
+  },
+  "target": {
+    "category": "generic_object",
+    "role": "人物手中与手指接触并遮挡的物体",
+    "identity": "咖啡杯"
+  },
+  "componentGraph": {
+    "components": [
+      {
+        "componentId": "person-main",
+        "role": "subject",
+        "identityUnitId": "source-person",
+        "visualInstance": true,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "画面中保持稳定的人物、双手、眼镜、服装与戒指"
+      },
+      {
+        "componentId": "held-object",
+        "role": "prop",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "位于画面中央、被双手握持的透明咖啡杯"
+      },
+      {
+        "componentId": "contact-background",
+        "role": "background",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": null,
+        "evidence": "浅灰室内背景与人物面部浅景深"
+      }
+    ],
+    "relations": [
+      {
+        "relationId": "hand-holds-object",
+        "type": "contact",
+        "sourceComponentId": "person-main",
+        "targetComponentId": "held-object",
+        "evidence": "逐区域确认关系 hand-holds-object"
+      },
+      {
+        "relationId": "hand-occludes-object",
+        "type": "occlusion",
+        "sourceComponentId": "person-main",
+        "targetComponentId": "held-object",
+        "evidence": "逐区域确认关系 hand-occludes-object"
+      }
+    ],
+    "evidence": "画面组件、身份、实例、容器与空间关系已分别清点"
+  },
+  "imageOperations": [
+    {
+      "operationId": "operation-maskFill",
+      "operation": "mask_fill",
+      "targetRegionIds": [
+        "held-object"
+      ],
+      "clearRequirements": [
+        "清除玻璃杯、杯内液体、反光和全部残留边缘"
+      ],
+      "stableAnchorIds": [
+        "person-main",
+        "contact-background"
+      ],
+      "preservedRelationIds": [
+        "hand-holds-object",
+        "hand-occludes-object"
+      ],
+      "evidence": "只替换被双手握持的物件，并精确保持手指接触与遮挡"
+    }
+  ],
+  "replacementPool": [
+    {
+      "value": "小束鲜花",
+      "category": "generic_object",
+      "semanticCompatible": true,
+      "visualCompatible": true,
+      "rightsAndSafety": "pass",
+      "score": 0.97,
+      "reason": "与当前图片操作和空间机制相容"
+    },
+    {
+      "value": "跨机制干扰项",
+      "category": "generic_food",
+      "semanticCompatible": false,
+      "visualCompatible": false,
+      "rightsAndSafety": "pass",
+      "score": 0.1,
+      "reason": "不能承接当前图片操作的目标责任"
+    }
+  ],
+  "dependencyClosure": [
+    {
+      "componentId": "held-object",
+      "type": "mask_region",
+      "value": "透明咖啡杯、杯内液体、杯壁反光与被手指遮挡的边缘"
+    }
+  ],
+  "frozenSet": [
+    "人物、双手、服装、眼镜与戒指",
+    "双手握持姿态与手指位置",
+    "室内背景、浅景深和接触遮挡边界"
+  ],
+  "visualContract": {
+    "medium": "自然光室内生活方式摄影",
+    "form": "人物以双手在画面中央握持小物件，面部位于后方虚化区域",
+    "edge": "手指与玻璃杯边缘清楚，人物面部和室内背景浅景深柔化",
+    "colorAndShading": "低饱和灰褐色调，柔和自然光从侧前方照入",
+    "surface": "皮肤、指甲、戒指、玻璃、液体和深色织物材质可辨",
+    "composition": "双手和手持物居中占据前景，人物面部位于上方背景并保持虚化"
+  },
+  "spatialRelations": [
+    "左右双手从两侧握住目标物件",
+    "手指覆盖目标物件左右边缘并形成前后遮挡",
+    "人物面部位于手持物后方并保持浅景深"
+  ],
+  "languagePolicy": "preserve_source_language",
+  "imageSize": "1024x1024",
+  "forbiddenLegacyClaims": [
+    "咖啡杯"
+  ],
+  "sourceImageSha256": "9d35269d14ffa2b0c621c54c4b6a25216a55b8b14f331c33fef9425bd9db7228",
+  "targetEligibility": {}
+}
