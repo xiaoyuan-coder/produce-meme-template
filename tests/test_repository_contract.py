@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import json
 import hashlib
+import re
 import unittest
 from pathlib import Path
 
@@ -108,6 +109,116 @@ class RepositoryContractTest(unittest.TestCase):
             {"E06", "E12", "E20", "E22", "E23", "E29"}
             <= set(rules["historicalExperienceEvidence"])
         )
+
+    def test_issue_10_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E10", "E12", "E13", "E29", "E34"}
+            <= set(rules["historicalExperienceEvidence"])
+        )
+
+    def test_generation_execution_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["generationExecutionContract"]
+        self.assertEqual(
+            set(contract["failureClasses"]),
+            set(contract["failureRoutes"]),
+        )
+        self.assertEqual(
+            set(contract["failureClasses"]),
+            set(contract["retryBudgets"]),
+        )
+        self.assertEqual(
+            len(contract["walFields"]),
+            len(set(contract["walFields"].values())),
+        )
+        self.assertEqual(
+            set(contract["outputFormats"]),
+            set(contract["outputFormatExtensions"]),
+        )
+        self.assertEqual(
+            set(contract["outputFormats"]),
+            set(contract["outputFormatSignatures"]),
+        )
+        self.assertEqual(
+            set(contract["outputFormats"]),
+            set(contract["outputFormatDecoderNames"]),
+        )
+        self.assertIsInstance(contract["defaultImageCount"], int)
+        self.assertNotIsInstance(contract["defaultImageCount"], bool)
+        self.assertIsInstance(contract["defaultPrimaryOutputIndex"], int)
+        self.assertNotIsInstance(contract["defaultPrimaryOutputIndex"], bool)
+        self.assertEqual(0, contract["defaultPrimaryOutputIndex"])
+        self.assertGreaterEqual(
+            contract["maximumImageCount"], contract["defaultImageCount"]
+        )
+        self.assertGreater(contract["maximumDecodedImageDimension"], 0)
+        self.assertGreater(contract["maximumDecodedImagePixels"], 0)
+        self.assertIsInstance(contract["fal"]["maximumDownloadRedirects"], int)
+        self.assertNotIsInstance(
+            contract["fal"]["maximumDownloadRedirects"], bool
+        )
+        self.assertGreaterEqual(contract["fal"]["maximumDownloadRedirects"], 0)
+        for signature in contract["outputFormatSignatures"].values():
+            self.assertRegex(signature, r"^(?:[0-9a-f]{2})+$")
+        for pattern_name in (
+            "providerIdentityPattern",
+            "modelIdentityPattern",
+            "opaqueExecutionIdentityPattern",
+        ):
+            re.compile(contract[pattern_name])
+        sanitization = contract["persistedErrorSanitization"]
+        self.assertTrue(sanitization["digestPrefix"])
+        self.assertIsInstance(sanitization["digestLength"], int)
+        self.assertNotIsInstance(sanitization["digestLength"], bool)
+        self.assertGreater(sanitization["digestLength"], 0)
+        for role, route in contract["failureRoutes"].items():
+            self.assertIn(route["outcomeRole"], rules["resultStates"])
+            self.assertIn(route["errorCodeRole"], rules["errorCodes"])
+            phase_index = route["recoveryPhaseIndex"]
+            self.assertTrue(
+                phase_index is None
+                or (
+                    isinstance(phase_index, int)
+                    and not isinstance(phase_index, bool)
+                    and 0 <= phase_index < len(rules["productionPhases"])
+                )
+            )
+            budget = contract["retryBudgets"][role]
+            self.assertIsInstance(budget, int)
+            self.assertNotIsInstance(budget, bool)
+            self.assertGreaterEqual(budget, 0)
+
+        machine_values = {
+            *contract["walStatuses"].values(),
+            *contract["submissionStatuses"].values(),
+            *contract["pollStatuses"].values(),
+            *contract["failureClasses"].values(),
+            *contract["providerRoles"].values(),
+            *contract["artifactTypes"].values(),
+            contract["fal"]["model"],
+        }
+        machine_values -= {
+            *contract["walStatuses"],
+            *contract["submissionStatuses"],
+            *contract["pollStatuses"],
+            *contract["failureClasses"],
+            *contract["providerRoles"],
+            *contract["artifactTypes"],
+            *rules["resultStates"],
+        }
+        sources = [
+            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "adapters.py",
+            ROOT / "tests" / "test_issue_10_generation_wal.py",
+        ]
+        for path in sources:
+            literals = {
+                node.value
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            }
+            self.assertTrue(machine_values.isdisjoint(literals), path.as_posix())
 
     def test_replacement_enums_expose_named_domain_roles(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")

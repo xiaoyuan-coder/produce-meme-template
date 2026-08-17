@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import ipaddress
+import io
 import json
 import os
 import re
@@ -13,9 +13,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
-from urllib.parse import urlsplit
 
 from jsonschema import Draft202012Validator, FormatChecker
+from PIL import Image, UnidentifiedImageError
+
+from .validation import is_valid_https_url
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -45,7 +47,19 @@ class WorkflowAdapters(Protocol):
     def analyze_source(
         self, source_image: Path, replacement_strategy: dict[str, Any] | None
     ) -> dict[str, Any]: ...
-    def generate(self, source_image: Path, generation_package: dict[str, Any]) -> dict[str, Any]: ...
+    def submit_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+    ) -> dict[str, Any]: ...
+    def poll_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+        submission: dict[str, Any],
+    ) -> dict[str, Any]: ...
     def inspect_generated(
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]: ...
@@ -193,6 +207,16 @@ def _write_mutable_json(path: Path, value: Any) -> None:
     os.replace(temporary, path)
 
 
+def _write_generation_wal(
+    path: Path, wal: dict[str, Any], rules: dict[str, Any]
+) -> None:
+    previous_field = rules["generationExecutionContract"]["walFields"][
+        "previousWalSha256"
+    ]
+    wal[previous_field] = _sha_file(path) if path.is_file() else None
+    _write_mutable_json(path, wal)
+
+
 def _deep_strings(value: Any) -> list[str]:
     if isinstance(value, str):
         return [value]
@@ -233,47 +257,6 @@ def _deep_keys(value: Any) -> set[str]:
     return set()
 
 
-def _is_valid_https_url(value: Any) -> bool:
-    if not isinstance(value, str) or any(
-        character.isspace() or unicodedata.category(character).startswith("C")
-        for character in value
-    ):
-        return False
-    try:
-        parsed = urlsplit(value)
-        hostname = parsed.hostname
-        port = parsed.port
-    except ValueError:
-        return False
-    host_valid = False
-    if hostname:
-        try:
-            ipaddress.ip_address(hostname)
-            host_valid = True
-        except ValueError:
-            try:
-                ascii_hostname = hostname.encode("idna").decode("ascii").removesuffix(".")
-            except UnicodeError:
-                ascii_hostname = ""
-            host_valid = bool(
-                ascii_hostname
-                and len(ascii_hostname) <= 253
-                and all(
-                    len(label) <= 63
-                    and re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", label)
-                    for label in ascii_hostname.split(".")
-                )
-            )
-    return bool(
-        parsed.scheme == "https"
-        and host_valid
-        and parsed.netloc
-        and port != 0
-        and parsed.username is None
-        and parsed.password is None
-    )
-
-
 def _forbidden_formal_values(record: dict[str, Any], rules: dict[str, Any]) -> list[str]:
     contract = rules["formalProjection"]
     patterns = contract["forbiddenValuePatterns"].values()
@@ -285,7 +268,7 @@ def _forbidden_formal_values(record: dict[str, Any], rules: dict[str, Any]) -> l
         if not (
             len(path) == 1
             and path[0] in asset_fields
-            and _is_valid_https_url(value)
+            and is_valid_https_url(value)
         )
         and any(re.search(pattern, value) for pattern in patterns)
     )
@@ -299,6 +282,7 @@ def _production_item_integrity_errors(
     template_key: str,
     source_sha256: str,
     replacement_strategy_sha256: str,
+    generation_options_sha256: str,
     required_artifacts: tuple[str, ...] = (),
 ) -> list[str]:
     errors: list[str] = []
@@ -307,6 +291,7 @@ def _production_item_integrity_errors(
         "templateKey": template_key,
         "sourceImageSha256": source_sha256,
         "replacementStrategySha256": replacement_strategy_sha256,
+        "generationOptionsSha256": generation_options_sha256,
     }
     for field, expected in expected_identity.items():
         if manifest.get(field) != expected:
@@ -359,7 +344,7 @@ def _revision_integrity_errors(manifest: dict[str, Any]) -> list[str]:
     artifact_revisions: list[int] = []
     revisioned_name_pattern = re.compile(r"-r([1-9][0-9]*)$")
     revision_one_names = re.compile(
-        r"^(?:generation-package|visual-review|evidence/(?:generated-candidate-image|approved-template-image))\.[a-z0-9]+$"
+        r"^(?:generation-package|generation-task|generation-wal|visual-review|evidence/(?:generated-candidate-image|approved-template-image))\.[a-z0-9]+$"
     )
     for name, artifact in artifacts.items():
         artifact_revision = artifact.get("revision") if isinstance(artifact, dict) else None
@@ -438,6 +423,8 @@ def _current_p2_artifact_errors(manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     for name in (
         _revisioned_name("generation-package.json", revision),
+        _revisioned_name("generation-task.json", revision),
+        _revisioned_name("generation-wal.json", revision),
         _revisioned_name("visual-review.json", revision),
     ):
         if name not in artifacts:
@@ -555,7 +542,11 @@ def _adapter_call(rules: dict[str, Any], operation: str, function: Callable[...,
             "failed",
             "externalFailure",
             f"外部适配器执行失败：{operation}",
-            {"operation": operation, "exceptionType": type(exc).__name__, "detail": str(exc)},
+            {
+                "operation": operation,
+                "exceptionType": type(exc).__name__,
+                "detailSha256": _sha_bytes(str(exc).encode("utf-8")),
+            },
         ) from exc
 
 
@@ -684,6 +675,61 @@ def _replacement_strategy_errors(request: dict[str, Any], rules: dict[str, Any])
         if field in strategy and (not isinstance(strategy[field], str) or not strategy[field].strip()):
             errors.append(f"replacementStrategy.{field} must be a non-empty string")
     return errors
+
+
+def _generation_options_errors(request: dict[str, Any], rules: dict[str, Any]) -> list[str]:
+    contract = rules["generationExecutionContract"]
+    options_field = contract["requestOptionsField"]
+    if options_field not in request:
+        return []
+    options = request[options_field]
+    fields = contract["requestOptionFields"]
+    if not isinstance(options, dict):
+        return [f"{options_field} must be an object"]
+    errors = [
+        f"{options_field}.{field} is not allowed"
+        for field in sorted(set(options) - set(fields.values()))
+    ]
+    image_count = options.get(fields["imageCount"], contract["defaultImageCount"])
+    primary_index = options.get(
+        fields["primaryOutputIndex"], contract["defaultPrimaryOutputIndex"]
+    )
+    if (
+        not isinstance(image_count, int)
+        or isinstance(image_count, bool)
+        or not 1 <= image_count <= contract["maximumImageCount"]
+    ):
+        errors.append(
+            f"{options_field}.{fields['imageCount']} must be an integer between 1 and "
+            f"{contract['maximumImageCount']}"
+        )
+    if (
+        not isinstance(primary_index, int)
+        or isinstance(primary_index, bool)
+        or not isinstance(image_count, int)
+        or isinstance(image_count, bool)
+        or not 0 <= primary_index < image_count
+    ):
+        errors.append(
+            f"{options_field}.{fields['primaryOutputIndex']} must select a requested output"
+        )
+    return errors
+
+
+def _normalized_generation_options(
+    request: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, int]:
+    contract = rules["generationExecutionContract"]
+    fields = contract["requestOptionFields"]
+    options = request.get(contract["requestOptionsField"], {})
+    return {
+        fields["imageCount"]: options.get(
+            fields["imageCount"], contract["defaultImageCount"]
+        ),
+        fields["primaryOutputIndex"]: options.get(
+            fields["primaryOutputIndex"], contract["defaultPrimaryOutputIndex"]
+        ),
+    }
 
 
 def _normalize_replacement_strategy(request: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any] | None:
@@ -2126,6 +2172,707 @@ def _compile_redo_generation_package(
         _canonical_bytes({"previousRequestId": previous_package["requestId"], "correction": correction})
     )[:24]
     return package
+
+
+def _compile_generation_task(
+    generation_package: dict[str, Any],
+    source_sha256: str,
+    production_pin_sha256: str,
+    revision: int,
+    generation_options: dict[str, int],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    contract = rules["generationExecutionContract"]
+    task_fields = contract["taskFields"]
+    intent_fields = contract["requestIntentFields"]
+    option_fields = contract["requestOptionFields"]
+    generation_package_sha = _sha_bytes(_json_bytes(generation_package))
+    request_intent = {
+        intent_fields["generationRequestIdentity"]: generation_package["requestId"],
+        intent_fields["prompt"]: "\n".join(generation_package["sections"].values()),
+        intent_fields["imageCount"]: generation_options[option_fields["imageCount"]],
+        intent_fields["primaryOutputIndex"]: generation_options[
+            option_fields["primaryOutputIndex"]
+        ],
+        intent_fields["imageSize"]: generation_package["output"]["size"],
+        intent_fields["outputFormat"]: contract["outputFormats"]["png"],
+    }
+    request_intent_sha = _sha_bytes(_canonical_bytes(request_intent))
+    input_sha = _sha_bytes(
+        _canonical_bytes(
+            {
+                task_fields["sourceImageSha256"]: source_sha256,
+                task_fields["generationPackageSha256"]: generation_package_sha,
+                task_fields["productionPinSha256"]: production_pin_sha256,
+                task_fields["requestIntentSha256"]: request_intent_sha,
+            }
+        )
+    )
+    identity_payload = {
+        task_fields["revision"]: revision,
+        task_fields["inputSha256"]: input_sha,
+        task_fields["requestIntentSha256"]: request_intent_sha,
+    }
+    task_id = (
+        contract["artifactTypes"]["task"]
+        + "-"
+        + _sha_bytes(_canonical_bytes(identity_payload))[:24]
+    )
+    return {
+        task_fields["artifactType"]: contract["artifactTypes"]["task"],
+        task_fields["schemaVersion"]: rules["schemaVersion"],
+        task_fields["taskIdentity"]: task_id,
+        task_fields["revision"]: revision,
+        task_fields["sourceImageSha256"]: source_sha256,
+        task_fields["generationPackageSha256"]: generation_package_sha,
+        task_fields["productionPinSha256"]: production_pin_sha256,
+        task_fields["inputSha256"]: input_sha,
+        task_fields["requestIntent"]: request_intent,
+        task_fields["requestIntentSha256"]: request_intent_sha,
+    }
+
+
+def _prepared_generation_wal(
+    generation_task: dict[str, Any], timestamp: str, rules: dict[str, Any]
+) -> dict[str, Any]:
+    contract = rules["generationExecutionContract"]
+    task_fields = contract["taskFields"]
+    wal_fields = contract["walFields"]
+    return {
+        wal_fields["artifactType"]: contract["artifactTypes"]["wal"],
+        wal_fields["schemaVersion"]: rules["schemaVersion"],
+        wal_fields["taskIdentity"]: generation_task[task_fields["taskIdentity"]],
+        wal_fields["taskSha256"]: _sha_bytes(_json_bytes(generation_task)),
+        wal_fields["previousWalSha256"]: None,
+        wal_fields["revision"]: generation_task[task_fields["revision"]],
+        wal_fields["status"]: contract["walStatuses"]["prepared"],
+        wal_fields["provider"]: None,
+        wal_fields["model"]: None,
+        wal_fields["providerRequestIdentity"]: None,
+        wal_fields["providerOutputIdentity"]: None,
+        wal_fields["outputSha256"]: None,
+        wal_fields["outputAssets"]: [],
+        wal_fields["pollAttemptCount"]: 0,
+        wal_fields["failureClass"]: None,
+        wal_fields["failureReason"]: None,
+        wal_fields["updatedAt"]: timestamp,
+    }
+
+
+def _generation_failure_stop(
+    failure_class: str,
+    failure_reason: str,
+    rules: dict[str, Any],
+    evidence: dict[str, Any],
+) -> WorkflowStop:
+    contract = rules["generationExecutionContract"]
+    failure_reason = _sanitize_generation_failure_reason(failure_reason, rules)
+    failure_role = next(
+        (
+            role
+            for role, value in contract["failureClasses"].items()
+            if value == failure_class
+        ),
+        "permanent",
+    )
+    route = contract["failureRoutes"][failure_role]
+    recovery_phase_index = route["recoveryPhaseIndex"]
+    routed_evidence = {
+        **evidence,
+        "failureClass": failure_class,
+        "failureReason": failure_reason,
+        "recoverablePhase": (
+            rules["productionPhases"][recovery_phase_index]["phase"]
+            if recovery_phase_index is not None
+            else None
+        ),
+    }
+    return _stop(
+        rules,
+        route["outcomeRole"],
+        route["errorCodeRole"],
+        "生成任务未完成，已按 failure class 路由到稳定恢复阶段。",
+        routed_evidence,
+    )
+
+
+def _sanitize_generation_failure_reason(value: Any, rules: dict[str, Any]) -> str:
+    contract = rules["generationExecutionContract"]["persistedErrorSanitization"]
+    detail = value if isinstance(value, str) else type(value).__name__
+    return contract["digestPrefix"] + _sha_bytes(detail.encode("utf-8"))[
+        : contract["digestLength"]
+    ]
+
+
+def _generation_submission_shape_valid(
+    submission: dict[str, Any], rules: dict[str, Any]
+) -> bool:
+    contract = rules["generationExecutionContract"]
+    fields = contract["submissionFields"]
+    if set(submission) != set(fields.values()):
+        return False
+    status = submission.get(fields["status"])
+    if status == contract["submissionStatuses"]["submitted"]:
+        return bool(
+            _execution_identity_valid(
+                submission.get(fields["provider"]),
+                contract["providerIdentityPattern"],
+            )
+            and _execution_identity_valid(
+                submission.get(fields["model"]), contract["modelIdentityPattern"]
+            )
+            and _execution_identity_valid(
+                submission.get(fields["providerRequestIdentity"]),
+                contract["opaqueExecutionIdentityPattern"],
+            )
+            and submission.get(fields["failureClass"]) is None
+            and submission.get(fields["failureReason"]) is None
+        )
+    if status == contract["submissionStatuses"]["failed"]:
+        return bool(
+            _execution_identity_valid(
+                submission.get(fields["provider"]),
+                contract["providerIdentityPattern"],
+            )
+            and _execution_identity_valid(
+                submission.get(fields["model"]), contract["modelIdentityPattern"]
+            )
+            and submission.get(fields["providerRequestIdentity"]) is None
+            and submission.get(fields["failureClass"])
+            in contract["failureClasses"].values()
+            and isinstance(submission.get(fields["failureReason"]), str)
+            and submission[fields["failureReason"]].strip()
+        )
+    return False
+
+
+def _execution_identity_valid(value: Any, pattern: str) -> bool:
+    return isinstance(value, str) and re.fullmatch(pattern, value) is not None
+
+
+def _generation_output_assets_valid(
+    output_assets: Any,
+    expected_count: int,
+    asset_fields: dict[str, str],
+    output_identity_pattern: str,
+) -> bool:
+    if not isinstance(output_assets, list) or len(output_assets) != expected_count:
+        return False
+    output_identities: list[str] = []
+    for asset in output_assets:
+        if not (
+            isinstance(asset, dict)
+            and set(asset) == set(asset_fields.values())
+            and _execution_identity_valid(
+                asset.get(asset_fields["providerOutputIdentity"]),
+                output_identity_pattern,
+            )
+            and isinstance(asset.get(asset_fields["sha256"]), str)
+            and re.fullmatch(r"[0-9a-f]{64}", asset[asset_fields["sha256"]])
+        ):
+            return False
+        output_identities.append(asset[asset_fields["providerOutputIdentity"]])
+    return len(output_identities) == len(set(output_identities))
+
+
+def _image_bytes_match_output_format(
+    payload: Any, output_format: str, contract: dict[str, Any]
+) -> bool:
+    if not isinstance(payload, bytes) or not payload:
+        return False
+    format_role = next(
+        (role for role, value in contract["outputFormats"].items() if value == output_format),
+        None,
+    )
+    if format_role is None or not payload.startswith(
+        bytes.fromhex(contract["outputFormatSignatures"][format_role])
+    ):
+        return False
+    try:
+        with Image.open(io.BytesIO(payload)) as image:
+            if (
+                image.format != contract["outputFormatDecoderNames"][format_role]
+                or getattr(image, "n_frames", 1) != 1
+            ):
+                return False
+            width, height = image.size
+            image.verify()
+        with Image.open(io.BytesIO(payload)) as decoded:
+            decoded.load()
+        return bool(
+            1 <= width <= contract["maximumDecodedImageDimension"]
+            and 1 <= height <= contract["maximumDecodedImageDimension"]
+            and width * height <= contract["maximumDecodedImagePixels"]
+        )
+    except (OSError, SyntaxError, UnidentifiedImageError, ValueError):
+        return False
+
+
+def _generation_poll_shape_valid(
+    poll_result: dict[str, Any], generation_task: dict[str, Any], rules: dict[str, Any]
+) -> bool:
+    contract = rules["generationExecutionContract"]
+    fields = contract["pollResultFields"]
+    if set(poll_result) != set(fields.values()):
+        return False
+    status = poll_result.get(fields["status"])
+    if status == contract["pollStatuses"]["failed"]:
+        return bool(
+            poll_result.get(fields["failureClass"])
+            in contract["failureClasses"].values()
+            and isinstance(poll_result.get(fields["failureReason"]), str)
+            and poll_result[fields["failureReason"]].strip()
+            and poll_result.get(fields["extension"]) is None
+            and poll_result.get(fields["imageBytes"]) is None
+            and poll_result.get(fields["providerOutputIdentity"]) is None
+            and poll_result.get(fields["outputAssets"]) == []
+        )
+    if status != contract["pollStatuses"]["succeeded"]:
+        return False
+    task_fields = contract["taskFields"]
+    intent_fields = contract["requestIntentFields"]
+    asset_fields = contract["outputAssetFields"]
+    output_assets = poll_result.get(fields["outputAssets"])
+    image_bytes = poll_result.get(fields["imageBytes"])
+    image_count = generation_task[task_fields["requestIntent"]][
+        intent_fields["imageCount"]
+    ]
+    primary_index = generation_task[task_fields["requestIntent"]][
+        intent_fields["primaryOutputIndex"]
+    ]
+    output_format = generation_task[task_fields["requestIntent"]][
+        intent_fields["outputFormat"]
+    ]
+    return bool(
+        poll_result.get(fields["failureClass"]) is None
+        and poll_result.get(fields["failureReason"]) is None
+        and isinstance(poll_result.get(fields["extension"]), str)
+        and poll_result[fields["extension"]]
+        == contract["outputFormatExtensions"][
+            next(
+                role
+                for role, value in contract["outputFormats"].items()
+                if value
+                == generation_task[task_fields["requestIntent"]][
+                    intent_fields["outputFormat"]
+                ]
+            )
+        ]
+        and isinstance(image_bytes, bytes)
+        and image_bytes
+        and _image_bytes_match_output_format(image_bytes, output_format, contract)
+        and _execution_identity_valid(
+            poll_result.get(fields["providerOutputIdentity"]),
+            contract["opaqueExecutionIdentityPattern"],
+        )
+        and _generation_output_assets_valid(
+            output_assets,
+            image_count,
+            asset_fields,
+            contract["opaqueExecutionIdentityPattern"],
+        )
+        and output_assets[primary_index][asset_fields["providerOutputIdentity"]]
+        == poll_result[fields["providerOutputIdentity"]]
+        and output_assets[primary_index][asset_fields["sha256"]]
+        == _sha_bytes(image_bytes)
+    )
+
+
+def _generation_task_wal_errors(
+    generation_task: Any,
+    wal: Any,
+    generation_package: dict[str, Any],
+    source_sha256: str,
+    production_pin_sha256: str,
+    revision: int,
+    generation_options: dict[str, int],
+    rules: dict[str, Any],
+) -> list[str]:
+    contract = rules["generationExecutionContract"]
+    task_fields = contract["taskFields"]
+    wal_fields = contract["walFields"]
+    errors: list[str] = []
+    if not isinstance(generation_task, dict) or set(generation_task) != set(
+        task_fields.values()
+    ):
+        return ["generation task shape invalid"]
+    expected_task = _compile_generation_task(
+        generation_package,
+        source_sha256,
+        production_pin_sha256,
+        revision,
+        generation_options,
+        rules,
+    )
+    if generation_task != expected_task:
+        return ["generation task identity mismatch"]
+    if not isinstance(wal, dict) or set(wal) != set(wal_fields.values()):
+        errors.append("generation WAL shape invalid")
+        return errors
+    if wal.get(wal_fields["taskIdentity"]) != generation_task[task_fields["taskIdentity"]]:
+        errors.append("generation WAL task identity mismatch")
+    if wal.get(wal_fields["taskSha256"]) != _sha_bytes(_json_bytes(generation_task)):
+        errors.append("generation WAL task digest mismatch")
+    if wal.get(wal_fields["revision"]) != revision:
+        errors.append("generation WAL revision mismatch")
+    if wal.get(wal_fields["status"]) not in contract["walStatuses"].values():
+        errors.append("generation WAL status invalid")
+    poll_attempt_count = wal.get(wal_fields["pollAttemptCount"])
+    if (
+        not isinstance(poll_attempt_count, int)
+        or isinstance(poll_attempt_count, bool)
+        or poll_attempt_count < 0
+    ):
+        errors.append("generation WAL poll attempt count invalid")
+    if not isinstance(wal.get(wal_fields["updatedAt"]), str) or not wal[
+        wal_fields["updatedAt"]
+    ].strip():
+        errors.append("generation WAL timestamp invalid")
+    status = wal.get(wal_fields["status"])
+    previous_wal_sha = wal.get(wal_fields["previousWalSha256"])
+    provider_values = [
+        wal.get(wal_fields[role])
+        for role in ("provider", "model", "providerRequestIdentity")
+    ]
+    output_assets = wal.get(wal_fields["outputAssets"])
+    retry_budget = contract["retryBudgets"]["retryable"]
+    if status == contract["walStatuses"]["prepared"]:
+        if previous_wal_sha is not None:
+            errors.append("prepared generation WAL has previous digest")
+        if any(value is not None for value in provider_values):
+            errors.append("prepared generation WAL has provider credentials")
+        if (
+            wal.get(wal_fields["providerOutputIdentity"]) is not None
+            or wal.get(wal_fields["outputSha256"]) is not None
+            or output_assets != []
+            or wal.get(wal_fields["failureClass"]) is not None
+            or wal.get(wal_fields["failureReason"]) is not None
+        ):
+            errors.append("prepared generation WAL has terminal evidence")
+        if poll_attempt_count != 0:
+            errors.append("prepared generation WAL poll count invalid")
+    elif status in {
+        contract["walStatuses"]["submitted"],
+        contract["walStatuses"]["succeeded"],
+    }:
+        if not isinstance(previous_wal_sha, str) or re.fullmatch(
+            r"[0-9a-f]{64}", previous_wal_sha
+        ) is None:
+            errors.append("generation WAL previous digest invalid")
+        if not (
+            _execution_identity_valid(
+                provider_values[0], contract["providerIdentityPattern"]
+            )
+            and _execution_identity_valid(
+                provider_values[1], contract["modelIdentityPattern"]
+            )
+            and _execution_identity_valid(
+                provider_values[2], contract["opaqueExecutionIdentityPattern"]
+            )
+        ):
+            errors.append("submitted generation WAL provider credentials invalid")
+        if (
+            wal.get(wal_fields["failureClass"]) is not None
+            or wal.get(wal_fields["failureReason"]) is not None
+        ):
+            errors.append("active generation WAL has failure evidence")
+        if status == contract["walStatuses"]["submitted"] and not (
+            isinstance(poll_attempt_count, int) and 0 <= poll_attempt_count <= retry_budget
+        ):
+            errors.append("submitted generation WAL poll count invalid")
+        if status == contract["walStatuses"]["succeeded"] and not (
+            isinstance(poll_attempt_count, int) and 1 <= poll_attempt_count <= retry_budget
+        ):
+            errors.append("succeeded generation WAL poll count invalid")
+    elif status == contract["walStatuses"]["failed"]:
+        if not isinstance(previous_wal_sha, str) or re.fullmatch(
+            r"[0-9a-f]{64}", previous_wal_sha
+        ) is None:
+            errors.append("generation WAL previous digest invalid")
+        failure_class = wal.get(wal_fields["failureClass"])
+        provider, model, provider_request_id = provider_values
+        provider_model_valid = bool(
+            (provider is None and model is None)
+            or (
+                _execution_identity_valid(provider, contract["providerIdentityPattern"])
+                and _execution_identity_valid(model, contract["modelIdentityPattern"])
+            )
+        )
+        if failure_class not in contract["failureClasses"].values():
+            errors.append("failed generation WAL failure class invalid")
+        if not isinstance(wal.get(wal_fields["failureReason"]), str) or not wal[
+            wal_fields["failureReason"]
+        ].strip():
+            errors.append("failed generation WAL reason invalid")
+        if not provider_model_valid or (
+            provider_request_id is not None
+            and (
+                not _execution_identity_valid(
+                    provider_request_id, contract["opaqueExecutionIdentityPattern"]
+                )
+                or provider is None
+                or model is None
+            )
+        ):
+            errors.append("failed generation WAL provider evidence invalid")
+        if (
+            failure_class == contract["failureClasses"]["retryable"]
+            and not (
+                provider_model_valid
+                and _execution_identity_valid(
+                    provider_request_id, contract["opaqueExecutionIdentityPattern"]
+                )
+            )
+        ):
+            errors.append("retryable generation WAL request identity missing")
+        if (
+            failure_class == contract["failureClasses"]["submissionUnknown"]
+            and provider_request_id is not None
+        ):
+            errors.append("unknown submission WAL cannot claim a request identity")
+        if failure_class == contract["failureClasses"]["submissionUnknown"]:
+            if poll_attempt_count != 0:
+                errors.append("unknown submission WAL poll count invalid")
+        elif failure_class == contract["failureClasses"]["retryable"]:
+            if not (
+                isinstance(poll_attempt_count, int)
+                and 1 <= poll_attempt_count < retry_budget
+            ):
+                errors.append("retryable generation WAL poll count invalid")
+        elif not (
+            isinstance(poll_attempt_count, int) and 0 <= poll_attempt_count <= retry_budget
+        ):
+            errors.append("failed generation WAL poll count invalid")
+    if status != contract["walStatuses"]["succeeded"]:
+        if (
+            wal.get(wal_fields["providerOutputIdentity"]) is not None
+            or wal.get(wal_fields["outputSha256"]) is not None
+            or output_assets != []
+        ):
+            errors.append("unfinished generation WAL has output evidence")
+    else:
+        intent_fields = contract["requestIntentFields"]
+        asset_fields = contract["outputAssetFields"]
+        intent = generation_task[task_fields["requestIntent"]]
+        if (
+            not _generation_output_assets_valid(
+                output_assets,
+                intent[intent_fields["imageCount"]],
+                asset_fields,
+                contract["opaqueExecutionIdentityPattern"],
+            )
+        ):
+            errors.append("succeeded generation WAL output assets invalid")
+        if not _execution_identity_valid(
+            wal.get(wal_fields["providerOutputIdentity"]),
+            contract["opaqueExecutionIdentityPattern"],
+        ):
+            errors.append("succeeded generation WAL output identity invalid")
+        if not isinstance(wal.get(wal_fields["outputSha256"]), str) or re.fullmatch(
+            r"[0-9a-f]{64}", wal[wal_fields["outputSha256"]]
+        ) is None:
+            errors.append("succeeded generation WAL output digest invalid")
+        if isinstance(output_assets, list) and len(output_assets) == intent[
+            intent_fields["imageCount"]
+        ]:
+            primary_asset = output_assets[intent[intent_fields["primaryOutputIndex"]]]
+            if isinstance(primary_asset, dict) and (
+                primary_asset.get(asset_fields["providerOutputIdentity"])
+                != wal.get(wal_fields["providerOutputIdentity"])
+                or primary_asset.get(asset_fields["sha256"])
+                != wal.get(wal_fields["outputSha256"])
+            ):
+                errors.append("generation WAL primary output mismatch")
+    return errors
+
+
+def _load_generation_execution_evidence(
+    output_dir: Path,
+    package_name: str,
+    task_name: str,
+    wal_name: str,
+    source_sha256: str,
+    revision: int,
+    generation_options: dict[str, int],
+    rules: dict[str, Any],
+) -> tuple[list[str], Any, Any, Any]:
+    try:
+        generation_package = _load_json(output_dir / package_name)
+        generation_task = _load_json(output_dir / task_name)
+        generation_wal = _load_json(output_dir / wal_name)
+        errors = _generation_task_wal_errors(
+            generation_task,
+            generation_wal,
+            generation_package,
+            source_sha256,
+            _sha_file(output_dir / "production-pin.json"),
+            revision,
+            generation_options,
+            rules,
+        )
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+        return ["generation execution evidence unreadable"], None, None, None
+    return errors, generation_package, generation_task, generation_wal
+
+
+def _adopt_pre_submit_generation_staging(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    source_sha256: str,
+    generation_options: dict[str, int],
+    rules: dict[str, Any],
+    timestamp: str,
+    phase: str,
+) -> tuple[list[str], Any, Any, Any]:
+    """Validate and register an interrupted, provider-side-effect-free P2 staging set."""
+    revision = manifest.get("revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        return ["generation staging revision invalid"], None, None, None
+    package_name = _revisioned_name("generation-package.json", revision)
+    task_name = _revisioned_name("generation-task.json", revision)
+    wal_name = _revisioned_name("generation-wal.json", revision)
+    package_path = output_dir / package_name
+    task_path = output_dir / task_name
+    wal_path = output_dir / wal_name
+    try:
+        source_analysis = _load_json(output_dir / "source-analysis.json")
+        plan = _load_json(output_dir / "replacement-plan.json")
+        expected_package = _compile_generation_package(plan, source_analysis, rules)
+        contract = rules["generationExecutionContract"]
+        expected_package["output"]["imageCount"] = generation_options[
+            contract["requestOptionFields"]["imageCount"]
+        ]
+        if package_path.is_file():
+            generation_package = _load_json(package_path)
+            if generation_package != expected_package:
+                return ["untracked generation package mismatch"], None, None, None
+        else:
+            generation_package = expected_package
+            _atomic_write_new(package_path, _json_bytes(generation_package))
+        expected_task = _compile_generation_task(
+            generation_package,
+            source_sha256,
+            _sha_file(output_dir / "production-pin.json"),
+            revision,
+            generation_options,
+            rules,
+        )
+        if task_path.is_file():
+            generation_task = _load_json(task_path)
+            if generation_task != expected_task:
+                return ["untracked generation task mismatch"], None, None, None
+        else:
+            generation_task = expected_task
+            _atomic_write_new(task_path, _json_bytes(generation_task))
+        if wal_path.is_file():
+            generation_wal = _load_json(wal_path)
+        else:
+            generation_wal = _prepared_generation_wal(
+                generation_task, timestamp, rules
+            )
+            _write_generation_wal(wal_path, generation_wal, rules)
+        errors = _generation_task_wal_errors(
+            generation_task,
+            generation_wal,
+            generation_package,
+            source_sha256,
+            _sha_file(output_dir / "production-pin.json"),
+            revision,
+            generation_options,
+            rules,
+        )
+        wal_fields = contract["walFields"]
+        if generation_wal.get(wal_fields["status"]) != contract["walStatuses"][
+            "prepared"
+        ]:
+            errors.append("untracked generation WAL is not prepared")
+        if errors:
+            return errors, generation_package, generation_task, generation_wal
+        _record_artifact(
+            manifest, output_dir, package_name, phase, ["replacement-plan.json"]
+        )
+        _record_artifact(
+            manifest,
+            output_dir,
+            task_name,
+            phase,
+            [package_name, "production-pin.json"],
+        )
+        _record_artifact(manifest, output_dir, wal_name, phase, [task_name])
+        _persist_manifest(output_dir, manifest)
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+        return ["generation staging evidence unreadable"], None, None, None
+    return [], generation_package, generation_task, generation_wal
+
+
+def _current_generation_execution_errors(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    source_sha256: str,
+    generation_options: dict[str, int],
+    rules: dict[str, Any],
+) -> list[str]:
+    revision = manifest.get("revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        return ["generation execution revision invalid"]
+    package_name = _revisioned_name("generation-package.json", revision)
+    task_name = _revisioned_name("generation-task.json", revision)
+    wal_name = _revisioned_name("generation-wal.json", revision)
+    candidate_names = _revision_image_artifacts(
+        manifest, "generated-candidate-image", revision
+    )
+    if len(candidate_names) != 1:
+        return ["current generated candidate count must be one"]
+    required_paths = {
+        package_name: output_dir / package_name,
+        task_name: output_dir / task_name,
+        wal_name: output_dir / wal_name,
+        "production-pin.json": output_dir / "production-pin.json",
+        candidate_names[0]: output_dir / candidate_names[0],
+    }
+    missing = [name for name, path in required_paths.items() if not path.is_file()]
+    if missing:
+        return [f"generation execution artifact missing: {name}" for name in missing]
+    errors, generation_package, generation_task, generation_wal = (
+        _load_generation_execution_evidence(
+            output_dir,
+            package_name,
+            task_name,
+            wal_name,
+            source_sha256,
+            revision,
+            generation_options,
+            rules,
+        )
+    )
+    if errors:
+        return errors
+    contract = rules["generationExecutionContract"]
+    wal_fields = contract["walFields"]
+    if generation_wal[wal_fields["status"]] != contract["walStatuses"]["succeeded"]:
+        errors.append("current generation WAL is not succeeded")
+    candidate_sha = _sha_file(required_paths[candidate_names[0]])
+    if generation_wal[wal_fields["outputSha256"]] != candidate_sha:
+        errors.append("generation WAL candidate digest mismatch")
+    task_fields = contract["taskFields"]
+    intent_fields = contract["requestIntentFields"]
+    output_format = generation_task[task_fields["requestIntent"]][
+        intent_fields["outputFormat"]
+    ]
+    output_format_role = next(
+        role
+        for role, value in contract["outputFormats"].items()
+        if value == output_format
+    )
+    candidate_path = required_paths[candidate_names[0]]
+    if (
+        candidate_path.suffix != contract["outputFormatExtensions"][output_format_role]
+        or not _image_bytes_match_output_format(
+            candidate_path.read_bytes(), output_format, contract
+        )
+    ):
+        errors.append("generation candidate format mismatch")
+    return errors
 
 
 def _evaluate_visual_gate(
@@ -4332,7 +5079,7 @@ def _formal_projection(draft: dict[str, Any], url: str, rules: dict[str, Any]) -
             review_field not in metadata
             or (isinstance(needs_review, str) and needs_review.strip())
         )
-        and _is_valid_https_url(url)
+        and is_valid_https_url(url)
     )
     if not source_valid:
         raise _stop(
@@ -4405,8 +5152,8 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
     reference_image = record.get(reference_field)
     cover_matches_reference = cover == reference_image
     asset_urls_valid = bool(
-        _is_valid_https_url(cover)
-        and _is_valid_https_url(reference_image)
+        is_valid_https_url(cover)
+        and is_valid_https_url(reference_image)
     )
     passed = bool(
         not errors
@@ -4468,7 +5215,7 @@ def _finalize_uploaded_item(
         and receipt.get("schemaVersion") == rules["schemaVersion"]
         and receipt.get("imageSha256") == _sha_file(approved_path)
         and receipt.get("objectKey") == expected_object_key
-        and _is_valid_https_url(receipt.get("url"))
+        and is_valid_https_url(receipt.get("url"))
     )
     if not receipt_valid:
         raise _stop(
@@ -4542,9 +5289,12 @@ def run_production(
         invalid_identifiers.append("templateKey")
     if production_item_id is not None and re.fullmatch(item_pattern, str(production_item_id)) is None:
         invalid_identifiers.append("productionItemId")
-    strategy_errors = _replacement_strategy_errors(request, rules)
-    if invalid_identifiers or strategy_errors:
-        details = [*(f"非法标识符：{field}" for field in invalid_identifiers), *strategy_errors]
+    request_errors = [
+        *_replacement_strategy_errors(request, rules),
+        *_generation_options_errors(request, rules),
+    ]
+    if invalid_identifiers or request_errors:
+        details = [*(f"非法标识符：{field}" for field in invalid_identifiers), *request_errors]
         return ProductionResult(
             "needs_input",
             str(production_item_id or "invalid-production-item"),
@@ -4554,11 +5304,13 @@ def run_production(
             message="生产请求预检失败：" + "；".join(details),
         )
     replacement_strategy = _normalize_replacement_strategy(request, rules)
+    generation_options = _normalized_generation_options(request, rules)
     source_image = Path(request["sourceImage"]).resolve()
     if not source_image.is_file():
         raise FileNotFoundError(source_image)
     source_sha = _sha_file(source_image)
     replacement_strategy_sha = _sha_bytes(_canonical_bytes(replacement_strategy))
+    generation_options_sha = _sha_bytes(_canonical_bytes(generation_options))
     item_id = str(production_item_id or f"{template_key}-{source_sha[:12]}")
     output_dir = (output_root_path / item_id).resolve()
     if not output_dir.is_relative_to(output_root_path) or output_dir.parent != output_root_path:
@@ -4572,10 +5324,16 @@ def run_production(
         )
     manifest_path = output_dir / "production-manifest.json"
     resume_visual = False
+    resume_generation = False
+    resume_prepared_generation = False
+    reuse_succeeded_generation = False
     resumed = False
     source_analysis: dict[str, Any]
     plan: dict[str, Any]
     generation_package: dict[str, Any]
+    generation_task: dict[str, Any]
+    generation_wal: dict[str, Any]
+    generation_submission: dict[str, Any]
     if manifest_path.exists():
         existing = _load_json(manifest_path)
         completed_artifacts = ("production-pin.json", "gallery-template.json", "final-validation-report.json")
@@ -4586,10 +5344,33 @@ def run_production(
             template_key=template_key,
             source_sha256=source_sha,
             replacement_strategy_sha256=replacement_strategy_sha,
+            generation_options_sha256=generation_options_sha,
             required_artifacts=completed_artifacts if existing.get("state") == rules["resultStates"]["completed"] else (),
         )
         if existing.get("state") == rules["resultStates"]["completed"]:
             identity_errors.extend(_current_p2_artifact_errors(existing))
+            identity_errors.extend(
+                _current_generation_execution_errors(
+                    output_dir,
+                    existing,
+                    source_sha,
+                    generation_options,
+                    rules,
+                )
+            )
+        existing_revision_for_wal = existing.get("revision")
+        if (
+            existing.get("state") != rules["resultStates"]["completed"]
+            and isinstance(existing_revision_for_wal, int)
+            and not isinstance(existing_revision_for_wal, bool)
+            and existing.get("phase") != rules["productionPhases"][7]["phase"]
+        ):
+            current_wal_name = _revisioned_name(
+                "generation-wal.json", existing_revision_for_wal
+            )
+            deferred_wal_digest_error = f"{current_wal_name} digest mismatch"
+            if deferred_wal_digest_error in identity_errors:
+                identity_errors.remove(deferred_wal_digest_error)
         if existing.get("state") == rules["resultStates"]["completed"]:
             revision = existing.get("revision")
             generation_fact_names = [
@@ -4705,6 +5486,7 @@ def run_production(
                 template_key=template_key,
                 source_sha256=source_sha,
                 replacement_strategy_sha256=replacement_strategy_sha,
+                generation_options_sha256=generation_options_sha,
                 required_artifacts=(
                     "production-pin.json",
                     "gallery-template.draft.json",
@@ -4713,6 +5495,15 @@ def run_production(
                 ),
             )
             recovery_errors.extend(_current_p2_artifact_errors(existing))
+            recovery_errors.extend(
+                _current_generation_execution_errors(
+                    output_dir,
+                    existing,
+                    source_sha,
+                    generation_options,
+                    rules,
+                )
+            )
             if recovery_errors:
                 return ProductionResult(
                     "blocked",
@@ -4742,12 +5533,322 @@ def run_production(
                     message=stop.message,
                     resumed=True,
                 )
+        existing_error_code = existing.get("error", {}).get("code")
+        existing_revision = existing.get("revision")
+        if isinstance(existing_revision, int) and existing_error_code != rules["errorCodes"][
+            "visualHardFailure"
+        ]:
+            generation_package_name = _revisioned_name(
+                "generation-package.json", existing_revision
+            )
+            generation_task_name = _revisioned_name("generation-task.json", existing_revision)
+            generation_wal_name = _revisioned_name("generation-wal.json", existing_revision)
+            generation_task_path = output_dir / generation_task_name
+            generation_wal_path = output_dir / generation_wal_name
+            if generation_task_path.is_file() or generation_wal_path.is_file():
+                staging_names = (
+                    generation_package_name,
+                    generation_task_name,
+                    generation_wal_name,
+                )
+                if any(name not in existing["artifacts"] for name in staging_names):
+                    staging_errors = _production_item_integrity_errors(
+                        output_dir,
+                        existing,
+                        production_item_id=item_id,
+                        template_key=template_key,
+                        source_sha256=source_sha,
+                        replacement_strategy_sha256=replacement_strategy_sha,
+                        generation_options_sha256=generation_options_sha,
+                        required_artifacts=(
+                            "production-pin.json",
+                            "source-analysis.json",
+                            "replacement-plan.json",
+                        ),
+                    )
+                    if not staging_errors:
+                        (
+                            staging_errors,
+                            generation_package,
+                            generation_task,
+                            generation_wal,
+                        ) = _adopt_pre_submit_generation_staging(
+                            output_dir,
+                            existing,
+                            source_sha,
+                            generation_options,
+                            rules,
+                            timestamp,
+                            p2,
+                        )
+                    if staging_errors:
+                        return ProductionResult(
+                            "blocked",
+                            item_id,
+                            rules["resultStates"]["blocked"],
+                            output_dir,
+                            error_code=rules["errorCodes"][
+                                "productionItemIntegrityFailure"
+                            ],
+                            message="P2 提交前 staging 恢复校验失败："
+                            + "；".join(staging_errors),
+                            resumed=True,
+                        )
+                recovery_errors = _production_item_integrity_errors(
+                    output_dir,
+                    existing,
+                    production_item_id=item_id,
+                    template_key=template_key,
+                    source_sha256=source_sha,
+                    replacement_strategy_sha256=replacement_strategy_sha,
+                    generation_options_sha256=generation_options_sha,
+                    required_artifacts=(
+                        "production-pin.json",
+                        "source-analysis.json",
+                        "replacement-plan.json",
+                        generation_package_name,
+                        generation_task_name,
+                        generation_wal_name,
+                    ),
+                )
+                wal_digest_error = f"{generation_wal_name} digest mismatch"
+                wal_manifest_lag = wal_digest_error in recovery_errors
+                if wal_manifest_lag:
+                    recovery_errors.remove(wal_digest_error)
+                if not generation_task_path.is_file() or not generation_wal_path.is_file():
+                    recovery_errors.append("generation task or WAL file missing")
+                if not recovery_errors:
+                    (
+                        execution_errors,
+                        generation_package,
+                        generation_task,
+                        generation_wal,
+                    ) = _load_generation_execution_evidence(
+                            output_dir,
+                            generation_package_name,
+                            generation_task_name,
+                            generation_wal_name,
+                            source_sha,
+                            existing_revision,
+                            generation_options,
+                            rules,
+                        )
+                    recovery_errors.extend(execution_errors)
+                    if wal_manifest_lag and not execution_errors:
+                        recorded_wal = existing["artifacts"].get(generation_wal_name)
+                        previous_wal_sha = generation_wal[
+                            rules["generationExecutionContract"]["walFields"][
+                                "previousWalSha256"
+                            ]
+                        ]
+                        if (
+                            not isinstance(recorded_wal, dict)
+                            or previous_wal_sha != recorded_wal.get("sha256")
+                        ):
+                            recovery_errors.append(
+                                "generation WAL does not continue the recorded digest"
+                            )
+                        else:
+                            _record_artifact(
+                                existing,
+                                output_dir,
+                                generation_wal_name,
+                                p2,
+                                [generation_task_name],
+                            )
+                            _persist_manifest(output_dir, existing)
+                if recovery_errors:
+                    return ProductionResult(
+                        "blocked",
+                        item_id,
+                        rules["resultStates"]["blocked"],
+                        output_dir,
+                        error_code=rules["errorCodes"]["productionItemIntegrityFailure"],
+                        message="生成任务恢复前的身份、WAL 或谱系校验失败："
+                        + "；".join(recovery_errors),
+                        resumed=True,
+                    )
+                execution_contract = rules["generationExecutionContract"]
+                wal_fields = execution_contract["walFields"]
+                failure_class = generation_wal[wal_fields["failureClass"]]
+                provider_request_id = generation_wal[
+                    wal_fields["providerRequestIdentity"]
+                ]
+                wal_status = generation_wal[wal_fields["status"]]
+                can_resume_poll = (
+                    wal_status == execution_contract["walStatuses"]["submitted"]
+                    or failure_class
+                    == execution_contract["failureClasses"]["retryable"]
+                )
+                can_resume_prepared = (
+                    wal_status == execution_contract["walStatuses"]["prepared"]
+                )
+                can_reuse_candidate = (
+                    wal_status == execution_contract["walStatuses"]["succeeded"]
+                )
+                if can_resume_prepared:
+                    manifest = existing
+                    source_analysis = _load_json(output_dir / "source-analysis.json")
+                    plan = _load_json(output_dir / "replacement-plan.json")
+                    manifest["state"] = next(
+                        item["state"]
+                        for item in rules["productionPhases"]
+                        if item["phase"] == p1
+                    )
+                    manifest["outcome"] = None
+                    manifest.pop("error", None)
+                    _persist_manifest(output_dir, manifest)
+                    resume_prepared_generation = True
+                    resumed = True
+                elif (
+                    (can_resume_poll or can_reuse_candidate)
+                    and isinstance(provider_request_id, str)
+                    and provider_request_id.strip()
+                ):
+                    if can_reuse_candidate:
+                        task_fields = execution_contract["taskFields"]
+                        intent_fields = execution_contract["requestIntentFields"]
+                        output_format = generation_task[task_fields["requestIntent"]][
+                            intent_fields["outputFormat"]
+                        ]
+                        output_format_role = next(
+                            role
+                            for role, value in execution_contract[
+                                "outputFormats"
+                            ].items()
+                            if value == output_format
+                        )
+                        expected_candidate_name = _revisioned_name(
+                            "evidence/generated-candidate-image"
+                            + execution_contract["outputFormatExtensions"][
+                                output_format_role
+                            ],
+                            existing_revision,
+                        )
+                        expected_candidate_path = output_dir / expected_candidate_name
+                        if (
+                            expected_candidate_name not in existing["artifacts"]
+                            and _file_matches_sha(
+                                expected_candidate_path,
+                                generation_wal[wal_fields["outputSha256"]],
+                            )
+                        ):
+                            _record_artifact(
+                                existing,
+                                output_dir,
+                                expected_candidate_name,
+                                p2,
+                                [
+                                    generation_package_name,
+                                    generation_task_name,
+                                    generation_wal_name,
+                                ],
+                            )
+                            _persist_manifest(output_dir, existing)
+                        recovery_errors.extend(
+                            _current_generation_execution_errors(
+                                output_dir,
+                                existing,
+                                source_sha,
+                                generation_options,
+                                rules,
+                            )
+                        )
+                        if recovery_errors:
+                            return ProductionResult(
+                                "blocked",
+                                item_id,
+                                rules["resultStates"]["blocked"],
+                                output_dir,
+                                error_code=rules["errorCodes"][
+                                    "productionItemIntegrityFailure"
+                                ],
+                                message="成功生成任务的本地候选图或 WAL 对账失败："
+                                + "；".join(recovery_errors),
+                                resumed=True,
+                            )
+                    submission_fields = execution_contract["submissionFields"]
+                    generation_submission = {
+                        submission_fields["status"]: execution_contract[
+                            "submissionStatuses"
+                        ]["submitted"],
+                        submission_fields["provider"]: generation_wal[
+                            wal_fields["provider"]
+                        ],
+                        submission_fields["model"]: generation_wal[wal_fields["model"]],
+                        submission_fields["providerRequestIdentity"]: provider_request_id,
+                        submission_fields["failureClass"]: None,
+                        submission_fields["failureReason"]: None,
+                    }
+                    manifest = existing
+                    source_analysis = _load_json(output_dir / "source-analysis.json")
+                    plan = _load_json(output_dir / "replacement-plan.json")
+                    manifest["state"] = next(
+                        item["state"]
+                        for item in rules["productionPhases"]
+                        if item["phase"] == p1
+                    )
+                    manifest["outcome"] = None
+                    manifest.pop("error", None)
+                    if can_resume_poll:
+                        generation_wal[wal_fields["status"]] = execution_contract[
+                            "walStatuses"
+                        ]["submitted"]
+                        generation_wal[wal_fields["failureClass"]] = None
+                        generation_wal[wal_fields["failureReason"]] = None
+                        generation_wal[wal_fields["updatedAt"]] = timestamp
+                        _write_generation_wal(generation_wal_path, generation_wal, rules)
+                        _record_artifact(
+                            manifest,
+                            output_dir,
+                            generation_wal_name,
+                            p2,
+                            [generation_task_name],
+                        )
+                    _persist_manifest(output_dir, manifest)
+                    resume_generation = True
+                    reuse_succeeded_generation = can_reuse_candidate
+                    resumed = True
+                else:
+                    if failure_class not in execution_contract["failureClasses"].values():
+                        failure_class = execution_contract["failureClasses"][
+                            "submissionUnknown"
+                        ]
+                    stop = _generation_failure_stop(
+                        failure_class,
+                        generation_wal[wal_fields["failureReason"]]
+                        or "provider submission state is uncertain",
+                        rules,
+                        {
+                            "taskId": generation_wal[wal_fields["taskIdentity"]],
+                            "providerRequestId": provider_request_id,
+                        },
+                    )
+                    existing["state"] = stop.state
+                    existing["outcome"] = stop.outcome
+                    existing["error"] = {
+                        "code": stop.error_code,
+                        "message": stop.message,
+                        "evidence": stop.evidence,
+                    }
+                    _persist_manifest(output_dir, existing)
+                    return ProductionResult(
+                        stop.outcome,
+                        item_id,
+                        stop.state,
+                        output_dir,
+                        error_code=stop.error_code,
+                        message=stop.message,
+                        resumed=True,
+                    )
         if existing.get("error", {}).get("code") == rules["errorCodes"]["visualHardFailure"]:
             previous_revision = existing.get("revision")
             if not isinstance(previous_revision, int) or previous_revision < 1:
                 recovery_errors = ["manifest revision invalid"]
             else:
                 previous_package_name = _revisioned_name("generation-package.json", previous_revision)
+                previous_task_name = _revisioned_name("generation-task.json", previous_revision)
+                previous_wal_name = _revisioned_name("generation-wal.json", previous_revision)
                 previous_review_name = _revisioned_name("visual-review.json", previous_revision)
                 recovery_errors = _production_item_integrity_errors(
                     output_dir,
@@ -4756,11 +5857,14 @@ def run_production(
                     template_key=template_key,
                     source_sha256=source_sha,
                     replacement_strategy_sha256=replacement_strategy_sha,
+                    generation_options_sha256=generation_options_sha,
                     required_artifacts=(
                         "production-pin.json",
                         "source-analysis.json",
                         "replacement-plan.json",
                         previous_package_name,
+                        previous_task_name,
+                        previous_wal_name,
                         previous_review_name,
                     ),
                 )
@@ -4807,7 +5911,7 @@ def run_production(
             resume_visual = True
             resumed = True
             _persist_manifest(output_dir, manifest)
-    if not resume_visual:
+    if not resume_visual and not resume_generation and not resume_prepared_generation:
         output_dir.mkdir(parents=True, exist_ok=True)
         manifest = {
             "artifactType": "production-manifest",
@@ -4817,6 +5921,7 @@ def run_production(
             "revision": 1,
             "sourceImageSha256": source_sha,
             "replacementStrategySha256": replacement_strategy_sha,
+            "generationOptionsSha256": generation_options_sha,
             "phase": None,
             "state": rules["initialState"],
             "outcome": None,
@@ -4826,7 +5931,7 @@ def run_production(
             "historicalExperienceEvidence": rules["historicalExperienceEvidence"],
         }
     try:
-        if not resume_visual:
+        if not resume_visual and not resume_generation and not resume_prepared_generation:
             pin = _build_pin(rules, release)
             _atomic_write_new(output_dir / "production-pin.json", _json_bytes(pin))
             _record_artifact(manifest, output_dir, "production-pin.json", p0, [])
@@ -4855,33 +5960,327 @@ def run_production(
             _persist_manifest(output_dir, manifest)
 
             generation_package = _compile_generation_package(plan, source_analysis, rules)
-        generation_package_name = _revisioned_name("generation-package.json", manifest["revision"])
-        _atomic_write_new(output_dir / generation_package_name, _json_bytes(generation_package))
-        _record_artifact(manifest, output_dir, generation_package_name, p2, ["replacement-plan.json"])
-        generation_request = copy.deepcopy(generation_package)
-        generated = _adapter_snapshot_image_object_call(
-            rules,
-            "generate",
-            adapters.generate,
-            source_image,
-            source_sha,
-            generation_request,
-        )
-        generated_contract_valid = bool(
-            isinstance(generated, dict)
-            and generation_request == generation_package
-            and generated.get("requestId") == generation_package["requestId"]
-            and isinstance(generated.get("imageBytes"), bytes)
-        )
-        if not generated_contract_valid:
+        execution_contract = rules["generationExecutionContract"]
+        task_fields = execution_contract["taskFields"]
+        wal_fields = execution_contract["walFields"]
+        submission_fields = execution_contract["submissionFields"]
+        poll_fields = execution_contract["pollResultFields"]
+        if not resume_generation:
+            if not resume_prepared_generation:
+                generation_package["output"]["imageCount"] = generation_options[
+                    execution_contract["requestOptionFields"]["imageCount"]
+                ]
+                generation_package_name = _revisioned_name(
+                    "generation-package.json", manifest["revision"]
+                )
+                _atomic_write_new(
+                    output_dir / generation_package_name, _json_bytes(generation_package)
+                )
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_package_name,
+                    p2,
+                    ["replacement-plan.json"],
+                )
+                generation_task_name = _revisioned_name(
+                    "generation-task.json", manifest["revision"]
+                )
+                generation_wal_name = _revisioned_name(
+                    "generation-wal.json", manifest["revision"]
+                )
+                generation_task_path = output_dir / generation_task_name
+                generation_wal_path = output_dir / generation_wal_name
+                generation_task = _compile_generation_task(
+                    generation_package,
+                    source_sha,
+                    _sha_file(output_dir / "production-pin.json"),
+                    manifest["revision"],
+                    generation_options,
+                    rules,
+                )
+                _atomic_write_new(generation_task_path, _json_bytes(generation_task))
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_task_name,
+                    p2,
+                    [generation_package_name, "production-pin.json"],
+                )
+                generation_wal = _prepared_generation_wal(
+                    generation_task, timestamp, rules
+                )
+                _write_generation_wal(generation_wal_path, generation_wal, rules)
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_wal_name,
+                    p2,
+                    [generation_task_name],
+                )
+                _persist_manifest(output_dir, manifest)
+            package_request = copy.deepcopy(generation_package)
+            task_request = copy.deepcopy(generation_task)
+            submit_generation = getattr(adapters, "submit_generation", None)
+            if not callable(submit_generation):
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "生成 adapter 缺少 queued submit seam。",
+                    {"operation": "submit_generation"},
+                )
+            try:
+                generation_submission = _adapter_snapshot_image_object_call(
+                    rules,
+                    "submit_generation",
+                    submit_generation,
+                    source_image,
+                    source_sha,
+                    package_request,
+                    task_request,
+                )
+            except WorkflowStop as adapter_stop:
+                generation_wal[wal_fields["status"]] = execution_contract[
+                    "walStatuses"
+                ]["failed"]
+                generation_wal[wal_fields["failureClass"]] = execution_contract[
+                    "failureClasses"
+                ]["submissionUnknown"]
+                generation_wal[wal_fields["failureReason"]] = adapter_stop.message
+                generation_wal[wal_fields["updatedAt"]] = timestamp
+                _write_generation_wal(generation_wal_path, generation_wal, rules)
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_wal_name,
+                    p2,
+                    [generation_task_name],
+                )
+                _persist_manifest(output_dir, manifest)
+                raise _generation_failure_stop(
+                    execution_contract["failureClasses"]["submissionUnknown"],
+                    adapter_stop.message,
+                    rules,
+                    {
+                        "taskId": generation_task[task_fields["taskIdentity"]],
+                        "adapterFailure": adapter_stop.evidence,
+                    },
+                ) from adapter_stop
+            if (
+                package_request != generation_package
+                or task_request != generation_task
+                or not _generation_submission_shape_valid(generation_submission, rules)
+            ):
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "生成提交结果未绑定冻结任务，或 adapter 修改了提交请求。",
+                    {},
+                )
+            submission_status = generation_submission[submission_fields["status"]]
+            if submission_status == execution_contract["submissionStatuses"]["failed"]:
+                failure_class = generation_submission[
+                    submission_fields["failureClass"]
+                ]
+                failure_reason = generation_submission[
+                    submission_fields["failureReason"]
+                ]
+                failure_reason = _sanitize_generation_failure_reason(
+                    failure_reason, rules
+                )
+                if failure_class == execution_contract["failureClasses"]["retryable"]:
+                    failure_class = execution_contract["failureClasses"][
+                        "submissionUnknown"
+                    ]
+                    failure_reason = "provider submission may have succeeded: " + failure_reason
+                generation_wal[wal_fields["status"]] = execution_contract[
+                    "walStatuses"
+                ]["failed"]
+                generation_wal[wal_fields["provider"]] = generation_submission[
+                    submission_fields["provider"]
+                ]
+                generation_wal[wal_fields["model"]] = generation_submission[
+                    submission_fields["model"]
+                ]
+                generation_wal[wal_fields["failureClass"]] = failure_class
+                generation_wal[wal_fields["failureReason"]] = failure_reason
+                generation_wal[wal_fields["updatedAt"]] = timestamp
+                _write_generation_wal(generation_wal_path, generation_wal, rules)
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_wal_name,
+                    p2,
+                    [generation_task_name],
+                )
+                _persist_manifest(output_dir, manifest)
+                raise _generation_failure_stop(
+                    failure_class,
+                    failure_reason,
+                    rules,
+                    {"taskId": generation_task[task_fields["taskIdentity"]]},
+                )
+            generation_wal[wal_fields["status"]] = execution_contract["walStatuses"][
+                "submitted"
+            ]
+            for role in ("provider", "model", "providerRequestIdentity"):
+                generation_wal[wal_fields[role]] = generation_submission[
+                    submission_fields[role]
+                ]
+            generation_wal[wal_fields["failureClass"]] = None
+            generation_wal[wal_fields["failureReason"]] = None
+            generation_wal[wal_fields["updatedAt"]] = timestamp
+            _write_generation_wal(generation_wal_path, generation_wal, rules)
+            _record_artifact(
+                manifest,
+                output_dir,
+                generation_wal_name,
+                p2,
+                [generation_task_name],
+            )
+            _persist_manifest(output_dir, manifest)
+        package_request = copy.deepcopy(generation_package)
+        task_request = copy.deepcopy(generation_task)
+        submission_request = copy.deepcopy(generation_submission)
+        if reuse_succeeded_generation:
+            candidate_names = _revision_image_artifacts(
+                manifest, "generated-candidate-image", manifest["revision"]
+            )
+            candidate_path = output_dir / candidate_names[0]
+            poll_result = {
+                poll_fields["status"]: execution_contract["pollStatuses"]["succeeded"],
+                poll_fields["failureClass"]: None,
+                poll_fields["failureReason"]: None,
+                poll_fields["extension"]: candidate_path.suffix,
+                poll_fields["imageBytes"]: candidate_path.read_bytes(),
+                poll_fields["outputAssets"]: generation_wal[
+                    wal_fields["outputAssets"]
+                ],
+                poll_fields["providerOutputIdentity"]: generation_wal[
+                    wal_fields["providerOutputIdentity"]
+                ],
+            }
+        else:
+            retry_budget = execution_contract["retryBudgets"]["retryable"]
+            if generation_wal[wal_fields["pollAttemptCount"]] >= retry_budget:
+                failure_class = execution_contract["failureClasses"]["permanent"]
+                failure_reason = _sanitize_generation_failure_reason(
+                    "poll attempt budget exhausted before a safe retry", rules
+                )
+                generation_wal[wal_fields["status"]] = execution_contract[
+                    "walStatuses"
+                ]["failed"]
+                generation_wal[wal_fields["failureClass"]] = failure_class
+                generation_wal[wal_fields["failureReason"]] = failure_reason
+                generation_wal[wal_fields["updatedAt"]] = timestamp
+                _write_generation_wal(generation_wal_path, generation_wal, rules)
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_wal_name,
+                    p2,
+                    [generation_task_name],
+                )
+                _persist_manifest(output_dir, manifest)
+                raise _generation_failure_stop(
+                    failure_class,
+                    failure_reason,
+                    rules,
+                    {
+                        "taskId": generation_task[task_fields["taskIdentity"]],
+                        "providerRequestId": generation_submission[
+                            submission_fields["providerRequestIdentity"]
+                        ],
+                    },
+                )
+            generation_wal[wal_fields["pollAttemptCount"]] += 1
+            generation_wal[wal_fields["updatedAt"]] = timestamp
+            _write_generation_wal(generation_wal_path, generation_wal, rules)
+            _record_artifact(
+                manifest,
+                output_dir,
+                generation_wal_name,
+                p2,
+                [generation_task_name],
+            )
+            _persist_manifest(output_dir, manifest)
+            poll_generation = getattr(adapters, "poll_generation", None)
+            if not callable(poll_generation):
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "生成 adapter 缺少 queued poll seam。",
+                    {"operation": "poll_generation"},
+                )
+            poll_result = _adapter_snapshot_image_object_call(
+                rules,
+                "poll_generation",
+                poll_generation,
+                source_image,
+                source_sha,
+                package_request,
+                task_request,
+                submission_request,
+            )
+        if (
+            package_request != generation_package
+            or task_request != generation_task
+            or submission_request != generation_submission
+            or not _generation_poll_shape_valid(poll_result, generation_task, rules)
+        ):
             raise _stop(
                 rules,
                 "failed",
                 "externalFailure",
-                "生成适配器结果未绑定当前 Generation Package request ID 或图片字节。",
+                "生成轮询结果未绑定冻结任务、提交凭证或合法输出。",
                 {},
             )
-        generated_extension = str(generated.get("extension", ""))
+        if poll_result[poll_fields["status"]] == execution_contract["pollStatuses"][
+            "failed"
+        ]:
+            failure_class = poll_result[poll_fields["failureClass"]]
+            failure_reason = poll_result[poll_fields["failureReason"]]
+            failure_reason = _sanitize_generation_failure_reason(failure_reason, rules)
+            failure_role = next(
+                role
+                for role, value in execution_contract["failureClasses"].items()
+                if value == failure_class
+            )
+            if generation_wal[wal_fields["pollAttemptCount"]] >= execution_contract[
+                "retryBudgets"
+            ][failure_role] > 0:
+                failure_class = execution_contract["failureClasses"]["permanent"]
+                failure_reason = "retry budget exhausted: " + failure_reason
+            generation_wal[wal_fields["status"]] = execution_contract["walStatuses"][
+                "failed"
+            ]
+            generation_wal[wal_fields["failureClass"]] = failure_class
+            generation_wal[wal_fields["failureReason"]] = failure_reason
+            generation_wal[wal_fields["updatedAt"]] = timestamp
+            _write_generation_wal(generation_wal_path, generation_wal, rules)
+            _record_artifact(
+                manifest,
+                output_dir,
+                generation_wal_name,
+                p2,
+                [generation_task_name],
+            )
+            _persist_manifest(output_dir, manifest)
+            raise _generation_failure_stop(
+                failure_class,
+                failure_reason,
+                rules,
+                {
+                    "taskId": generation_task[task_fields["taskIdentity"]],
+                    "providerRequestId": generation_submission[
+                        submission_fields["providerRequestIdentity"]
+                    ],
+                },
+            )
+        generated_extension = poll_result[poll_fields["extension"]]
         if re.fullmatch(rules["identifiers"]["imageExtensionPattern"], generated_extension) is None:
             raise _stop(
                 rules,
@@ -4894,8 +6293,36 @@ def run_production(
             f"evidence/generated-candidate-image{generated_extension}", manifest["revision"]
         )
         candidate_path = output_dir / candidate_rel
-        _atomic_write_new(candidate_path, generated["imageBytes"])
-        _record_artifact(manifest, output_dir, candidate_rel, p2, [generation_package_name])
+        _atomic_write_new(candidate_path, poll_result[poll_fields["imageBytes"]])
+        _record_artifact(
+            manifest,
+            output_dir,
+            candidate_rel,
+            p2,
+            [generation_package_name, generation_task_name, generation_wal_name],
+        )
+        generation_wal[wal_fields["status"]] = execution_contract["walStatuses"][
+            "succeeded"
+        ]
+        generation_wal[wal_fields["providerOutputIdentity"]] = poll_result[
+            poll_fields["providerOutputIdentity"]
+        ]
+        generation_wal[wal_fields["outputSha256"]] = _sha_file(candidate_path)
+        generation_wal[wal_fields["outputAssets"]] = poll_result[
+            poll_fields["outputAssets"]
+        ]
+        generation_wal[wal_fields["failureClass"]] = None
+        generation_wal[wal_fields["failureReason"]] = None
+        generation_wal[wal_fields["updatedAt"]] = timestamp
+        _write_generation_wal(generation_wal_path, generation_wal, rules)
+        _record_artifact(
+            manifest,
+            output_dir,
+            generation_wal_name,
+            p2,
+            [generation_task_name],
+        )
+        _persist_manifest(output_dir, manifest)
         review_bindings = {
             "generatedImageSha256": _sha_file(candidate_path),
             "generationPackageSha256": _sha_bytes(_canonical_bytes(generation_package)),
@@ -5070,7 +6497,7 @@ def run_production(
                 and receipt.get("schemaVersion") == rules["schemaVersion"]
                 and receipt.get("imageSha256") == _sha_file(approved_path)
                 and receipt.get("objectKey") == object_key
-                and _is_valid_https_url(receipt.get("url"))
+                and is_valid_https_url(receipt.get("url"))
             )
             if not receipt_valid:
                 raise _stop(
@@ -5090,7 +6517,7 @@ def run_production(
                 approved_sha,
                 object_key,
             )
-            if receipt.get("imageSha256") != approved_sha or not _is_valid_https_url(receipt.get("url")):
+            if receipt.get("imageSha256") != approved_sha or not is_valid_https_url(receipt.get("url")):
                 raise _stop(rules, "failed", "externalFailure", "上传凭证与确认模板图不一致。", receipt)
             receipt = {"artifactType": "asset-receipt", "schemaVersion": rules["schemaVersion"], **receipt}
             _atomic_write_new(receipt_path, _json_bytes(receipt))

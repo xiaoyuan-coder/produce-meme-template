@@ -206,8 +206,7 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         approved_image = self.scenario_fixture / "approved.ppm"
         return {
             **generated,
-            "extension": approved_image.suffix,
-            "imageBytes": approved_image.read_bytes(),
+            **self._fixture_image_result(approved_image),
         }
 
     def inspect_generated(self, generated_image: Path, review_context: dict) -> dict:

@@ -94,8 +94,8 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         self.assertEqual(RESULT_BLOCKED, result.outcome)
         self.assertEqual(ERROR_CODES["visualHardFailure"], result.error_code)
         self.assertEqual([], adapters.upload_calls)
-        self.assertTrue((result.output_dir / "evidence" / "generated-candidate-image.ppm").exists())
-        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+        self.assertTrue((result.output_dir / "evidence" / "generated-candidate-image.png").exists())
+        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
         self.assertFalse((result.output_dir / "template-analysis.json").exists())
         self.assertFalse((result.output_dir / "gallery-template.json").exists())
 
@@ -185,7 +185,7 @@ class Issue2VerticalSliceTest(unittest.TestCase):
 
     def test_e19_e21_e27_approved_image_drives_three_high_value_slots_and_prompt(self) -> None:
         result, _ = self.run_fixture()
-        approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+        approved = result.output_dir / "evidence" / "approved-template-image.png"
         analysis = load_json(result.output_dir / "template-analysis.json")
         editable = load_json(result.output_dir / "editable-template-spec.json")
         semantic_audit = load_json(result.output_dir / "semantic-audit.json")
@@ -211,7 +211,7 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         self.assertNotIn("coverUrl", json.dumps(record, ensure_ascii=False))
         self.assertNotIn("replacementPool", json.dumps(record, ensure_ascii=False))
         self.assertNotIn("visualDimensions", json.dumps(record, ensure_ascii=False))
-        approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+        approved = result.output_dir / "evidence" / "approved-template-image.png"
         self.assertEqual(
             hashlib.sha256(approved.read_bytes()).hexdigest(),
             adapters.upload_calls[0]["imageSha256"],
@@ -242,7 +242,7 @@ class Issue2VerticalSliceTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"][RESULT_FAILED], result.state)
         self.assertEqual(ERROR_CODES["externalFailure"], result.error_code)
         manifest = load_json(result.output_dir / "production-manifest.json")
-        self.assertEqual("generate", manifest["error"]["evidence"]["operation"])
+        self.assertEqual("poll_generation", manifest["error"]["evidence"]["operation"])
         self.assertEqual([], adapters.upload_calls)
 
     def test_unsafe_identifiers_are_rejected_before_any_output(self) -> None:

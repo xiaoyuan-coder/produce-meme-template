@@ -781,7 +781,7 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
 
                 self.assertEqual(RULES["resultStates"]["blocked"], result.state)
                 self.assertEqual(RULES["errorCodes"]["visualHardFailure"], result.error_code)
-                self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+                self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
                 self.assertEqual([], adapters.upload_calls)
 
     def test_identity_review_cannot_claim_that_identity_text_is_not_applicable(self) -> None:
@@ -793,7 +793,7 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["failed"], result.state)
         self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
-        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
         self.assertEqual([], adapters.upload_calls)
 
     def test_exposed_identity_text_requires_an_independent_neutrality_audit(self) -> None:

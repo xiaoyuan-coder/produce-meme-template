@@ -49,8 +49,8 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["completed"], result.state)
         review = load_json(result.output_dir / "visual-review.json")
         package = load_json(result.output_dir / "generation-package.json")
-        candidate = result.output_dir / "evidence" / "generated-candidate-image.ppm"
-        approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+        candidate = result.output_dir / "evidence" / "generated-candidate-image.png"
+        approved = result.output_dir / "evidence" / "approved-template-image.png"
         evidence_payload = {
             field: review[field]
             for field in contract["evidenceFieldRoles"].values()
@@ -128,8 +128,8 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
                 self.assertEqual(RULES["errorCodes"]["visualHardFailure"], result.error_code)
                 review = load_json(result.output_dir / "visual-review.json")
                 self.assertEqual(contract["decisionValues"]["rejected"], review["decision"])
-                self.assertTrue((result.output_dir / "evidence" / "generated-candidate-image.ppm").is_file())
-                self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+                self.assertTrue((result.output_dir / "evidence" / "generated-candidate-image.png").is_file())
+                self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
                 self.assertFalse((result.output_dir / "template-analysis.json").exists())
                 self.assertEqual([], adapters.upload_calls)
 
@@ -151,7 +151,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         self.assertEqual(RULES["errorCodes"]["riskNeedsReview"], result.error_code)
         review = load_json(result.output_dir / "visual-review.json")
         self.assertEqual(contract["decisionValues"]["needsReview"], review["decision"])
-        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
         self.assertEqual([], adapters.upload_calls)
 
     def test_stale_visual_review_binding_fails_before_approval_and_downstream_analysis(self) -> None:
@@ -173,7 +173,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["failed"], result.state)
         self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
-        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
         self.assertFalse((result.output_dir / "template-analysis.json").exists())
         self.assertEqual([], adapters.upload_calls)
 
@@ -268,7 +268,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["failed"], result.state)
         self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
-        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.ppm").exists())
+        self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
         self.assertEqual([], adapters.upload_calls)
 
     def test_template_analysis_cannot_change_the_approved_image_after_visual_review(self) -> None:
@@ -389,10 +389,10 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
                 self.assertEqual(RULES["resultStates"]["failed"], result.state)
                 self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
                 self.assertFalse((result.output_dir / "gallery-template.json").exists())
-                candidate = result.output_dir / "evidence" / "generated-candidate-image.ppm"
+                candidate = result.output_dir / "evidence" / "generated-candidate-image.png"
                 if candidate.exists():
                     self.assertTrue(candidate.is_file())
-                approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+                approved = result.output_dir / "evidence" / "approved-template-image.png"
                 if approved.exists():
                     self.assertTrue(approved.is_file())
 
@@ -414,7 +414,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["failed"], result.state)
         self.assertEqual(RULES["errorCodes"]["externalFailure"], result.error_code)
-        approved = result.output_dir / "evidence" / "approved-template-image.ppm"
+        approved = result.output_dir / "evidence" / "approved-template-image.png"
         self.assertTrue(approved.is_file())
         self.assertFalse(approved.is_symlink())
         self.assertEqual([], adapters.upload_calls)
@@ -436,9 +436,9 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
                 if operation in {"analyze_source", "generate"}:
                     core_path = caller_source
                 elif operation == "inspect_generated":
-                    core_path = output_dir / "evidence" / "generated-candidate-image.ppm"
+                    core_path = output_dir / "evidence" / "generated-candidate-image.png"
                 else:
-                    core_path = output_dir / "evidence" / "approved-template-image.ppm"
+                    core_path = output_dir / "evidence" / "approved-template-image.png"
                 adapters = DeterministicFixtureAdapters(FIXTURE)
                 original_method = getattr(adapters, operation)
 
@@ -466,7 +466,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
             DeterministicFixtureAdapters(FIXTURE),
             clock=lambda: FIXED_TIME,
         )
-        approved = first.output_dir / "evidence" / "approved-template-image.ppm"
+        approved = first.output_dir / "evidence" / "approved-template-image.png"
         approved.write_bytes(approved.read_bytes() + b"changed")
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
@@ -526,7 +526,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         self.assertTrue(
             {
                 "visual-review.json",
-                "evidence/approved-template-image.ppm",
+                "evidence/approved-template-image.png",
                 "template-analysis.json",
                 "asset-receipt.json",
                 "gallery-template.json",
@@ -563,9 +563,9 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
     def test_completed_item_requires_the_complete_current_p2_artifact_quartet(self) -> None:
         missing_artifacts = (
             "generation-package.json",
-            "evidence/generated-candidate-image.ppm",
+            "evidence/generated-candidate-image.png",
             "visual-review.json",
-            "evidence/approved-template-image.ppm",
+            "evidence/approved-template-image.png",
         )
         for index, missing_name in enumerate(missing_artifacts):
             with self.subTest(missing_name=missing_name):
@@ -607,8 +607,8 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
     def test_non_object_current_image_artifact_records_are_stable_integrity_failures(self) -> None:
         for index, malformed_name in enumerate(
             (
-                "evidence/generated-candidate-image.ppm",
-                "evidence/approved-template-image.ppm",
+                "evidence/generated-candidate-image.png",
+                "evidence/approved-template-image.png",
             )
         ):
             with self.subTest(malformed_name=malformed_name):
@@ -650,7 +650,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         for index, malformed_name in enumerate(
             (
                 "generation-package.json",
-                "evidence/generated-candidate-image.ppm",
+                "evidence/generated-candidate-image.png",
             )
         ):
             with self.subTest(malformed_name=malformed_name):
@@ -729,7 +729,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         package_v2 = load_json(recovered.output_dir / "generation-package-r2.json")
         review_v1 = load_json(recovered.output_dir / "visual-review.json")
         review_v2 = load_json(recovered.output_dir / "visual-review-r2.json")
-        approved_v2 = recovered.output_dir / "evidence" / "approved-template-image-r2.ppm"
+        approved_v2 = recovered.output_dir / "evidence" / "approved-template-image-r2.png"
         analysis = load_json(recovered.output_dir / "template-analysis.json")
         self.assertNotEqual(package_v1["requestId"], package_v2["requestId"])
         self.assertEqual(contract["decisionValues"]["rejected"], review_v1["decision"])
@@ -744,7 +744,9 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         self.assertEqual("generation-package-r2.json", invalidation["replacementArtifact"])
         self.assertEqual(
             {
-                "evidence/generated-candidate-image.ppm",
+                "generation-task.json",
+                "generation-wal.json",
+                "evidence/generated-candidate-image.png",
                 "visual-review.json",
             },
             set(invalidation["invalidatedArtifacts"]),

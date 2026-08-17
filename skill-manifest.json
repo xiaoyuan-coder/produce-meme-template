@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "updated_at": "2026-08-17",
-  "description": "实现 Issue #9 多实例组件图、容器与接触关系、五类图片操作和四类独立数量门禁。",
+  "description": "实现 Issue #10 真实单图生成 adapter、冻结生成任务、request ID WAL、分类失败与幂等恢复。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -65,6 +65,7 @@
     "fixtures/e2e/text-dense/README.md",
     "fixtures/e2e/text-dense/scenarios.json",
     "references/gallery-template-compiler.md",
+    "references/generation-execution-and-recovery.md",
     "references/multi-instance-image-operations.md",
     "references/replacement-spec.md",
     "references/template-image-gate.md",
@@ -75,6 +76,7 @@
     "scripts/produce.py",
     "scripts/produce_meme_template/__init__.py",
     "scripts/produce_meme_template/adapters.py",
+    "scripts/produce_meme_template/validation.py",
     "scripts/produce_meme_template/workflow.py",
     "skill-manifest.json",
     "specs/ADR决策覆盖矩阵.md",
@@ -96,6 +98,7 @@
     "tests/test_issue_7_identity_replacement.py",
     "tests/test_issue_8_text_dense_templates.py",
     "tests/test_issue_9_multi_instance_operations.py",
+    "tests/test_issue_10_generation_wal.py",
     "tests/test_repository_contract.py"
   ]
 }

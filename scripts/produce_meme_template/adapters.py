@@ -1,15 +1,30 @@
 from __future__ import annotations
 
 import copy
+import base64
 import hashlib
 import json
+import os
 import re
+import struct
+import time
 import unicodedata
+import zlib
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
+from urllib.parse import urljoin
+from urllib.request import HTTPRedirectHandler, Request, build_opener
+
+from .validation import is_public_ip_address, is_safe_public_https_url
 
 
 RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "machine-rules.json"
+
+
+class _NoAutomaticRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        return None
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -29,6 +44,37 @@ def _visual_evidence_sha(review: dict[str, Any], contract: dict[str, Any]) -> st
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _ppm_fixture_as_png(payload: bytes) -> bytes:
+    lines = [line.split(b"#", 1)[0] for line in payload.splitlines()]
+    tokens = b" ".join(lines).split()
+    if len(tokens) < 4 or tokens[0] != b"P3":
+        raise ValueError("deterministic fixture must be an ASCII PPM image")
+    width, height, maximum = (int(value) for value in tokens[1:4])
+    samples = [int(value) for value in tokens[4:]]
+    if width < 1 or height < 1 or maximum < 1 or len(samples) != width * height * 3:
+        raise ValueError("deterministic PPM fixture dimensions are invalid")
+    pixels = bytes(round(sample * 255 / maximum) for sample in samples)
+    scanlines = b"".join(
+        b"\x00" + pixels[row * width * 3 : (row + 1) * width * 3]
+        for row in range(height)
+    )
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(scanlines))
+        + chunk(b"IEND", b"")
+    )
 
 
 def _semantic_overlap(left: str, right: str) -> bool:
@@ -100,6 +146,8 @@ class DeterministicFixtureAdapters:
     def __init__(self, fixture_dir: str | Path):
         self.fixture_dir = Path(fixture_dir).resolve()
         self.generate_calls: list[dict[str, Any]] = []
+        self.submission_calls: list[dict[str, Any]] = []
+        self.poll_calls: list[dict[str, Any]] = []
         self.upload_calls: list[dict[str, Any]] = []
 
     def analyze_source(
@@ -161,8 +209,89 @@ class DeterministicFixtureAdapters:
         image_path = self.fixture_dir / "approved-template-image.ppm"
         return {
             "requestId": generation_package["requestId"],
-            "extension": image_path.suffix,
-            "imageBytes": image_path.read_bytes(),
+            **self._fixture_image_result(image_path),
+        }
+
+    @staticmethod
+    def _fixture_image_result(image_path: Path) -> dict[str, Any]:
+        payload = image_path.read_bytes()
+        if image_path.suffix.lower() == ".ppm":
+            return {"extension": ".png", "imageBytes": _ppm_fixture_as_png(payload)}
+        return {"extension": image_path.suffix.lower(), "imageBytes": payload}
+
+    def submit_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+    ) -> dict[str, Any]:
+        contract = _read_json(RULES_PATH)["generationExecutionContract"]
+        task_fields = contract["taskFields"]
+        fields = contract["submissionFields"]
+        task_id = generation_task[task_fields["taskIdentity"]]
+        self.submission_calls.append(
+            {
+                "sourceImage": str(source_image),
+                "taskId": task_id,
+                "requestId": generation_package["requestId"],
+            }
+        )
+        return {
+            fields["status"]: contract["submissionStatuses"]["submitted"],
+            fields["provider"]: contract["providerRoles"]["deterministicFixture"],
+            fields["model"]: "fixture-image-model",
+            fields["providerRequestIdentity"]: f"fixture-request-{task_id}",
+            fields["failureClass"]: None,
+            fields["failureReason"]: None,
+        }
+
+    def poll_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+        submission: dict[str, Any],
+    ) -> dict[str, Any]:
+        rules = _read_json(RULES_PATH)
+        contract = rules["generationExecutionContract"]
+        task_fields = contract["taskFields"]
+        intent_fields = contract["requestIntentFields"]
+        submission_fields = contract["submissionFields"]
+        result_fields = contract["pollResultFields"]
+        asset_fields = contract["outputAssetFields"]
+        self.poll_calls.append(
+            {
+                "taskId": generation_task[task_fields["taskIdentity"]],
+                "providerRequestId": submission[
+                    submission_fields["providerRequestIdentity"]
+                ],
+            }
+        )
+        generated = self.generate(source_image, generation_package)
+        image_sha = hashlib.sha256(generated["imageBytes"]).hexdigest()
+        image_count = generation_task[task_fields["requestIntent"]][
+            intent_fields["imageCount"]
+        ]
+        output_assets = [
+            {
+                asset_fields["providerOutputIdentity"]: f"fixture-output-{index}",
+                asset_fields["sha256"]: image_sha,
+            }
+            for index in range(image_count)
+        ]
+        primary_index = generation_task[task_fields["requestIntent"]][
+            intent_fields["primaryOutputIndex"]
+        ]
+        return {
+            result_fields["status"]: contract["pollStatuses"]["succeeded"],
+            result_fields["failureClass"]: None,
+            result_fields["failureReason"]: None,
+            result_fields["extension"]: generated["extension"],
+            result_fields["imageBytes"]: generated["imageBytes"],
+            result_fields["outputAssets"]: output_assets,
+            result_fields["providerOutputIdentity"]: output_assets[primary_index][
+                asset_fields["providerOutputIdentity"]
+            ],
         }
 
     def inspect_generated(
@@ -410,5 +539,327 @@ class DeterministicFixtureAdapters:
 
         clone.inspect_generated = inspect  # type: ignore[method-assign]
         clone.generate_calls = []
+        clone.submission_calls = []
+        clone.poll_calls = []
         clone.upload_calls = []
         return clone
+
+
+class FalQueueWorkflowAdapters:
+    """Use fal's durable queue for generation and delegate all other workflow adapters."""
+
+    def __init__(
+        self,
+        delegate: Any,
+        *,
+        client: Any | None = None,
+        download_bytes: Any | None = None,
+        open_url: Any | None = None,
+        resolve_host: Any | None = None,
+        peer_address: Any | None = None,
+        sleep: Any = time.sleep,
+        poll_interval_seconds: float = 1.0,
+        maximum_status_polls: int = 900,
+    ) -> None:
+        self.delegate = delegate
+        self._client = client
+        self._download_bytes = download_bytes or self._download
+        self._open_url = open_url or build_opener(_NoAutomaticRedirect()).open
+        self._resolve_host = resolve_host
+        self._peer_address = peer_address or self._response_peer_address
+        self._sleep = sleep
+        self.poll_interval_seconds = poll_interval_seconds
+        self.maximum_status_polls = maximum_status_polls
+
+    @property
+    def generate_calls(self) -> list[dict[str, Any]]:
+        return self.delegate.generate_calls
+
+    @property
+    def upload_calls(self) -> list[dict[str, Any]]:
+        return self.delegate.upload_calls
+
+    def _fal_client(self) -> Any:
+        if self._client is not None:
+            return self._client
+        try:
+            import fal_client
+        except ImportError as exc:
+            raise RuntimeError(
+                "fal-client is required for real generation; install requirements.txt"
+            ) from exc
+        self._client = fal_client
+        return self._client
+
+    @staticmethod
+    def _source_data_uri(source_image: Path) -> str:
+        extension = source_image.suffix.lower()
+        mime_types = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+            ".ppm": "image/x-portable-pixmap",
+        }
+        mime_type = mime_types.get(extension)
+        if mime_type is None:
+            raise ValueError(f"unsupported fal source image extension: {extension}")
+        encoded = base64.b64encode(source_image.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
+
+    @staticmethod
+    def _image_size(value: str) -> str | dict[str, int]:
+        if value == "auto":
+            return value
+        match = re.fullmatch(r"([1-9][0-9]*)x([1-9][0-9]*)", value)
+        if match is None:
+            raise ValueError("generation image size must be WIDTHxHEIGHT or auto")
+        return {"width": int(match.group(1)), "height": int(match.group(2))}
+
+    def _download(self, url: str) -> bytes:
+        maximum_redirects = _read_json(RULES_PATH)["generationExecutionContract"][
+            "fal"
+        ]["maximumDownloadRedirects"]
+        current_url = url
+        for redirect_count in range(maximum_redirects + 1):
+            validation_options = {"resolve_dns": True}
+            if self._resolve_host is not None:
+                validation_options["resolver"] = self._resolve_host
+            if not is_safe_public_https_url(current_url, **validation_options):
+                raise ValueError("fal image fetch target is not public HTTPS")
+            try:
+                response = self._open_url(Request(current_url, method="GET"), timeout=120)
+            except HTTPError as exc:
+                if not 300 <= exc.code < 400:
+                    raise
+                response = exc
+            with response:
+                if not is_public_ip_address(self._peer_address(response)):
+                    raise ValueError("fal image connection peer is not public")
+                status = getattr(response, "status", getattr(response, "code", 200))
+                if 300 <= status < 400:
+                    location = response.headers.get("Location")
+                    if not location or redirect_count >= maximum_redirects:
+                        raise ValueError("fal image redirect is missing or exceeds the limit")
+                    current_url = urljoin(current_url, location)
+                    continue
+                final_url = response.geturl()
+                if not is_safe_public_https_url(final_url, **validation_options):
+                    raise ValueError("fal final image fetch target is not public HTTPS")
+                payload = response.read()
+            if not payload:
+                raise ValueError("fal returned an empty image")
+            return payload
+        raise ValueError("fal image redirect exceeds the limit")
+
+    @staticmethod
+    def _response_peer_address(response: Any) -> str:
+        current = response
+        for path in (
+            ("fp", "raw", "_sock"),
+            ("fp", "fp", "raw", "_sock"),
+            ("fp", "raw", "_connection", "sock"),
+        ):
+            current = response
+            for field in path:
+                current = getattr(current, field, None)
+                if current is None:
+                    break
+            if current is not None and callable(getattr(current, "getpeername", None)):
+                peer = current.getpeername()
+                if isinstance(peer, tuple) and peer and isinstance(peer[0], str):
+                    return peer[0]
+        return ""
+
+    @staticmethod
+    def _exception_status(error: BaseException) -> int | None:
+        for current in (error, getattr(error, "cause", None), getattr(error, "__cause__", None)):
+            if current is None:
+                continue
+            for field in ("status", "status_code"):
+                value = getattr(current, field, None)
+                if isinstance(value, int) and not isinstance(value, bool):
+                    return value
+        return None
+
+    @staticmethod
+    def _failure_role(error: BaseException) -> str:
+        status = FalQueueWorkflowAdapters._exception_status(error)
+        detail = str(error).casefold()
+        if any(term in detail for term in ("safety", "moderation", "content policy")):
+            return "humanReview"
+        if status == 429 or (isinstance(status, int) and status >= 500):
+            return "retryable"
+        if isinstance(error, (TimeoutError, ConnectionError)):
+            return "retryable"
+        if status in {400, 409, 422}:
+            return "replanRequired"
+        return "permanent"
+
+    @staticmethod
+    def _safe_error_detail(error: BaseException) -> str:
+        detail = str(error)
+        credential = os.environ.get("FAL_KEY", "")
+        return detail.replace(credential, "[REDACTED]") if credential else detail
+
+    @staticmethod
+    def _status_completed(status: Any) -> bool:
+        if type(status).__name__.casefold() == "completed":
+            return True
+        value = getattr(status, "status", None)
+        if value is None and isinstance(status, dict):
+            value = status.get("status")
+        return isinstance(value, str) and value.upper() == "COMPLETED"
+
+    def analyze_source(
+        self, source_image: Path, replacement_strategy: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        return self.delegate.analyze_source(source_image, replacement_strategy)
+
+    def inspect_generated(
+        self, generated_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.inspect_generated(generated_image, review_request)
+
+    def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
+        return self.delegate.analyze_approved(approved_image)
+
+    def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
+        return self.delegate.audit_semantics(content)
+
+    def upload(self, approved_image: Path, object_key: str) -> dict[str, Any]:
+        return self.delegate.upload(approved_image, object_key)
+
+    def submit_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+    ) -> dict[str, Any]:
+        rules = _read_json(RULES_PATH)
+        contract = rules["generationExecutionContract"]
+        task_fields = contract["taskFields"]
+        intent_fields = contract["requestIntentFields"]
+        submission_fields = contract["submissionFields"]
+        intent = generation_task[task_fields["requestIntent"]]
+        model = contract["fal"]["model"]
+        arguments = {
+            "prompt": intent[intent_fields["prompt"]],
+            "image_urls": [self._source_data_uri(source_image)],
+            "image_size": self._image_size(intent[intent_fields["imageSize"]]),
+            "quality": contract["fal"]["quality"],
+            "num_images": intent[intent_fields["imageCount"]],
+            "output_format": intent[intent_fields["outputFormat"]],
+        }
+        try:
+            handle = self._fal_client().submit(model, arguments=arguments)
+            provider_request_id = str(getattr(handle, "request_id", "")).strip()
+            if not provider_request_id:
+                raise ValueError("fal submit did not return request_id")
+        except Exception as exc:
+            failure_role = self._failure_role(exc)
+            if failure_role == "retryable":
+                failure_role = "submissionUnknown"
+            return {
+                submission_fields["status"]: contract["submissionStatuses"]["failed"],
+                submission_fields["provider"]: contract["providerRoles"]["fal"],
+                submission_fields["model"]: model,
+                submission_fields["providerRequestIdentity"]: None,
+                submission_fields["failureClass"]: contract["failureClasses"][
+                    failure_role
+                ],
+                submission_fields["failureReason"]: self._safe_error_detail(exc),
+            }
+        return {
+            submission_fields["status"]: contract["submissionStatuses"]["submitted"],
+            submission_fields["provider"]: contract["providerRoles"]["fal"],
+            submission_fields["model"]: model,
+            submission_fields["providerRequestIdentity"]: provider_request_id,
+            submission_fields["failureClass"]: None,
+            submission_fields["failureReason"]: None,
+        }
+
+    def poll_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+        submission: dict[str, Any],
+    ) -> dict[str, Any]:
+        rules = _read_json(RULES_PATH)
+        contract = rules["generationExecutionContract"]
+        submission_fields = contract["submissionFields"]
+        result_fields = contract["pollResultFields"]
+        task_fields = contract["taskFields"]
+        intent_fields = contract["requestIntentFields"]
+        asset_fields = contract["outputAssetFields"]
+        model = submission[submission_fields["model"]]
+        provider_request_id = submission[submission_fields["providerRequestIdentity"]]
+        try:
+            for attempt in range(self.maximum_status_polls):
+                status = self._fal_client().status(model, provider_request_id)
+                if self._status_completed(status):
+                    break
+                if attempt == self.maximum_status_polls - 1:
+                    raise TimeoutError("fal request did not complete within the polling budget")
+                self._sleep(self.poll_interval_seconds)
+            response = self._fal_client().result(model, provider_request_id)
+            payload = response.get("data", response) if isinstance(response, dict) else None
+            images = payload.get("images") if isinstance(payload, dict) else None
+            expected_count = generation_task[task_fields["requestIntent"]][
+                intent_fields["imageCount"]
+            ]
+            if not isinstance(images, list) or len(images) != expected_count:
+                raise ValueError("fal result image count does not match the frozen task")
+            downloaded: list[tuple[str, bytes]] = []
+            for image in images:
+                url = image.get("url") if isinstance(image, dict) else None
+                if not is_safe_public_https_url(url):
+                    raise ValueError("fal result image URL is not a public HTTPS target")
+                downloaded.append((url, self._download_bytes(url)))
+            primary_index = generation_task[task_fields["requestIntent"]][
+                intent_fields["primaryOutputIndex"]
+            ]
+            _primary_url, primary_bytes = downloaded[primary_index]
+            output_identities = [
+                "fal-output-" + hashlib.sha256(url.encode("utf-8")).hexdigest()
+                for url, _payload in downloaded
+            ]
+            output_assets = [
+                {
+                    asset_fields["providerOutputIdentity"]: output_identity,
+                    asset_fields["sha256"]: hashlib.sha256(payload).hexdigest(),
+                }
+                for output_identity, (_url, payload) in zip(
+                    output_identities, downloaded, strict=True
+                )
+            ]
+            output_format = generation_task[task_fields["requestIntent"]][
+                intent_fields["outputFormat"]
+            ]
+            output_format_role = next(
+                role
+                for role, value in contract["outputFormats"].items()
+                if value == output_format
+            )
+            extension = contract["outputFormatExtensions"][output_format_role]
+            return {
+                result_fields["status"]: contract["pollStatuses"]["succeeded"],
+                result_fields["failureClass"]: None,
+                result_fields["failureReason"]: None,
+                result_fields["extension"]: extension,
+                result_fields["imageBytes"]: primary_bytes,
+                result_fields["outputAssets"]: output_assets,
+                result_fields["providerOutputIdentity"]: output_identities[primary_index],
+            }
+        except Exception as exc:
+            failure_role = self._failure_role(exc)
+            return {
+                result_fields["status"]: contract["pollStatuses"]["failed"],
+                result_fields["failureClass"]: contract["failureClasses"][failure_role],
+                result_fields["failureReason"]: self._safe_error_detail(exc),
+                result_fields["extension"]: None,
+                result_fields["imageBytes"]: None,
+                result_fields["outputAssets"]: [],
+                result_fields["providerOutputIdentity"]: None,
+            }

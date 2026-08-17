@@ -1,1 +1,3 @@
 jsonschema>=4.23,<5
+fal-client>=1,<2
+Pillow>=11,<13

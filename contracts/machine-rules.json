@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.9.0",
+  "schemaVersion": "0.10.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -720,6 +720,173 @@
       "explanation": "evidence"
     }
   },
+  "generationExecutionContract": {
+    "requestOptionsField": "generationOptions",
+    "requestOptionFields": {
+      "imageCount": "imageCount",
+      "primaryOutputIndex": "primaryOutputIndex"
+    },
+    "defaultImageCount": 1,
+    "defaultPrimaryOutputIndex": 0,
+    "maximumImageCount": 4,
+    "artifactTypes": {
+      "task": "generation-task",
+      "wal": "generation-wal"
+    },
+    "taskFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "taskIdentity": "taskId",
+      "revision": "revision",
+      "sourceImageSha256": "sourceImageSha256",
+      "generationPackageSha256": "generationPackageSha256",
+      "productionPinSha256": "productionPinSha256",
+      "inputSha256": "inputSha256",
+      "requestIntent": "requestIntent",
+      "requestIntentSha256": "requestIntentSha256"
+    },
+    "requestIntentFields": {
+      "generationRequestIdentity": "generationRequestId",
+      "prompt": "prompt",
+      "imageCount": "imageCount",
+      "primaryOutputIndex": "primaryOutputIndex",
+      "imageSize": "imageSize",
+      "outputFormat": "outputFormat"
+    },
+    "outputFormats": {
+      "png": "png",
+      "jpeg": "jpeg",
+      "webp": "webp"
+    },
+    "outputFormatExtensions": {
+      "png": ".png",
+      "jpeg": ".jpg",
+      "webp": ".webp"
+    },
+    "outputFormatSignatures": {
+      "png": "89504e470d0a1a0a",
+      "jpeg": "ffd8",
+      "webp": "52494646"
+    },
+    "outputFormatDecoderNames": {
+      "png": "PNG",
+      "jpeg": "JPEG",
+      "webp": "WEBP"
+    },
+    "maximumDecodedImageDimension": 4096,
+    "maximumDecodedImagePixels": 16777216,
+    "walFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "taskIdentity": "taskId",
+      "taskSha256": "taskSha256",
+      "previousWalSha256": "previousWalSha256",
+      "revision": "revision",
+      "status": "status",
+      "provider": "provider",
+      "model": "model",
+      "providerRequestIdentity": "providerRequestId",
+      "providerOutputIdentity": "providerOutputId",
+      "outputSha256": "outputSha256",
+      "outputAssets": "outputAssets",
+      "pollAttemptCount": "pollAttemptCount",
+      "failureClass": "failureClass",
+      "failureReason": "failureReason",
+      "updatedAt": "updatedAt"
+    },
+    "walStatuses": {
+      "prepared": "prepared",
+      "submitted": "submitted",
+      "succeeded": "succeeded",
+      "failed": "failed"
+    },
+    "submissionFields": {
+      "status": "status",
+      "provider": "provider",
+      "model": "model",
+      "providerRequestIdentity": "providerRequestId",
+      "failureClass": "failureClass",
+      "failureReason": "failureReason"
+    },
+    "submissionStatuses": {
+      "submitted": "submitted",
+      "failed": "failed"
+    },
+    "pollResultFields": {
+      "status": "status",
+      "failureClass": "failureClass",
+      "failureReason": "failureReason",
+      "extension": "extension",
+      "imageBytes": "imageBytes",
+      "outputAssets": "outputAssets",
+      "providerOutputIdentity": "providerOutputId"
+    },
+    "pollStatuses": {
+      "succeeded": "succeeded",
+      "failed": "failed"
+    },
+    "outputAssetFields": {
+      "providerOutputIdentity": "providerOutputId",
+      "sha256": "sha256"
+    },
+    "providerIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+    "modelIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$",
+    "opaqueExecutionIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+    "failureClasses": {
+      "retryable": "retryable",
+      "replanRequired": "replan_required",
+      "humanReview": "human_review",
+      "permanent": "permanent",
+      "submissionUnknown": "submission_unknown"
+    },
+    "retryBudgets": {
+      "retryable": 3,
+      "replanRequired": 0,
+      "humanReview": 0,
+      "permanent": 0,
+      "submissionUnknown": 0
+    },
+    "failureRoutes": {
+      "retryable": {
+        "outcomeRole": "failed",
+        "errorCodeRole": "generationRetryable",
+        "recoveryPhaseIndex": 2
+      },
+      "replanRequired": {
+        "outcomeRole": "blocked",
+        "errorCodeRole": "generationReplanRequired",
+        "recoveryPhaseIndex": 1
+      },
+      "humanReview": {
+        "outcomeRole": "needs_input",
+        "errorCodeRole": "riskNeedsReview",
+        "recoveryPhaseIndex": 1
+      },
+      "permanent": {
+        "outcomeRole": "failed",
+        "errorCodeRole": "generationPermanentFailure",
+        "recoveryPhaseIndex": null
+      },
+      "submissionUnknown": {
+        "outcomeRole": "needs_input",
+        "errorCodeRole": "generationSubmissionUnknown",
+        "recoveryPhaseIndex": 2
+      }
+    },
+    "providerRoles": {
+      "deterministicFixture": "deterministic-fixture-generation",
+      "fal": "fal"
+    },
+    "fal": {
+      "model": "openai/gpt-image-2/edit",
+      "quality": "high",
+      "maximumDownloadRedirects": 3
+    },
+    "persistedErrorSanitization": {
+      "digestPrefix": "provider-failure-sha256:",
+      "digestLength": 16
+    }
+  },
   "identifiers": {
     "productionItemIdPattern": "^[a-z][a-z0-9-]{1,127}$",
     "imageExtensionPattern": "^\\.[a-z0-9]{1,10}$"
@@ -732,6 +899,10 @@
     "unknownCategory": "AUTONOMOUS_TARGET_UNKNOWN",
     "noCompatibleReplacement": "NO_COMPATIBLE_REPLACEMENT",
     "visualHardFailure": "VISUAL_HARD_FAILURE",
+    "generationRetryable": "GENERATION_RETRYABLE",
+    "generationReplanRequired": "GENERATION_REPLAN_REQUIRED",
+    "generationPermanentFailure": "GENERATION_PERMANENT_FAILURE",
+    "generationSubmissionUnknown": "GENERATION_SUBMISSION_UNKNOWN",
     "contractFailure": "STATIC_CONTRACT_FAILURE",
     "externalFailure": "EXTERNAL_ADAPTER_FAILURE",
     "immutableConflict": "IMMUTABLE_ARTIFACT_CONFLICT"
