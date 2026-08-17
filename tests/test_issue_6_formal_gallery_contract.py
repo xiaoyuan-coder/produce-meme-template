@@ -100,7 +100,7 @@ class AssetUrlAdapters(DeterministicFixtureAdapters):
 
     def upload(self, approved_image: Path, object_key: str) -> dict:
         receipt = super().upload(approved_image, object_key)
-        receipt["url"] = self.url
+        receipt["url"] = self.url.replace("{objectKey}", object_key)
         return receipt
 
 
@@ -304,9 +304,9 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
 
     def test_valid_https_urls_are_not_mistaken_for_local_paths(self) -> None:
         asset_urls = (
-            "https://assets.example/home/template.png",
-            "https://assets.example/Users/template.png",
-            "https://assets.example/var/folders/template.png",
+            "https://assets.example/home/{objectKey}",
+            "https://assets.example/Users/{objectKey}",
+            "https://assets.example/var/folders/{objectKey}",
         )
 
         for index, url in enumerate(asset_urls):
@@ -314,8 +314,8 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
                 result = self.run_case(f"valid-asset-url-{index}", AssetUrlAdapters(url))
                 self.assertEqual(RULES["resultStates"]["completed"], result.state)
                 record = load_json(result.gallery_template)
-                self.assertEqual(url, record[COVER_FIELD])
-                self.assertEqual(url, record[REFERENCE_FIELD])
+                self.assertEqual(record[COVER_FIELD], record[REFERENCE_FIELD])
+                self.assertTrue(record[COVER_FIELD].startswith(url.split("{", 1)[0]))
 
     def test_embedded_local_paths_and_data_urls_stop_before_upload(self) -> None:
         embedded_values = (

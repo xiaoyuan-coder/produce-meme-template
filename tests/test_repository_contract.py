@@ -117,6 +117,12 @@ class RepositoryContractTest(unittest.TestCase):
             <= set(rules["historicalExperienceEvidence"])
         )
 
+    def test_issue_11_experience_ids_are_machine_traceable(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertTrue(
+            {"E35", "E36"} <= set(rules["historicalExperienceEvidence"])
+        )
+
     def test_generation_execution_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["generationExecutionContract"]
@@ -213,6 +219,61 @@ class RepositoryContractTest(unittest.TestCase):
             ROOT / "tests" / "test_issue_10_generation_wal.py",
         ]
         for path in sources:
+            literals = {
+                node.value
+                for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            }
+            self.assertTrue(machine_values.isdisjoint(literals), path.as_posix())
+
+    def test_object_storage_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["objectStorageContract"]
+        self.assertEqual(
+            len(contract["adapterResultFields"]),
+            len(set(contract["adapterResultFields"].values())),
+        )
+        self.assertEqual(
+            len(contract["receiptFields"]),
+            len(set(contract["receiptFields"].values())),
+        )
+        self.assertEqual(
+            {"uploaded", "reused"}, set(contract["uploadStatuses"])
+        )
+        for pattern_name in (
+            "providerIdentityPattern",
+            "remoteIdentityPattern",
+            "requestIdentityPattern",
+            "idempotencyIdentityPattern",
+        ):
+            re.compile(contract[pattern_name])
+        self.assertTrue(contract["objectKeyPrefix"])
+        self.assertTrue(contract["idempotencyKeyPrefix"])
+        self.assertIs(contract["assetUrlPolicy"]["allowQuery"], False)
+        self.assertIs(contract["assetUrlPolicy"]["allowFragment"], False)
+        self.assertTrue(contract["aliyun"]["sha256MetadataHeader"])
+        self.assertTrue(contract["aliyun"]["forbidOverwriteHeader"])
+        self.assertTrue(contract["aliyun"]["forbidOverwriteValue"])
+        self.assertIn(
+            contract["aliyun"]["objectIdentityAlgorithm"],
+            hashlib.algorithms_available,
+        )
+
+        machine_values = {
+            contract["artifactType"],
+            *contract["uploadStatuses"].values(),
+            *contract["providerRoles"].values(),
+            contract["aliyun"]["objectIdentityAlgorithm"],
+        }
+        machine_values -= {
+            *contract["uploadStatuses"],
+            *contract["providerRoles"],
+        }
+        for path in (
+            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "adapters.py",
+            ROOT / "tests" / "test_issue_11_oss_finalization.py",
+        ):
             literals = {
                 node.value
                 for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))

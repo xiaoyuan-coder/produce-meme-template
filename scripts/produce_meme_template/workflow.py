@@ -13,11 +13,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
+from urllib.parse import unquote, urlsplit
 
 from jsonschema import Draft202012Validator, FormatChecker
 from PIL import Image, UnidentifiedImageError
 
-from .validation import is_valid_https_url
+from .validation import is_safe_public_https_url, is_valid_https_url
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -5079,7 +5080,7 @@ def _formal_projection(draft: dict[str, Any], url: str, rules: dict[str, Any]) -
             review_field not in metadata
             or (isinstance(needs_review, str) and needs_review.strip())
         )
-        and is_valid_https_url(url)
+        and _public_asset_url_valid(url, rules)
     )
     if not source_valid:
         raise _stop(
@@ -5152,8 +5153,8 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
     reference_image = record.get(reference_field)
     cover_matches_reference = cover == reference_image
     asset_urls_valid = bool(
-        is_valid_https_url(cover)
-        and is_valid_https_url(reference_image)
+        _public_asset_url_valid(cover, rules)
+        and _public_asset_url_valid(reference_image, rules)
     )
     passed = bool(
         not errors
@@ -5184,40 +5185,319 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
     }
 
 
+def _delivery_image_context(
+    output_dir: Path, manifest: dict[str, Any]
+) -> tuple[list[str], dict[str, Any]]:
+    revision = manifest.get("revision")
+    candidate_names = _revision_image_artifacts(
+        manifest, "generated-candidate-image", revision
+    )
+    approved_names = _revision_image_artifacts(
+        manifest, "approved-template-image", revision
+    )
+    errors: list[str] = []
+    if len(candidate_names) != 1:
+        errors.append("current candidate image count must be one")
+    if len(approved_names) != 1:
+        errors.append("current approved image count must be one")
+    if errors:
+        return errors, {}
+    candidate_name = candidate_names[0]
+    approved_name = approved_names[0]
+    candidate_path = output_dir / candidate_name
+    approved_path = output_dir / approved_name
+    if not candidate_path.is_file() or not approved_path.is_file():
+        return ["current candidate or approved image missing"], {}
+    candidate_sha = _sha_file(candidate_path)
+    approved_sha = _sha_file(approved_path)
+    if candidate_sha != approved_sha:
+        errors.append("approved image no longer matches the reviewed candidate")
+    return errors, {
+        "candidateName": candidate_name,
+        "candidateSha256": candidate_sha,
+        "approvedName": approved_name,
+        "approvedPath": approved_path,
+        "approvedSha256": approved_sha,
+    }
+
+
+def _object_storage_key(
+    template_key: str, approved_path: Path, approved_sha256: str, rules: dict[str, Any]
+) -> str:
+    contract = rules["objectStorageContract"]
+    object_key = (
+        f"{contract['objectKeyPrefix']}/{template_key}/"
+        f"{approved_sha256}{approved_path.suffix.lower()}"
+    )
+    allowed_extensions = set(
+        rules["generationExecutionContract"]["outputFormatExtensions"].values()
+    )
+    if (
+        not re.fullmatch(r"[a-z][a-z0-9/-]*", contract["objectKeyPrefix"])
+        or approved_path.suffix.lower() not in allowed_extensions
+        or ".." in object_key
+        or object_key.startswith("/")
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "OSS 对象键不符合冻结合同。",
+            {"objectKey": object_key},
+        )
+    return object_key
+
+
+def _public_asset_url_valid(value: Any, rules: dict[str, Any]) -> bool:
+    if not is_safe_public_https_url(value):
+        return False
+    parsed = urlsplit(value)
+    policy = rules["objectStorageContract"]["assetUrlPolicy"]
+    return bool(
+        (policy["allowQuery"] or not parsed.query)
+        and (policy["allowFragment"] or not parsed.fragment)
+    )
+
+
+def _asset_url_matches_object_key(value: Any, object_key: str) -> bool:
+    if not isinstance(value, str):
+        return False
+    path = unquote(urlsplit(value).path)
+    return path == "/" + object_key or path.endswith("/" + object_key)
+
+
+def _storage_identity_valid(value: Any, pattern: str) -> bool:
+    return isinstance(value, str) and re.fullmatch(pattern, value) is not None
+
+
+def _upload_result_valid(
+    result: Any,
+    expected_object_key: str,
+    expected_image_sha256: str,
+    rules: dict[str, Any],
+) -> bool:
+    contract = rules["objectStorageContract"]
+    fields = contract["adapterResultFields"]
+    return bool(
+        isinstance(result, dict)
+        and set(result) == set(fields.values())
+        and _storage_identity_valid(
+            result.get(fields["provider"]), contract["providerIdentityPattern"]
+        )
+        and result.get(fields["provider"]) in contract["providerRoles"].values()
+        and result.get(fields["objectKey"]) == expected_object_key
+        and _storage_identity_valid(
+            result.get(fields["objectIdentity"]),
+            contract["remoteIdentityPattern"],
+        )
+        and result.get(fields["imageSha256"]) == expected_image_sha256
+        and _public_asset_url_valid(result.get(fields["url"]), rules)
+        and _asset_url_matches_object_key(
+            result.get(fields["url"]), expected_object_key
+        )
+        and _storage_identity_valid(
+            result.get(fields["idempotencyKey"]),
+            contract["idempotencyIdentityPattern"],
+        )
+        and result.get(fields["idempotencyKey"])
+        == contract["idempotencyKeyPrefix"] + expected_image_sha256
+        and result.get(fields["uploadStatus"])
+        in contract["uploadStatuses"].values()
+        and _storage_identity_valid(
+            result.get(fields["providerRequestIdentity"]),
+            contract["requestIdentityPattern"],
+        )
+        and isinstance(result.get(fields["providerStatusCode"]), int)
+        and not isinstance(result.get(fields["providerStatusCode"]), bool)
+        and 200 <= result[fields["providerStatusCode"]] < 300
+    )
+
+
+def _build_asset_receipt(
+    manifest: dict[str, Any],
+    delivery: dict[str, Any],
+    upload_result: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    contract = rules["objectStorageContract"]
+    result_fields = contract["adapterResultFields"]
+    receipt_fields = contract["receiptFields"]
+    return {
+        receipt_fields["artifactType"]: contract["artifactType"],
+        receipt_fields["schemaVersion"]: rules["schemaVersion"],
+        receipt_fields["productionItemIdentity"]: manifest["productionItemId"],
+        receipt_fields["templateKey"]: manifest["templateKey"],
+        receipt_fields["formalRevision"]: manifest["revision"],
+        receipt_fields["candidateArtifact"]: delivery["candidateName"],
+        receipt_fields["candidateImageSha256"]: delivery["candidateSha256"],
+        receipt_fields["approvedArtifact"]: delivery["approvedName"],
+        receipt_fields["approvedImageSha256"]: delivery["approvedSha256"],
+        receipt_fields["provider"]: upload_result[result_fields["provider"]],
+        receipt_fields["objectKey"]: upload_result[result_fields["objectKey"]],
+        receipt_fields["objectIdentity"]: upload_result[
+            result_fields["objectIdentity"]
+        ],
+        receipt_fields["url"]: upload_result[result_fields["url"]],
+        receipt_fields["idempotencyKey"]: upload_result[
+            result_fields["idempotencyKey"]
+        ],
+        receipt_fields["uploadStatus"]: upload_result[
+            result_fields["uploadStatus"]
+        ],
+        receipt_fields["providerRequestIdentity"]: upload_result[
+            result_fields["providerRequestIdentity"]
+        ],
+        receipt_fields["providerStatusCode"]: upload_result[
+            result_fields["providerStatusCode"]
+        ],
+    }
+
+
+def _asset_receipt_valid(
+    receipt: Any,
+    manifest: dict[str, Any],
+    delivery: dict[str, Any],
+    expected_object_key: str,
+    rules: dict[str, Any],
+) -> bool:
+    contract = rules["objectStorageContract"]
+    fields = contract["receiptFields"]
+    return bool(
+        isinstance(receipt, dict)
+        and set(receipt) == set(fields.values())
+        and receipt.get(fields["artifactType"]) == contract["artifactType"]
+        and receipt.get(fields["schemaVersion"]) == rules["schemaVersion"]
+        and receipt.get(fields["productionItemIdentity"])
+        == manifest["productionItemId"]
+        and receipt.get(fields["templateKey"]) == manifest["templateKey"]
+        and receipt.get(fields["formalRevision"]) == manifest["revision"]
+        and receipt.get(fields["candidateArtifact"]) == delivery["candidateName"]
+        and receipt.get(fields["candidateImageSha256"])
+        == delivery["candidateSha256"]
+        and receipt.get(fields["approvedArtifact"]) == delivery["approvedName"]
+        and receipt.get(fields["approvedImageSha256"])
+        == delivery["approvedSha256"]
+        and receipt.get(fields["objectKey"]) == expected_object_key
+        and _storage_identity_valid(
+            receipt.get(fields["provider"]), contract["providerIdentityPattern"]
+        )
+        and receipt.get(fields["provider"]) in contract["providerRoles"].values()
+        and _storage_identity_valid(
+            receipt.get(fields["objectIdentity"]), contract["remoteIdentityPattern"]
+        )
+        and _public_asset_url_valid(receipt.get(fields["url"]), rules)
+        and _asset_url_matches_object_key(
+            receipt.get(fields["url"]), expected_object_key
+        )
+        and _storage_identity_valid(
+            receipt.get(fields["idempotencyKey"]),
+            contract["idempotencyIdentityPattern"],
+        )
+        and receipt.get(fields["idempotencyKey"])
+        == contract["idempotencyKeyPrefix"] + delivery["approvedSha256"]
+        and receipt.get(fields["uploadStatus"])
+        in contract["uploadStatuses"].values()
+        and _storage_identity_valid(
+            receipt.get(fields["providerRequestIdentity"]),
+            contract["requestIdentityPattern"],
+        )
+        and isinstance(receipt.get(fields["providerStatusCode"]), int)
+        and not isinstance(receipt.get(fields["providerStatusCode"]), bool)
+        and 200 <= receipt[fields["providerStatusCode"]] < 300
+    )
+
+
+def _current_finalization_errors(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
+    if delivery_errors:
+        return delivery_errors
+    try:
+        object_key = _object_storage_key(
+            manifest["templateKey"],
+            delivery["approvedPath"],
+            delivery["approvedSha256"],
+            rules,
+        )
+        receipt = _load_json(output_dir / "asset-receipt.json")
+        draft = _load_json(output_dir / "gallery-template.draft.json")
+        record = _load_json(output_dir / "gallery-template.json")
+        persisted_validation = _load_json(
+            output_dir / "final-validation-report.json"
+        )
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
+        return ["finalization evidence unreadable"]
+    if not all(
+        isinstance(item, dict)
+        for item in (receipt, draft, record, persisted_validation)
+    ):
+        return ["finalization evidence shape invalid"]
+    if not _asset_receipt_valid(
+        receipt, manifest, delivery, object_key, rules
+    ):
+        return ["asset receipt semantic binding invalid"]
+    receipt_fields = rules["objectStorageContract"]["receiptFields"]
+    try:
+        expected_record = _formal_projection(
+            draft, receipt[receipt_fields["url"]], rules
+        )
+    except WorkflowStop:
+        return ["formal projection source invalid"]
+    expected_validation = _validate_final(expected_record, rules)
+    errors: list[str] = []
+    if record != expected_record:
+        errors.append("formal record does not match receipt projection")
+    if persisted_validation != expected_validation or not expected_validation["pass"]:
+        errors.append("final validation report does not match current formal record")
+    return errors
+
+
 def _finalize_uploaded_item(
     output_dir: Path,
     manifest: dict[str, Any],
     rules: dict[str, Any],
     timestamp: str,
 ) -> ProductionResult:
-    draft = _load_json(output_dir / "gallery-template.draft.json")
-    receipt = _load_json(output_dir / "asset-receipt.json")
-    approved_names = _revision_image_artifacts(
-        manifest,
-        "approved-template-image",
-        manifest["revision"],
-    )
-    if len(approved_names) != 1:
+    try:
+        draft = _load_json(output_dir / "gallery-template.draft.json")
+        receipt = _load_json(output_dir / "asset-receipt.json")
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
         raise _stop(
             rules,
             "blocked",
             "productionItemIntegrityFailure",
-            "P7 恢复要求唯一的确认模板图谱系。",
-            {"approvedArtifacts": approved_names},
+            "P7 正式投影源或 Asset Receipt 无法读取。",
+            {},
         )
-    approved_name = approved_names[0]
-    approved_path = output_dir / approved_name
-    expected_object_key = (
-        f"gallery/templates/{manifest['templateKey']}/{_sha_file(approved_path)}{approved_path.suffix.lower()}"
+    if not isinstance(draft, dict) or not isinstance(receipt, dict):
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "P7 正式投影源或 Asset Receipt 形状无效。",
+            {},
+        )
+    delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
+    if delivery_errors:
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "P7 恢复要求唯一且摘要一致的候选图与确认模板图谱系。",
+            {"errors": delivery_errors},
+        )
+    expected_object_key = _object_storage_key(
+        manifest["templateKey"],
+        delivery["approvedPath"],
+        delivery["approvedSha256"],
+        rules,
     )
-    receipt_valid = (
-        receipt.get("artifactType") == "asset-receipt"
-        and receipt.get("schemaVersion") == rules["schemaVersion"]
-        and receipt.get("imageSha256") == _sha_file(approved_path)
-        and receipt.get("objectKey") == expected_object_key
-        and is_valid_https_url(receipt.get("url"))
-    )
-    if not receipt_valid:
+    if not _asset_receipt_valid(
+        receipt, manifest, delivery, expected_object_key, rules
+    ):
         raise _stop(
             rules,
             "blocked",
@@ -5226,7 +5506,8 @@ def _finalize_uploaded_item(
             {"path": str(output_dir / "asset-receipt.json")},
         )
 
-    final_record = _formal_projection(draft, receipt["url"], rules)
+    receipt_fields = rules["objectStorageContract"]["receiptFields"]
+    final_record = _formal_projection(draft, receipt[receipt_fields["url"]], rules)
     final_validation = _validate_final(final_record, rules)
     _atomic_write_new(output_dir / "final-validation-report.json", _json_bytes(final_validation))
     _record_artifact(
@@ -5357,6 +5638,9 @@ def run_production(
                     generation_options,
                     rules,
                 )
+            )
+            identity_errors.extend(
+                _current_finalization_errors(output_dir, existing, rules)
             )
         existing_revision_for_wal = existing.get("revision")
         if (
@@ -6486,20 +6770,27 @@ def run_production(
         _advance(manifest, rules, p6, timestamp)
         _persist_manifest(output_dir, manifest)
 
-        object_key = f"gallery/templates/{template_key}/{_sha_file(approved_path)}{approved_path.suffix.lower()}"
-        if ".." in object_key or object_key.startswith("/"):
-            raise _stop(rules, "blocked", "contractFailure", "OSS 对象键不安全。", {"objectKey": object_key})
+        delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
+        if delivery_errors:
+            raise _stop(
+                rules,
+                "blocked",
+                "productionItemIntegrityFailure",
+                "上传前候选图与确认模板图谱系不一致。",
+                {"errors": delivery_errors},
+            )
+        object_key = _object_storage_key(
+            template_key,
+            delivery["approvedPath"],
+            delivery["approvedSha256"],
+            rules,
+        )
         receipt_path = output_dir / "asset-receipt.json"
         if receipt_path.exists():
             receipt = _load_json(receipt_path)
-            receipt_valid = (
-                receipt.get("artifactType") == "asset-receipt"
-                and receipt.get("schemaVersion") == rules["schemaVersion"]
-                and receipt.get("imageSha256") == _sha_file(approved_path)
-                and receipt.get("objectKey") == object_key
-                and is_valid_https_url(receipt.get("url"))
-            )
-            if not receipt_valid:
+            if not _asset_receipt_valid(
+                receipt, manifest, delivery, object_key, rules
+            ):
                 raise _stop(
                     rules,
                     "blocked",
@@ -6508,24 +6799,42 @@ def run_production(
                     {"path": str(receipt_path)},
                 )
         else:
-            approved_sha = _sha_file(approved_path)
-            receipt = _adapter_snapshot_image_object_call(
+            upload_result = _adapter_snapshot_image_object_call(
                 rules,
                 "upload",
                 adapters.upload,
-                approved_path,
-                approved_sha,
+                delivery["approvedPath"],
+                delivery["approvedSha256"],
                 object_key,
             )
-            if receipt.get("imageSha256") != approved_sha or not is_valid_https_url(receipt.get("url")):
-                raise _stop(rules, "failed", "externalFailure", "上传凭证与确认模板图不一致。", receipt)
-            receipt = {"artifactType": "asset-receipt", "schemaVersion": rules["schemaVersion"], **receipt}
+            if not _upload_result_valid(
+                upload_result, object_key, delivery["approvedSha256"], rules
+            ):
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "上传结果未绑定确认模板图、远端对象或请求身份。",
+                    {},
+                )
+            receipt = _build_asset_receipt(
+                manifest, delivery, upload_result, rules
+            )
             _atomic_write_new(receipt_path, _json_bytes(receipt))
-        _record_artifact(manifest, output_dir, "asset-receipt.json", p7, [approved_rel, "validation-report.json"])
+        _record_artifact(
+            manifest,
+            output_dir,
+            "asset-receipt.json",
+            p7,
+            [delivery["approvedName"], "validation-report.json"],
+        )
         _advance(manifest, rules, p7, timestamp)
         _persist_manifest(output_dir, manifest)
 
-        final_record = _formal_projection(draft, receipt["url"], rules)
+        receipt_fields = rules["objectStorageContract"]["receiptFields"]
+        final_record = _formal_projection(
+            draft, receipt[receipt_fields["url"]], rules
+        )
         final_validation = _validate_final(final_record, rules)
         _atomic_write_new(output_dir / "final-validation-report.json", _json_bytes(final_validation))
         _record_artifact(manifest, output_dir, "final-validation-report.json", p8, ["gallery-template.draft.json", "asset-receipt.json"])

@@ -2,7 +2,7 @@
 
 ## 1. 公共工作流
 
-Issue #2–#10 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+Issue #2–#11 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
 机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。类别与策略来源使用“具名领域角色 → 机器值”映射，代码不依赖 JSON 成员顺序。代码、测试和 fixture 不再维护第二份枚举。
 
@@ -41,8 +41,8 @@ Issue #2–#10 只通过 `run_production(request, output_root, adapters)` 暴露
 - 硬失败停止在 P2，人工意见不能绕过门禁。
 - 清晰通过由工作流自主确认；身份歧义、审美风险或证据不足返回人工复核且不创建确认图。
 - P2 视觉硬失败可创建新的不可变 revision，只重做生成与视觉审核；新 generation package 使用新 request ID，旧 P2 证据和精确失效事件保留在 manifest。
-- P7 adapter 只能接收当前 Approved Template Image；Asset Receipt 的图片 SHA 必须一致，URL 必须为 HTTPS。
-- P7 恢复先验证已有产物谱系和 Asset Receipt，再直接执行 P8 正式投影；图片 SHA、对象键或 URL 不一致时阻断，恢复路径不调用生成或上传 adapter。
+- P7 adapter 只能接收当前 Approved Template Image；核心同时对账同 revision 的候选图摘要。Asset Receipt 必须绑定 Production Item、正式 revision、候选/确认图路径与 SHA、远端对象身份、对象键、请求状态、provider request ID 和公网 HTTPS URL，详细规则读取 `oss-finalization.md`。
+- P7 恢复先验证已有产物谱系和完整 Asset Receipt，再直接执行 P8 正式投影；图片 SHA、revision、对象身份、对象键或 URL 不一致时阻断，恢复路径不调用生成或上传 adapter。远端 PUT 成功而 receipt 尚未落盘时，真实 adapter 通过同一对象键与 SHA metadata 对账复用对象。
 - 完整生产调用授权门禁后的 P7 上传，不授权数据库导入、管理台写入、发布、Tag 或生产上线。
 
 ## 4. 版本 pin
@@ -51,4 +51,4 @@ Issue #2–#10 只通过 `run_production(request, output_root, adapters)` 暴露
 
 ## 5. 迁移证据
 
-确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 覆盖 E05、E06、E07、E10 和 E25；Issue #4 覆盖 E06、E10、E11、E12、E13、E29 和 E34；Issue #5 覆盖 E18、E19、E20、E21、E22、E24、E25、E26、E27、E28、E30 和 E31；Issue #6 覆盖 E30、E31、E35、E36、E38 和 E39；Issue #7 的三类身份路由、候选卡、依赖闭包、身份文字硬失败与中性默认态覆盖 E06、E07、E08、E09、E19、E20、E26 和 E28；Issue #8 的文字区域清单、角色/操作分类、长文 span、精确文字保真和次要文字全文编辑覆盖 E14、E15、E16、E17、E18、E24、E27 和 E28；Issue #9 的多实例组件图、五类图片操作、接触遮挡保持与四类独立计数覆盖 E06、E12、E20、E22、E23 和 E29；Issue #10 的默认单图、冻结任务、request ID WAL、失败分类、断点恢复、真实 FAL adapter 和视觉硬失败重做覆盖 E10、E12、E13、E29 和 E34。
+确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。Issue #2 测试覆盖 E01、E04、E05、E07、E10、E11、E19、E21、E27、E35、E36 和 E38；Issue #3 覆盖 E05、E06、E07、E10 和 E25；Issue #4 覆盖 E06、E10、E11、E12、E13、E29 和 E34；Issue #5 覆盖 E18、E19、E20、E21、E22、E24、E25、E26、E27、E28、E30 和 E31；Issue #6 覆盖 E30、E31、E35、E36、E38 和 E39；Issue #7 的三类身份路由、候选卡、依赖闭包、身份文字硬失败与中性默认态覆盖 E06、E07、E08、E09、E19、E20、E26 和 E28；Issue #8 的文字区域清单、角色/操作分类、长文 span、精确文字保真和次要文字全文编辑覆盖 E14、E15、E16、E17、E18、E24、E27 和 E28；Issue #9 的多实例组件图、五类图片操作、接触遮挡保持与四类独立计数覆盖 E06、E12、E20、E22、E23 和 E29；Issue #10 的默认单图、冻结任务、request ID WAL、失败分类、断点恢复、真实 FAL adapter 和视觉硬失败重做覆盖 E10、E12、E13、E29 和 E34；Issue #11 的唯一 Approved Image 上传、完整 receipt、远端对象恢复和 `cover === referenceImage` 覆盖 E35 与 E36。

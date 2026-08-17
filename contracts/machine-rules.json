@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.10.0",
+  "schemaVersion": "0.11.0",
   "productionPhases": [
     {"phase": "P0", "state": "INGESTED"},
     {"phase": "P1", "state": "REPLACEMENT_PLANNED"},
@@ -885,6 +885,63 @@
     "persistedErrorSanitization": {
       "digestPrefix": "provider-failure-sha256:",
       "digestLength": 16
+    }
+  },
+  "objectStorageContract": {
+    "artifactType": "asset-receipt",
+    "objectKeyPrefix": "gallery/templates",
+    "idempotencyKeyPrefix": "approved-image-",
+    "assetUrlPolicy": {
+      "allowQuery": false,
+      "allowFragment": false
+    },
+    "adapterResultFields": {
+      "provider": "provider",
+      "objectKey": "objectKey",
+      "objectIdentity": "objectIdentity",
+      "imageSha256": "imageSha256",
+      "url": "url",
+      "idempotencyKey": "idempotencyKey",
+      "uploadStatus": "requestStatus",
+      "providerRequestIdentity": "providerRequestId",
+      "providerStatusCode": "providerStatusCode"
+    },
+    "receiptFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "productionItemIdentity": "productionItemId",
+      "templateKey": "templateKey",
+      "formalRevision": "formalRevision",
+      "candidateArtifact": "candidateArtifact",
+      "candidateImageSha256": "candidateImageSha256",
+      "approvedArtifact": "approvedArtifact",
+      "approvedImageSha256": "imageSha256",
+      "provider": "provider",
+      "objectKey": "objectKey",
+      "objectIdentity": "objectIdentity",
+      "url": "url",
+      "idempotencyKey": "idempotencyKey",
+      "uploadStatus": "requestStatus",
+      "providerRequestIdentity": "providerRequestId",
+      "providerStatusCode": "providerStatusCode"
+    },
+    "uploadStatuses": {
+      "uploaded": "uploaded",
+      "reused": "reused"
+    },
+    "providerRoles": {
+      "deterministicFixture": "deterministic-fixture-oss",
+      "aliyunOss": "aliyun-oss"
+    },
+    "providerIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+    "remoteIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+    "requestIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+    "idempotencyIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+    "aliyun": {
+      "sha256MetadataHeader": "x-oss-meta-sha256",
+      "forbidOverwriteHeader": "x-oss-forbid-overwrite",
+      "forbidOverwriteValue": "true",
+      "objectIdentityAlgorithm": "md5"
     }
   },
   "identifiers": {

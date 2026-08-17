@@ -195,7 +195,7 @@ prompt 中的“改什么”和“保留什么”都必须来自 `ReplacementPla
 ```json
 {
   "artifactType": "replacement-plan",
-  "schemaVersion": "0.10.0",
+  "schemaVersion": "0.11.0",
   "templateKey": "example-key",
   "strategy": {
     "source": "per_image | batch | autonomous",

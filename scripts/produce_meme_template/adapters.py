@@ -13,7 +13,7 @@ import zlib
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .validation import is_public_ip_address, is_safe_public_https_url
@@ -514,12 +514,18 @@ class DeterministicFixtureAdapters:
         image_sha = hashlib.sha256(approved_image.read_bytes()).hexdigest()
         call = {"approvedImage": str(approved_image), "objectKey": object_key, "imageSha256": image_sha}
         self.upload_calls.append(call)
+        contract = _read_json(RULES_PATH)["objectStorageContract"]
+        fields = contract["adapterResultFields"]
         return {
-            "provider": "deterministic-fixture-oss",
-            "objectKey": object_key,
-            "imageSha256": image_sha,
-            "url": f"https://fixtures.memebuy.test/{object_key}",
-            "idempotencyKey": image_sha,
+            fields["provider"]: contract["providerRoles"]["deterministicFixture"],
+            fields["objectKey"]: object_key,
+            fields["objectIdentity"]: "fixture-object-" + image_sha,
+            fields["imageSha256"]: image_sha,
+            fields["url"]: f"https://fixtures.memebuy.test/{object_key}",
+            fields["idempotencyKey"]: contract["idempotencyKeyPrefix"] + image_sha,
+            fields["uploadStatus"]: contract["uploadStatuses"]["uploaded"],
+            fields["providerRequestIdentity"]: "fixture-upload-" + image_sha,
+            fields["providerStatusCode"]: 200,
         }
 
     def with_visual_review(self, overrides: dict[str, Any]) -> "DeterministicFixtureAdapters":
@@ -863,3 +869,164 @@ class FalQueueWorkflowAdapters:
                 result_fields["outputAssets"]: [],
                 result_fields["providerOutputIdentity"]: None,
             }
+
+
+class AliyunOssWorkflowAdapters:
+    """Store the Approved Template Image in Aliyun OSS and delegate other seams."""
+
+    def __init__(
+        self,
+        delegate: Any,
+        *,
+        public_base_url: str,
+        bucket: Any | None = None,
+        endpoint: str | None = None,
+        bucket_name: str | None = None,
+        resolve_host: Any | None = None,
+    ) -> None:
+        validation_options = {"resolve_dns": True}
+        if resolve_host is not None:
+            validation_options["resolver"] = resolve_host
+        if not is_safe_public_https_url(public_base_url, **validation_options):
+            raise ValueError("OSS public base URL must be public HTTPS")
+        self.delegate = delegate
+        self.public_base_url = public_base_url.rstrip("/")
+        self._bucket = bucket or self._create_bucket(endpoint, bucket_name)
+        self.upload_calls: list[dict[str, Any]] = []
+
+    @staticmethod
+    def _create_bucket(endpoint: str | None, bucket_name: str | None) -> Any:
+        endpoint = endpoint or os.environ.get("OSS_ENDPOINT")
+        bucket_name = bucket_name or os.environ.get("OSS_BUCKET_NAME")
+        access_key_id = os.environ.get("OSS_ACCESS_KEY_ID")
+        access_key_secret = os.environ.get("OSS_ACCESS_KEY_SECRET")
+        if not all((endpoint, bucket_name, access_key_id, access_key_secret)):
+            raise RuntimeError(
+                "Aliyun OSS requires endpoint, bucket name and access-key environment variables"
+            )
+        try:
+            import oss2
+        except ImportError as exc:
+            raise RuntimeError(
+                "oss2 is required for real OSS upload; install requirements.txt"
+            ) from exc
+        return oss2.Bucket(
+            oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name
+        )
+
+    @property
+    def generate_calls(self) -> list[dict[str, Any]]:
+        return self.delegate.generate_calls
+
+    def analyze_source(
+        self, source_image: Path, replacement_strategy: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        return self.delegate.analyze_source(source_image, replacement_strategy)
+
+    def submit_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self.delegate.submit_generation(
+            source_image, generation_package, generation_task
+        )
+
+    def poll_generation(
+        self,
+        source_image: Path,
+        generation_package: dict[str, Any],
+        generation_task: dict[str, Any],
+        submission: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self.delegate.poll_generation(
+            source_image, generation_package, generation_task, submission
+        )
+
+    def inspect_generated(
+        self, generated_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.inspect_generated(generated_image, review_request)
+
+    def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
+        return self.delegate.analyze_approved(approved_image)
+
+    def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
+        return self.delegate.audit_semantics(content)
+
+    @staticmethod
+    def _header_value(headers: Any, name: str) -> str | None:
+        if not hasattr(headers, "items"):
+            return None
+        expected = name.casefold()
+        for key, value in headers.items():
+            if isinstance(key, str) and key.casefold() == expected:
+                return str(value)
+        return None
+
+    def upload(self, approved_image: Path, object_key: str) -> dict[str, Any]:
+        rules = _read_json(RULES_PATH)
+        contract = rules["objectStorageContract"]
+        fields = contract["adapterResultFields"]
+        sha_header = contract["aliyun"]["sha256MetadataHeader"]
+        body = approved_image.read_bytes()
+        image_sha = hashlib.sha256(body).hexdigest()
+        expected_object_identity = hashlib.new(
+            contract["aliyun"]["objectIdentityAlgorithm"], body
+        ).hexdigest()
+        self.upload_calls.append(
+            {
+                "approvedImage": str(approved_image),
+                "objectKey": object_key,
+                "imageSha256": image_sha,
+            }
+        )
+        if self._bucket.object_exists(object_key):
+            metadata_result = self._bucket.head_object(object_key)
+            request_result = metadata_result
+            upload_status = contract["uploadStatuses"]["reused"]
+        else:
+            request_result = self._bucket.put_object(
+                object_key,
+                body,
+                headers={
+                    sha_header: image_sha,
+                    contract["aliyun"]["forbidOverwriteHeader"]: contract[
+                        "aliyun"
+                    ]["forbidOverwriteValue"],
+                },
+            )
+            metadata_result = self._bucket.head_object(object_key)
+            upload_status = contract["uploadStatuses"]["uploaded"]
+        remote_sha = self._header_value(
+            getattr(metadata_result, "headers", None), sha_header
+        )
+        if (
+            remote_sha != image_sha
+            or getattr(metadata_result, "content_length", None) != len(body)
+        ):
+            raise ValueError("OSS object metadata does not match the approved image")
+        object_identity = str(getattr(metadata_result, "etag", "")).strip().strip('"')
+        request_identity = str(getattr(request_result, "request_id", "")).strip()
+        status_code = getattr(request_result, "status", None)
+        if (
+            not object_identity
+            or object_identity.casefold() != expected_object_identity.casefold()
+            or not request_identity
+            or not isinstance(status_code, int)
+            or isinstance(status_code, bool)
+            or not 200 <= status_code < 300
+        ):
+            raise ValueError("OSS response is missing stable object or request evidence")
+        return {
+            fields["provider"]: contract["providerRoles"]["aliyunOss"],
+            fields["objectKey"]: object_key,
+            fields["objectIdentity"]: object_identity,
+            fields["imageSha256"]: image_sha,
+            fields["url"]: self.public_base_url + "/" + quote(object_key, safe="/"),
+            fields["idempotencyKey"]: contract["idempotencyKeyPrefix"] + image_sha,
+            fields["uploadStatus"]: upload_status,
+            fields["providerRequestIdentity"]: request_identity,
+            fields["providerStatusCode"]: status_code,
+        }
