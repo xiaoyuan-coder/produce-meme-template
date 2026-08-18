@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import json
 import os
 import re
@@ -13,8 +12,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
+from .artifacts import (
+    canonical_json_bytes as _canonical_bytes,
+    compact_json_line_bytes as _json_bytes,
+    load_json_object as _load_object,
+    sha256_bytes as _sha_bytes,
+    sha256_file as _sha_file,
+)
 
 MACHINE_RULES_RELATIVE = Path("contracts") / "machine-rules.json"
+RELEASE_CONTRACT_SCHEMA_RELATIVE = (
+    Path("contracts") / "release-management-contract.schema.json"
+)
 SEMVER_PATTERN = re.compile(
     r"^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
     r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
@@ -27,48 +38,13 @@ def _runtime_contract() -> dict[str, Any]:
     return _release_contract_view(
         _load_object(runtime_root / MACHINE_RULES_RELATIVE).get(
             "releaseManagementContract"
-        )
+        ),
+        contract_root=runtime_root,
     )
 
 
 def runtime_release_contract() -> dict[str, Any]:
     return copy.deepcopy(_runtime_contract())
-
-
-def _json_bytes(value: Any) -> bytes:
-    return (
-        json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
-        + b"\n"
-    )
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
-def _load_object(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path.name} must contain an object")
-    return value
-
-
-def _sha_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def _sha_file(path: Path) -> str:
-    return _sha_bytes(path.read_bytes())
 
 
 def _safe_relative_path(value: str) -> bool:
@@ -82,179 +58,36 @@ def _safe_relative_path(value: str) -> bool:
     )
 
 
-def _release_contract_view(value: Any) -> dict[str, Any]:
-    required_mapping_roles = {
-        "errorCodes": {
-            "invalidReleaseMetadata",
-            "invalidGitCommit",
-            "sourceGitMismatch",
-            "sourceFileSetMismatch",
-            "releaseValidationFailure",
-            "dirtyWorktree",
-            "releaseAlreadyExists",
-            "missingReleaseFile",
-            "invalidReleaseLock",
-            "mutableReleaseRuntime",
-            "extraInstallFile",
-            "fileDigestMismatch",
-            "releaseDigestMismatch",
-            "mixedVersion",
-            "installVersionExists",
-            "installPointerConflict",
-            "installPathConflict",
-            "invalidInstallRecord",
-            "productionPinMismatch",
-            "invalidSourceRuntime",
-            "invalidProductionPin",
-            "invalidProductionManifest",
-            "newRuntimeInvalid",
-            "immutableMigrationConflict",
-        },
-        "lockFields": {
-            "artifactType",
-            "lockSchemaVersion",
-            "skillName",
-            "skillVersion",
-            "artifactSchemaVersion",
-            "galleryContractVersion",
-            "galleryContractSha256",
-            "gitCommit",
-            "builtAt",
-            "files",
-            "contentDigest",
-            "releaseDigest",
-        },
-        "fileFields": {"path", "sha256", "bytes"},
-        "diagnosticFields": {
-            "runtimeRoot",
-            "installSource",
-            "skillVersion",
-            "artifactSchemaVersion",
-            "galleryContractVersion",
-            "releaseDigest",
-            "releaseLockSha256",
-            "productionPin",
-            "errorCodes",
-            "remediation",
-        },
-        "installRecordFields": {
-            "skillVersion",
-            "releaseDigest",
-            "packageSource",
-            "installedPath",
-        },
-        "migrationFields": {
-            "artifactType",
-            "revision",
-            "oldPinSha256",
-            "newPinSha256",
-            "oldPin",
-            "newPin",
-            "changedVersionLines",
-            "invalidateFromPhase",
-            "productionItemId",
-            "templateRevision",
-            "productionManifestSha256",
-        },
-        "productionPinFields": {
-            "artifactType",
-            "schemaVersion",
-            "skill",
-            "artifactSchemaVersion",
-            "releaseSha256",
-            "releaseManifestSha256",
-            "releaseFileCount",
-            "machineRulesSha256",
-            "gitCommit",
-            "validatorSha256",
-            "replacementSpecVersion",
-            "replacementSpecSha256",
-            "galleryContract",
-        },
-        "productionPinSkillFields": {"name", "version"},
-        "productionPinGalleryFields": {
-            "id",
-            "snapshot",
-            "sha256",
-            "upstreamSourceSha256",
-        },
-        "installLayout": {
-            "versionsDirectory",
-            "currentPointer",
-            "recordsDirectory",
-        },
-    }
+def _release_contract_view(
+    value: Any,
+    *,
+    contract_root: Path | None = None,
+) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("release management contract must be an object")
-    for mapping_name, roles in required_mapping_roles.items():
-        mapping = value.get(mapping_name)
-        if not (
-            isinstance(mapping, dict)
-            and set(mapping) == roles
-            and len(mapping) == len(set(mapping.values()))
-            and all(
-                isinstance(item, str) and item for item in mapping.values()
+    root = contract_root or Path(__file__).resolve().parents[2]
+    schema = _load_object(root / RELEASE_CONTRACT_SCHEMA_RELATIVE)
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(value),
+        key=lambda item: [str(part) for part in item.absolute_path],
+    )
+    if errors:
+        location = ".".join(str(part) for part in errors[0].absolute_path)
+        raise ValueError(
+            f"invalid release management contract at {location or '<root>'}: "
+            f"{errors[0].message}"
+        )
+    for mapping_name, mapping in value.items():
+        if isinstance(mapping, dict) and len(mapping) != len(set(mapping.values())):
+            raise ValueError(
+                f"release contract mapping values must be unique: {mapping_name}"
             )
-        ):
-            raise ValueError(f"invalid release contract mapping: {mapping_name}")
-    for list_name in (
-        "runtimeIgnoredDirectoryNames",
-        "runtimeIgnoredSuffixes",
-        "legacyProductionPinRequiredFieldRoles",
+    if not set(value["legacyProductionPinRequiredFieldRoles"]) <= set(
+        value["productionPinFields"]
     ):
-        items = value.get(list_name)
-        if not (
-            isinstance(items, list)
-            and len(items) == len(set(items))
-            and all(isinstance(item, str) and item for item in items)
-        ):
-            raise ValueError(f"invalid release contract list: {list_name}")
-    if not (
-        isinstance(value.get("lockFileName"), str)
-        and _safe_relative_path(value["lockFileName"])
-        and isinstance(value.get("lockArtifactType"), str)
-        and value["lockArtifactType"]
-        and isinstance(value.get("lockSchemaVersion"), str)
-        and SEMVER_PATTERN.fullmatch(value["lockSchemaVersion"])
-        and isinstance(value.get("smokeFixtureRelativePath"), str)
-        and _safe_relative_path(value["smokeFixtureRelativePath"])
-        and isinstance(
-            value.get("buildValidationRunnerRelativePath"), str
+        raise ValueError(
+            "legacy production pin roles must exist in productionPinFields"
         )
-        and _safe_relative_path(
-            value["buildValidationRunnerRelativePath"]
-        )
-        and isinstance(value.get("validationTimeoutSeconds"), int)
-        and not isinstance(value["validationTimeoutSeconds"], bool)
-        and value["validationTimeoutSeconds"] > 0
-        and isinstance(value.get("migrationArtifactType"), str)
-        and value["migrationArtifactType"]
-        and isinstance(value.get("migrationFilePattern"), str)
-        and "{revision}" in value["migrationFilePattern"]
-        and isinstance(value.get("migrationInvalidateFromPhaseIndex"), int)
-        and not isinstance(value["migrationInvalidateFromPhaseIndex"], bool)
-        and value["migrationInvalidateFromPhaseIndex"] >= 0
-        and isinstance(value.get("productionPinArtifactType"), str)
-        and value["productionPinArtifactType"]
-        and set(value["legacyProductionPinRequiredFieldRoles"])
-        <= set(value["productionPinFields"])
-        and isinstance(value.get("replacementSpecVersion"), str)
-        and SEMVER_PATTERN.fullmatch(value["replacementSpecVersion"])
-        and all(
-            isinstance(value.get(role), str)
-            and _safe_relative_path(value[role])
-            for role in (
-                "validatorRelativePath",
-                "replacementSpecRelativePath",
-                "gallerySnapshotRelativePath",
-            )
-        )
-        and isinstance(value.get("galleryUpstreamSourceSha256"), str)
-        and re.fullmatch(
-            r"[0-9a-f]{64}", value["galleryUpstreamSourceSha256"]
-        )
-    ):
-        raise ValueError("invalid release management scalar contract")
     return value
 
 
@@ -395,7 +228,9 @@ def _release_metadata(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]
         if isinstance(supported_contracts, dict)
         else None
     )
-    _release_contract_view(rules.get("releaseManagementContract"))
+    _release_contract_view(
+        rules.get("releaseManagementContract"), contract_root=source_root
+    )
     if not (
         release.get("skillName") == "produce-meme-template"
         and isinstance(skill_version, str)
@@ -577,12 +412,13 @@ def _content_digest(
     )
 
 
-def build_release(
+def _build_release_package(
     source_root: str | Path,
     dist_root: str | Path,
     *,
     git_commit: str,
     built_at: datetime | None = None,
+    candidate: bool,
 ) -> dict[str, Any]:
     source = Path(source_root).resolve()
     dist = Path(dist_root).resolve()
@@ -597,9 +433,18 @@ def build_release(
             "message": str(exc),
         }
     release_contract = _release_contract_view(
-        rules.get("releaseManagementContract")
+        rules.get("releaseManagementContract"), contract_root=source
     )
     codes = release_contract["errorCodes"]
+    if int(release["skillVersion"].split(".", 1)[0]) >= 1 and not candidate:
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": (
+                "stable releases require a verified release-readiness "
+                "completion and promotion"
+            ),
+        }
     lock_fields = release_contract["lockFields"]
     file_fields = release_contract["fileFields"]
     gallery_relative = release_contract["gallerySnapshotRelativePath"]
@@ -729,6 +574,7 @@ def build_release(
         }
     return {
         "pass": True,
+        "candidate": candidate,
         "packageDir": str(package),
         "releaseDigest": lock[lock_fields["releaseDigest"]],
         "contentDigest": lock[lock_fields["contentDigest"]],
@@ -736,6 +582,38 @@ def build_release(
         "artifactSchemaVersion": lock[lock_fields["artifactSchemaVersion"]],
         "galleryContractVersion": lock[lock_fields["galleryContractVersion"]],
     }
+
+
+def build_release(
+    source_root: str | Path,
+    dist_root: str | Path,
+    *,
+    git_commit: str,
+    built_at: datetime | None = None,
+) -> dict[str, Any]:
+    return _build_release_package(
+        source_root,
+        dist_root,
+        git_commit=git_commit,
+        built_at=built_at,
+        candidate=False,
+    )
+
+
+def stage_release(
+    source_root: str | Path,
+    candidate_root: str | Path,
+    *,
+    git_commit: str,
+    built_at: datetime | None = None,
+) -> dict[str, Any]:
+    return _build_release_package(
+        source_root,
+        candidate_root,
+        git_commit=git_commit,
+        built_at=built_at,
+        candidate=True,
+    )
 
 
 def _verify_release(
@@ -748,7 +626,7 @@ def _verify_release(
             raise ValueError("machine rules cannot be a symlink")
         rules = _load_object(rules_path)
         contract = _release_contract_view(
-            rules.get("releaseManagementContract")
+            rules.get("releaseManagementContract"), contract_root=package_dir
         )
         lock_name = contract["lockFileName"]
         lock_path = package_dir / lock_name
@@ -835,7 +713,7 @@ def _verify_release(
             != lock.get(lock_fields["galleryContractVersion"])
         ):
             errors.append(codes["mixedVersion"])
-        gallery_path = package_dir / "contracts" / "gallery-template.schema.json"
+        gallery_path = package_dir / contract["gallerySnapshotRelativePath"]
         if (
             not gallery_path.is_file()
             or gallery_path.is_symlink()
@@ -846,6 +724,111 @@ def _verify_release(
     if require_read_only and not _runtime_is_read_only(package_dir):
         errors.append(codes["mutableReleaseRuntime"])
     return lock, sorted(set(errors))
+
+
+def promote_release(
+    candidate_package: str | Path,
+    dist_root: str | Path,
+    *,
+    readiness_root: str | Path,
+) -> dict[str, Any]:
+    candidate = Path(candidate_package).resolve()
+    dist = Path(dist_root).resolve()
+    lock, verification_errors = _verify_release(candidate)
+    if lock is None or verification_errors:
+        return {
+            "pass": False,
+            "errorCode": _runtime_contract()["errorCodes"]["invalidReleaseLock"],
+            "verificationErrors": verification_errors,
+        }
+    rules = _load_object(candidate / MACHINE_RULES_RELATIVE)
+    contract = _release_contract_view(
+        rules.get("releaseManagementContract"), contract_root=candidate
+    )
+    codes = contract["errorCodes"]
+    lock_fields = contract["lockFields"]
+    file_fields = contract["fileFields"]
+    version = lock[lock_fields["skillVersion"]]
+    if int(version.split(".", 1)[0]) < 1:
+        return {
+            "pass": False,
+            "errorCode": codes["invalidReleaseMetadata"],
+            "message": "only stable releases use readiness promotion",
+        }
+    try:
+        if (
+            candidate == dist
+            or candidate.is_relative_to(dist)
+            or dist.is_relative_to(candidate)
+        ):
+            return {
+                "pass": False,
+                "errorCode": codes["installPathConflict"],
+                "message": "candidate and public dist roots must not overlap",
+            }
+        from .release_readiness import verify_release_readiness_completion
+
+        readiness = verify_release_readiness_completion(
+            readiness_root,
+            expected_package_path=candidate,
+            expected_release_digest=lock[lock_fields["releaseDigest"]],
+            expected_git_commit=lock[lock_fields["gitCommit"]],
+        )
+    except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
+        readiness = {"pass": False}
+    if readiness.get("pass") is not True:
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": "stable promotion requires a valid live readiness completion",
+        }
+    package = dist / lock[lock_fields["skillName"]] / version
+    if package.exists():
+        return {
+            "pass": False,
+            "errorCode": codes["releaseAlreadyExists"],
+            "packageDir": str(package),
+        }
+    package.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(prefix=f".{version}.", dir=package.parent)
+    )
+    try:
+        for entry in lock[lock_fields["files"]]:
+            relative = entry[file_fields["path"]]
+            destination = staging / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((candidate / relative).read_bytes())
+        (staging / contract["lockFileName"]).write_bytes(
+            (candidate / contract["lockFileName"]).read_bytes()
+        )
+        _make_runtime_read_only(staging)
+        promoted_lock, promoted_errors = _verify_release(staging)
+        if promoted_errors or promoted_lock != lock:
+            raise OSError("promoted release verification failed")
+        staging.rename(package)
+    except OSError as exc:
+        _discard_staging_tree(staging)
+        return {
+            "pass": False,
+            "errorCode": codes["releaseValidationFailure"],
+            "message": type(exc).__name__,
+        }
+    return {
+        "pass": True,
+        "candidate": False,
+        "promoted": True,
+        "packageDir": str(package),
+        "releaseDigest": lock[lock_fields["releaseDigest"]],
+        "contentDigest": lock[lock_fields["contentDigest"]],
+        "skillVersion": version,
+        "artifactSchemaVersion": lock[lock_fields["artifactSchemaVersion"]],
+        "galleryContractVersion": lock[
+            lock_fields["galleryContractVersion"]
+        ],
+        "readinessReportPath": readiness["reportPath"],
+        "readinessCompletionPath": readiness["completionPath"],
+    }
 
 
 def install_release(
@@ -877,7 +860,7 @@ def install_release(
         }
     rules = _load_object(package / MACHINE_RULES_RELATIVE)
     release_contract = _release_contract_view(
-        rules.get("releaseManagementContract")
+        rules.get("releaseManagementContract"), contract_root=package
     )
     lock_fields = release_contract["lockFields"]
     if not (
@@ -1071,7 +1054,7 @@ def _runtime_release_state(
     try:
         runtime_rules = _load_object(runtime / MACHINE_RULES_RELATIVE)
         release_contract = _release_contract_view(
-            runtime_rules.get("releaseManagementContract")
+            runtime_rules.get("releaseManagementContract"), contract_root=runtime
         )
     except (OSError, TypeError, ValueError, json.JSONDecodeError, KeyError):
         release_contract = None
@@ -1145,7 +1128,7 @@ def _runtime_release_state(
         try:
             release, manifest, source_rules = _release_metadata(runtime)
             release_contract = _release_contract_view(
-                source_rules.get("releaseManagementContract")
+                source_rules.get("releaseManagementContract"), contract_root=runtime
             )
             lock_fields = release_contract["lockFields"]
             file_fields = release_contract["fileFields"]
@@ -1221,6 +1204,20 @@ def _production_pin_for_state(
     skill_fields = contract["productionPinSkillFields"]
     gallery_fields = contract["productionPinGalleryFields"]
     gallery_path = contract["gallerySnapshotRelativePath"]
+    gallery_metadata = _load_object(
+        runtime / contract["gallerySnapshotMetadataRelativePath"]
+    )
+    gallery_source_sha = gallery_metadata.get("sourceArtifactSha256")
+    if (
+        gallery_metadata.get("contractId") != "gallery-template"
+        or gallery_metadata.get("contractVersion")
+        != release["supportedContracts"]["galleryTemplate"]
+        or gallery_metadata.get("schemaFile") != Path(gallery_path).name
+        or not isinstance(gallery_source_sha, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", gallery_source_sha)
+        or gallery_source_sha != _sha_file(runtime / gallery_path)
+    ):
+        raise ValueError("gallery contract snapshot metadata is invalid")
     return {
         pin_fields["artifactType"]: contract["productionPinArtifactType"],
         pin_fields["schemaVersion"]: rules["schemaVersion"],
@@ -1255,9 +1252,7 @@ def _production_pin_for_state(
             ],
             gallery_fields["snapshot"]: gallery_path,
             gallery_fields["sha256"]: _sha_file(runtime / gallery_path),
-            gallery_fields["upstreamSourceSha256"]: contract[
-                "galleryUpstreamSourceSha256"
-            ],
+            gallery_fields["upstreamSourceSha256"]: gallery_source_sha,
         },
     }
 
@@ -1432,7 +1427,8 @@ def write_pin_migration_report(
         Path(new_runtime_root).resolve() / MACHINE_RULES_RELATIVE
     )
     release_contract = _release_contract_view(
-        runtime_rules.get("releaseManagementContract")
+        runtime_rules.get("releaseManagementContract"),
+        contract_root=Path(new_runtime_root).resolve(),
     )
     new_pin = runtime_production_pin(new_runtime_root)
     codes = release_contract["errorCodes"]

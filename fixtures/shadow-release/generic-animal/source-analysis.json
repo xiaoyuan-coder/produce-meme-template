@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.15.0",
+  "schemaVersion": "0.16.0",
   "mechanism": {
     "setup": "一只橘猫以近距离半身构图看向镜头",
     "turn": "抬头视线、竖耳与浅景深形成亲近的注视感",

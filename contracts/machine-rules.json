@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.15.0",
+  "schemaVersion": "0.16.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -33,7 +33,8 @@
       "invalidProductionPin": "INVALID_PRODUCTION_PIN",
       "invalidProductionManifest": "INVALID_PRODUCTION_MANIFEST",
       "newRuntimeInvalid": "NEW_RUNTIME_INVALID",
-      "immutableMigrationConflict": "IMMUTABLE_MIGRATION_CONFLICT"
+      "immutableMigrationConflict": "IMMUTABLE_MIGRATION_CONFLICT",
+      "releaseReadinessRequired": "RELEASE_READINESS_REQUIRED"
     },
     "lockFields": {
       "artifactType": "artifactType",
@@ -125,8 +126,8 @@
     "validatorRelativePath": "scripts/produce_meme_template/workflow.py",
     "replacementSpecRelativePath": "references/replacement-spec.md",
     "replacementSpecVersion": "1.0.0",
-    "gallerySnapshotRelativePath": "contracts/gallery-template.schema.json",
-    "galleryUpstreamSourceSha256": "1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619",
+    "gallerySnapshotRelativePath": "contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json",
+    "gallerySnapshotMetadataRelativePath": "contracts/upstream/gallery-template/current-cover-contract/snapshot-metadata.json",
     "installLayout": {
       "versionsDirectory": "versions",
       "currentPointer": "current",

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-import hashlib
 import json
 import os
 import re
@@ -9,33 +8,19 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from functools import partial
 from pathlib import Path
 from typing import Any
 
+from .artifacts import (
+    canonical_json_bytes as _canonical_bytes,
+    load_json_object as _load_object,
+    pretty_json_bytes,
+    sha256_bytes as _sha_bytes,
+)
 from .release_management import runtime_production_pin
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
-def _pretty_bytes(value: Any) -> bytes:
-    return (
-        json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2).encode(
-            "utf-8"
-        )
-        + b"\n"
-    )
-
-
-def _sha_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
+_pretty_bytes = partial(pretty_json_bytes, sort_keys=True)
 
 
 def _optional_file_sha(path: Path) -> str | None:
@@ -73,13 +58,6 @@ def _ordinary_file(root: Path, relative: Any) -> Path | None:
     except OSError:
         return None
     return path
-
-
-def _load_object(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path.name} must contain an object")
-    return value
 
 
 def _json_pointer(value: Any, pointer: str) -> Any:

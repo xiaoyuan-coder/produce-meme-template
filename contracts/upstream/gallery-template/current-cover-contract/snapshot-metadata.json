@@ -1,0 +1,27 @@
+{
+  "artifactType": "upstream-contract-snapshot",
+  "contractId": "gallery-template",
+  "contractVersion": "current-cover-contract",
+  "source": "用户确认的数据口径与 GalleryTemplateImport Schema 冻结副本",
+  "sourceEvidence": "specs/最新正式数据样例合同审计.md",
+  "acquisitionCommit": "a80e8bff25fc88bc0bc5058eb70238e5dec70dda",
+  "acquiredAt": "2026-08-16T14:36:14+08:00",
+  "schemaFile": "gallery-template.schema.json",
+  "sourceArtifactSha256": "1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619",
+  "compatibility": {
+    "consumer": "produce-meme-template",
+    "supportedContract": "current-cover-contract",
+    "formalCoverField": "cover",
+    "legacyCoverUrlAllowed": false
+  },
+  "sampleEvidence": [
+    {
+      "path": "fixtures/contracts/latest-gallery-samples/heart.input.json",
+      "sha256": "e0970eda3bbc77399ff222bce0023c38e8917dbf817830942489b36d18c0ad34"
+    },
+    {
+      "path": "fixtures/contracts/latest-gallery-samples/wedding.input.json",
+      "sha256": "5786703f093b64513e556a77ae0af9455e6af41d9bdd1d922444774174b5736e"
+    }
+  ]
+}

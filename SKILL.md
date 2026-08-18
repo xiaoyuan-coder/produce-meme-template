@@ -5,10 +5,6 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 # Meme 模板生产
 
-## 当前状态
-
-当前已提供 Issue #2–#16 的纵向切片：普通真人、公众人物与知名 IP 使用具名身份路由和完整依赖闭包；文字密集模板先清点并分类全部可见文字；多实例、镜像、容器、分格和接触关系通过组件图与五类图片操作进入同一 Replacement Plan。批量信封默认拆成独立 Production Item；显式共享策略使用稳定分配、逐字段来源和单项分辨 sidecar 进入同一单项生命周期。发布包、安装副本、doctor 和 production pin 通过三条独立版本线与完整文件摘要对账，E01–E39 追踪矩阵在发布前编译成绑定同一 pin 的回归报告。P2 在供应商提交前冻结生成任务和 WAL，提交后立即绑定 request ID，再执行全部硬门禁。P3–P6 编译高价值槽位、精确文字、中性默认内容和统一 resolved Prompt；P7 使用 Approved Template Image SHA 确定对象键并保存完整 Asset Receipt，P8 依据冻结 Gallery Contract 执行严格白名单投影与同一模板图 URL 双字段回填。用户明确指定现成正式 JSON 时，T1 以独立 task、WAL、图片和报告验证槽位编辑与全文编辑。
-
 ## 开始工作
 
 1. 读取 [CONTEXT.md](CONTEXT.md)，使用其中的领域词汇。
@@ -20,7 +16,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 - Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters)`。
 - 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir>`。
-- 发布、安装、诊断与显式 pin 迁移：`python3 scripts/release_tool.py <build|install|doctor|migrate-pin> ...`。
+- 发布候选、readiness 晋升、安装、诊断与显式 pin 迁移：`python3 scripts/release_tool.py <build|stage|promote|install|doctor|migrate-pin> ...`。
 - 历史经验回归：`python3 scripts/experience_regression.py --runtime <runtime> --output <outside-runtime.json>`。
 - 影子批次与 1.0 准备：`scripts.produce_meme_template.run_release_readiness(request, output_root, adapters)`。
 - 单项请求包含一个 `templateKey` 和一张 `sourceImage`；批量请求使用机器合同声明的信封字段包含多个同形单项请求。每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
@@ -46,7 +42,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 - 六类真实影子样本、未见图前向测试、发布 readiness 报告和 `1.0.0` 冻结读取 [真实影子批次与 1.0 发布准备合同](references/release-readiness.md)。
 - P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 遇到可见文字、文字密集海报或文字槽时读取 [可见文字区域与文字槽合同](references/visible-text-contract.md)。
-- 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/gallery-template.schema.json`。
+- 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json`。
 
 ## 事实源
 

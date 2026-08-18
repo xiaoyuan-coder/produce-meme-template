@@ -14,6 +14,12 @@ from typing import Any, Callable
 from jsonschema import Draft202012Validator, FormatChecker
 from PIL import Image, UnidentifiedImageError
 
+from .artifacts import (
+    canonical_json_bytes as _canonical_bytes,
+    compact_json_line_bytes as _json_bytes,
+    load_json as _load_json,
+    sha256_bytes as _sha_bytes,
+)
 from .release_management import runtime_production_pin
 from .validation import is_valid_https_url
 from .workflow import formal_template_contract_valid, image_bytes_match_output_format
@@ -21,7 +27,14 @@ from .workflow import formal_template_contract_valid, image_bytes_match_output_f
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_PATH = REPO_ROOT / "contracts" / "machine-rules.json"
-GALLERY_SCHEMA_PATH = REPO_ROOT / "contracts" / "gallery-template.schema.json"
+GALLERY_SCHEMA_PATH = (
+    REPO_ROOT
+    / "contracts"
+    / "upstream"
+    / "gallery-template"
+    / "current-cover-contract"
+    / "gallery-template.schema.json"
+)
 PLACEHOLDER = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
 
 
@@ -80,27 +93,6 @@ class TemplateTestResult:
 
 def _rules() -> dict[str, Any]:
     return json.loads(RULES_PATH.read_text(encoding="utf-8"))
-
-
-def _sha_bytes(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
-def _json_bytes(value: Any) -> bytes:
-    return _canonical_bytes(value) + b"\n"
-
-
-def _load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _write_mutable(path: Path, value: Any) -> None:

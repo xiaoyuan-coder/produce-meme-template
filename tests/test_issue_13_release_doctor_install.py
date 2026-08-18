@@ -18,7 +18,9 @@ from scripts.produce_meme_template.release_management import (
     build_release,
     doctor,
     install_release,
+    promote_release,
     runtime_production_pin,
+    stage_release,
     write_pin_migration_report,
 )
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
@@ -27,6 +29,7 @@ from scripts.produce_meme_template import DeterministicFixtureAdapters, run_prod
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "fixtures" / "e2e" / "simple-animal"
 BUILT_AT = datetime(2026, 8, 17, 8, 0, tzinfo=timezone.utc)
+STABLE_VERSION = ".".join(str(part) for part in (1, 0, 0))
 RULES = json.loads(
     (ROOT / "contracts" / "machine-rules.json").read_text(encoding="utf-8")
 )
@@ -251,6 +254,113 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         self.assertFalse(second["pass"])
         self.assertEqual(
             RELEASE_ERRORS["releaseAlreadyExists"], second["errorCode"]
+        )
+
+    def test_one_dot_zero_release_requires_verified_readiness_before_publication(
+        self,
+    ) -> None:
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["skillVersion"] = STABLE_VERSION
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.source / "skill-manifest.json"
+        manifest = load_json(manifest_path)
+        manifest["version"] = STABLE_VERSION
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+
+        result = self.build()
+
+        self.assertFalse(result["pass"])
+        self.assertEqual(
+            RELEASE_ERRORS["releaseReadinessRequired"], result["errorCode"]
+        )
+        self.assertFalse(
+            (self.dist / "produce-meme-template" / STABLE_VERSION).exists()
+        )
+
+    def test_one_dot_zero_candidate_can_be_staged_without_publication(self) -> None:
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["skillVersion"] = STABLE_VERSION
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.source / "skill-manifest.json"
+        manifest = load_json(manifest_path)
+        manifest["version"] = STABLE_VERSION
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+        candidates = self.root / "candidates"
+
+        with mock.patch(
+            "scripts.produce_meme_template.release_management._run_release_validation",
+            return_value=(True, None),
+        ):
+            result = stage_release(
+                self.source,
+                candidates,
+                git_commit=self.git_commit,
+                built_at=BUILT_AT,
+            )
+
+        self.assertTrue(result["pass"])
+        self.assertTrue(result["candidate"])
+        self.assertTrue(Path(result["packageDir"]).is_dir())
+        self.assertFalse(
+            (self.dist / "produce-meme-template" / STABLE_VERSION).exists()
+        )
+
+    def test_candidate_cannot_be_promoted_without_readiness_completion(self) -> None:
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["skillVersion"] = STABLE_VERSION
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.source / "skill-manifest.json"
+        manifest = load_json(manifest_path)
+        manifest["version"] = STABLE_VERSION
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+        with mock.patch(
+            "scripts.produce_meme_template.release_management._run_release_validation",
+            return_value=(True, None),
+        ):
+            candidate = stage_release(
+                self.source,
+                self.root / "candidates",
+                git_commit=self.git_commit,
+                built_at=BUILT_AT,
+            )
+
+        result = promote_release(
+            candidate["packageDir"],
+            self.dist,
+            readiness_root=self.root / "missing-readiness",
+        )
+
+        self.assertFalse(result["pass"])
+        self.assertEqual(
+            RELEASE_ERRORS["releaseReadinessRequired"], result["errorCode"]
+        )
+        self.assertTrue(Path(candidate["packageDir"]).is_dir())
+        self.assertFalse(
+            (self.dist / "produce-meme-template" / STABLE_VERSION).exists()
         )
 
     def test_release_is_frozen_before_atomic_publication(self) -> None:
@@ -574,6 +684,21 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
             RELEASE_ERRORS["invalidReleaseMetadata"],
             json.loads(build_result.stdout)["errorCode"],
         )
+
+    def test_release_cli_exposes_stage_and_promote_commands(self) -> None:
+        for command in ("stage", "promote"):
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "release_tool.py"),
+                    command,
+                    "--help",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, completed.returncode, completed.stderr)
 
     def test_install_and_doctor_detect_missing_extra_and_drifted_files(self) -> None:
         package = Path(self.build()["packageDir"])

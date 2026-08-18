@@ -18,7 +18,9 @@ from .release_readiness import (
     live_shadow_request,
     recorded_shadow_request,
     run_release_readiness,
+    verify_release_readiness_completion,
 )
+from .release_management import build_release, promote_release, stage_release
 
 __all__ = [
     "AliyunOssWorkflowAdapters",
@@ -30,11 +32,15 @@ __all__ = [
     "ProductionResult",
     "RecordedShadowReadinessAdapters",
     "TemplateTestResult",
+    "build_release",
     "live_release_readiness_preflight",
     "live_shadow_request",
+    "promote_release",
     "run_production",
     "run_experience_regression",
     "recorded_shadow_request",
     "run_release_readiness",
+    "stage_release",
     "run_template_test",
+    "verify_release_readiness_completion",
 ]

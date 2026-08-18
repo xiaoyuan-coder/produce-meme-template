@@ -16,6 +16,7 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from .artifacts import load_json_object as _read_json
 from .validation import is_public_ip_address, is_safe_public_https_url
 
 
@@ -25,10 +26,6 @@ RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "machine-rules.
 class _NoAutomaticRedirect(HTTPRedirectHandler):
     def redirect_request(self, request, file_pointer, code, message, headers, new_url):
         return None
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _visual_evidence_sha(review: dict[str, Any], contract: dict[str, Any]) -> str:

@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.15.0",
+  "schemaVersion": "0.16.0",
   "visibleFacts": [
     "四组旅人分别位于左上、右上、左下、右下四格褪色照片",
     "每格人物组、照片边框和二乘二阅读顺序可逐项识别",

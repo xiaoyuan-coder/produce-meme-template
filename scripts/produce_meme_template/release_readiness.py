@@ -14,6 +14,11 @@ from .adapters import (
     DeterministicFixtureAdapters,
     FalQueueWorkflowAdapters,
 )
+from .artifacts import (
+    load_json_object_or_none as _load_object,
+    pretty_json_bytes as _pretty_json_bytes,
+    sha256_file as _sha_file,
+)
 from .template_test import TemplateTestResult, run_template_test
 from .release_management import (
     MACHINE_RULES_RELATIVE,
@@ -43,22 +48,8 @@ def _rules() -> dict[str, Any]:
     return value
 
 
-def _sha_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _load_object(path: Path) -> dict[str, Any] | None:
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
 def _json_bytes(value: Any) -> bytes:
-    return (
-        json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    ).encode("utf-8")
+    return _pretty_json_bytes(value, sort_keys=True)
 
 
 def _sha_json(value: Any) -> str:
@@ -1707,6 +1698,164 @@ def _failed_readiness_report(
         fields["releaseGates"]: _empty_release_gates(contract),
         fields["releaseEligible"]: False,
         fields["reportPath"]: None,
+    }
+
+
+def verify_release_readiness_completion(
+    output_root: str | Path,
+    *,
+    expected_package_path: str | Path,
+    expected_release_digest: str,
+    expected_git_commit: str,
+) -> dict[str, Any]:
+    """Replay a completed live readiness workspace for stable promotion."""
+
+    rules = _rules()
+    contract = rules["releaseReadinessContract"]
+    errors = contract["errorCodes"]
+    failure = {
+        "pass": False,
+        "errorCode": errors["releaseGateIncomplete"],
+    }
+    try:
+        root = _ordinary_directory_path(str(Path(output_root).resolve()))
+        package = Path(expected_package_path).resolve()
+    except (TypeError, ValueError, OSError, RuntimeError):
+        return failure
+    if root is None:
+        return failure
+    ledger_path = root / contract["requestFileName"]
+    report_path = root / contract["reportFileName"]
+    completion_path = root / contract["completionFileName"]
+    if any(
+        not path.is_file() or path.is_symlink()
+        for path in (ledger_path, report_path, completion_path)
+    ):
+        return failure
+    ledger = _load_object(ledger_path)
+    ledger_fields = contract["requestLedgerFields"]
+    if not (
+        ledger is not None
+        and set(ledger) == set(ledger_fields.values())
+        and ledger.get(ledger_fields["artifactType"])
+        == contract["requestArtifactType"]
+        and ledger.get(ledger_fields["schemaVersion"]) == rules["schemaVersion"]
+        and isinstance(ledger.get(ledger_fields["request"]), dict)
+    ):
+        return failure
+    request = ledger[ledger_fields["request"]]
+    request_fields = contract["requestFields"]
+    scenario_fields = contract["scenarioFields"]
+    production_fields = contract["productionRequestFields"]
+    if set(request) != set(request_fields.values()):
+        return failure
+    scenarios = request.get(request_fields["scenarios"])
+    forward = request.get(request_fields["forwardScenario"])
+    required_roles = list(contract["scenarioRoles"].values())
+    if not isinstance(scenarios, list) or not isinstance(forward, dict):
+        return failure
+    by_role = {
+        item.get(scenario_fields["role"]): item
+        for item in scenarios
+        if isinstance(item, dict)
+    }
+    if set(by_role) != set(required_roles):
+        return failure
+    ordered = [by_role[role] for role in required_roles]
+    all_scenarios = [*ordered, forward]
+    corpus_items = _corpus_by_role(contract)
+    if not (
+        corpus_items is not None
+        and forward.get(scenario_fields["role"]) == contract["forwardScenarioRole"]
+        and all(
+            _request_scenario_valid(
+                item,
+                expected_role=role,
+                contract=contract,
+                adapter_mode=contract["executionModes"]["liveExternal"],
+            )
+            and _request_scenario_matches_corpus(item, corpus_items[role], contract)
+            for role, item in [
+                *zip(required_roles, ordered, strict=True),
+                (contract["forwardScenarioRole"], forward),
+            ]
+        )
+        and len(
+            {
+                item[scenario_fields["productionRequest"]][
+                    production_fields["productionItemIdentity"]
+                ]
+                for item in all_scenarios
+            }
+        )
+        == len(all_scenarios)
+        and len(
+            {
+                item[scenario_fields["productionRequest"]][
+                    production_fields["templateKey"]
+                ]
+                for item in all_scenarios
+            }
+        )
+        == len(all_scenarios)
+    ):
+        return failure
+    normalized_request = {
+        request_fields["scenarios"]: copy.deepcopy(ordered),
+        request_fields["forwardScenario"]: copy.deepcopy(forward),
+        request_fields["releaseGateEvidence"]: copy.deepcopy(
+            request.get(request_fields["releaseGateEvidence"])
+        ),
+    }
+    corpus_sha = _sha_file(ROOT / contract["corpusRelativePath"])
+    expected_ledger = _request_ledger(
+        normalized_request, contract, rules, corpus_sha
+    )
+    sampled_roles = _sampled_template_test_roles(set(required_roles), contract)
+    status, report = _existing_terminal_report(
+        report_path,
+        completion_path,
+        ledger_path,
+        expected_ledger,
+        normalized_request,
+        root,
+        sampled_roles,
+        rules=rules,
+        contract=contract,
+    )
+    report_fields = contract["reportFields"]
+    evidence_fields = contract["releaseGateEvidenceFields"]
+    gate_fields = contract["releaseGateFields"]
+    evidence = normalized_request[request_fields["releaseGateEvidence"]]
+    release_contract = rules["releaseManagementContract"]
+    lock = _load_object(package / release_contract["lockFileName"])
+    lock_fields = release_contract["lockFields"]
+    if not (
+        status == "complete"
+        and report is not None
+        and report.get(report_fields["pass"]) is True
+        and report.get(report_fields["releaseEligible"]) is True
+        and isinstance(evidence, dict)
+        and Path(evidence[evidence_fields["releasePackagePath"]]).resolve()
+        == package
+        and evidence.get(evidence_fields["expectedReleaseDigest"])
+        == expected_release_digest
+        and report.get(report_fields["releaseGates"], {}).get(
+            gate_fields["releasePackageDigest"]
+        )
+        == expected_release_digest
+        and lock is not None
+        and lock.get(lock_fields["releaseDigest"]) == expected_release_digest
+        and lock.get(lock_fields["gitCommit"]) == expected_git_commit
+    ):
+        return failure
+    return {
+        "pass": True,
+        "errorCode": None,
+        "reportPath": str(report_path),
+        "completionPath": str(completion_path),
+        "releaseDigest": expected_release_digest,
+        "gitCommit": expected_git_commit,
     }
 
 

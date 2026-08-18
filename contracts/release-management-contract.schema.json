@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memebuy.internal/schemas/produce-meme-template/release-management-contract.json",
+  "title": "ReleaseManagementContract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "lockFileName",
+    "lockArtifactType",
+    "lockSchemaVersion",
+    "runtimeIgnoredDirectoryNames",
+    "runtimeIgnoredSuffixes",
+    "buildValidationRunnerRelativePath",
+    "smokeFixtureRelativePath",
+    "validationTimeoutSeconds",
+    "errorCodes",
+    "lockFields",
+    "fileFields",
+    "diagnosticFields",
+    "installRecordFields",
+    "migrationFields",
+    "productionPinArtifactType",
+    "productionPinFields",
+    "productionPinSkillFields",
+    "productionPinGalleryFields",
+    "legacyProductionPinRequiredFieldRoles",
+    "validatorRelativePath",
+    "replacementSpecRelativePath",
+    "replacementSpecVersion",
+    "gallerySnapshotRelativePath",
+    "gallerySnapshotMetadataRelativePath",
+    "installLayout",
+    "migrationArtifactType",
+    "migrationFilePattern",
+    "migrationInvalidateFromPhaseIndex"
+  ],
+  "properties": {
+    "lockFileName": { "$ref": "#/$defs/relativePath" },
+    "lockArtifactType": { "$ref": "#/$defs/nonEmptyString" },
+    "lockSchemaVersion": { "$ref": "#/$defs/semver" },
+    "runtimeIgnoredDirectoryNames": { "$ref": "#/$defs/uniqueStrings" },
+    "runtimeIgnoredSuffixes": { "$ref": "#/$defs/uniqueStrings" },
+    "buildValidationRunnerRelativePath": { "$ref": "#/$defs/relativePath" },
+    "smokeFixtureRelativePath": { "$ref": "#/$defs/relativePath" },
+    "validationTimeoutSeconds": { "type": "integer", "minimum": 1 },
+    "errorCodes": { "$ref": "#/$defs/errorCodes" },
+    "lockFields": { "$ref": "#/$defs/lockFields" },
+    "fileFields": { "$ref": "#/$defs/fileFields" },
+    "diagnosticFields": { "$ref": "#/$defs/diagnosticFields" },
+    "installRecordFields": { "$ref": "#/$defs/installRecordFields" },
+    "migrationFields": { "$ref": "#/$defs/migrationFields" },
+    "productionPinArtifactType": { "$ref": "#/$defs/nonEmptyString" },
+    "productionPinFields": { "$ref": "#/$defs/productionPinFields" },
+    "productionPinSkillFields": { "$ref": "#/$defs/productionPinSkillFields" },
+    "productionPinGalleryFields": { "$ref": "#/$defs/productionPinGalleryFields" },
+    "legacyProductionPinRequiredFieldRoles": { "$ref": "#/$defs/uniqueStrings" },
+    "validatorRelativePath": { "$ref": "#/$defs/relativePath" },
+    "replacementSpecRelativePath": { "$ref": "#/$defs/relativePath" },
+    "replacementSpecVersion": { "$ref": "#/$defs/semver" },
+    "gallerySnapshotRelativePath": { "$ref": "#/$defs/relativePath" },
+    "gallerySnapshotMetadataRelativePath": { "$ref": "#/$defs/relativePath" },
+    "installLayout": { "$ref": "#/$defs/installLayout" },
+    "migrationArtifactType": { "$ref": "#/$defs/nonEmptyString" },
+    "migrationFilePattern": { "type": "string", "pattern": "\\{revision\\}" },
+    "migrationInvalidateFromPhaseIndex": { "type": "integer", "minimum": 0 }
+  },
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "uniqueStrings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "errorCodes": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["invalidReleaseMetadata", "invalidGitCommit", "sourceGitMismatch", "sourceFileSetMismatch", "releaseValidationFailure", "dirtyWorktree", "releaseAlreadyExists", "missingReleaseFile", "invalidReleaseLock", "mutableReleaseRuntime", "extraInstallFile", "fileDigestMismatch", "releaseDigestMismatch", "mixedVersion", "installVersionExists", "installPointerConflict", "installPathConflict", "invalidInstallRecord", "productionPinMismatch", "invalidSourceRuntime", "invalidProductionPin", "invalidProductionManifest", "newRuntimeInvalid", "immutableMigrationConflict", "releaseReadinessRequired"]
+    },
+    "lockFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["artifactType", "lockSchemaVersion", "skillName", "skillVersion", "artifactSchemaVersion", "galleryContractVersion", "galleryContractSha256", "gitCommit", "builtAt", "files", "contentDigest", "releaseDigest"]
+    },
+    "fileFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["path", "sha256", "bytes"]
+    },
+    "diagnosticFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["runtimeRoot", "installSource", "skillVersion", "artifactSchemaVersion", "galleryContractVersion", "releaseDigest", "releaseLockSha256", "productionPin", "errorCodes", "remediation"]
+    },
+    "installRecordFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["skillVersion", "releaseDigest", "packageSource", "installedPath"]
+    },
+    "migrationFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["artifactType", "revision", "oldPinSha256", "newPinSha256", "oldPin", "newPin", "changedVersionLines", "invalidateFromPhase", "productionItemId", "templateRevision", "productionManifestSha256"]
+    },
+    "productionPinFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["artifactType", "schemaVersion", "skill", "artifactSchemaVersion", "releaseSha256", "releaseManifestSha256", "releaseFileCount", "machineRulesSha256", "gitCommit", "validatorSha256", "replacementSpecVersion", "replacementSpecSha256", "galleryContract"]
+    },
+    "productionPinSkillFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["name", "version"]
+    },
+    "productionPinGalleryFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["id", "snapshot", "sha256", "upstreamSourceSha256"]
+    },
+    "installLayout": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["versionsDirectory", "currentPointer", "recordsDirectory"]
+    },
+    "roleMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invalidReleaseMetadata": { "$ref": "#/$defs/nonEmptyString" }, "invalidGitCommit": { "$ref": "#/$defs/nonEmptyString" }, "sourceGitMismatch": { "$ref": "#/$defs/nonEmptyString" }, "sourceFileSetMismatch": { "$ref": "#/$defs/nonEmptyString" }, "releaseValidationFailure": { "$ref": "#/$defs/nonEmptyString" }, "dirtyWorktree": { "$ref": "#/$defs/nonEmptyString" }, "releaseAlreadyExists": { "$ref": "#/$defs/nonEmptyString" }, "missingReleaseFile": { "$ref": "#/$defs/nonEmptyString" }, "invalidReleaseLock": { "$ref": "#/$defs/nonEmptyString" }, "mutableReleaseRuntime": { "$ref": "#/$defs/nonEmptyString" }, "extraInstallFile": { "$ref": "#/$defs/nonEmptyString" }, "fileDigestMismatch": { "$ref": "#/$defs/nonEmptyString" }, "releaseDigestMismatch": { "$ref": "#/$defs/nonEmptyString" }, "mixedVersion": { "$ref": "#/$defs/nonEmptyString" }, "installVersionExists": { "$ref": "#/$defs/nonEmptyString" }, "installPointerConflict": { "$ref": "#/$defs/nonEmptyString" }, "installPathConflict": { "$ref": "#/$defs/nonEmptyString" }, "invalidInstallRecord": { "$ref": "#/$defs/nonEmptyString" }, "productionPinMismatch": { "$ref": "#/$defs/nonEmptyString" }, "invalidSourceRuntime": { "$ref": "#/$defs/nonEmptyString" }, "invalidProductionPin": { "$ref": "#/$defs/nonEmptyString" }, "invalidProductionManifest": { "$ref": "#/$defs/nonEmptyString" }, "newRuntimeInvalid": { "$ref": "#/$defs/nonEmptyString" }, "immutableMigrationConflict": { "$ref": "#/$defs/nonEmptyString" }, "releaseReadinessRequired": { "$ref": "#/$defs/nonEmptyString" },
+        "artifactType": { "$ref": "#/$defs/nonEmptyString" }, "lockSchemaVersion": { "$ref": "#/$defs/nonEmptyString" }, "skillName": { "$ref": "#/$defs/nonEmptyString" }, "skillVersion": { "$ref": "#/$defs/nonEmptyString" }, "artifactSchemaVersion": { "$ref": "#/$defs/nonEmptyString" }, "galleryContractVersion": { "$ref": "#/$defs/nonEmptyString" }, "galleryContractSha256": { "$ref": "#/$defs/nonEmptyString" }, "gitCommit": { "$ref": "#/$defs/nonEmptyString" }, "builtAt": { "$ref": "#/$defs/nonEmptyString" }, "files": { "$ref": "#/$defs/nonEmptyString" }, "contentDigest": { "$ref": "#/$defs/nonEmptyString" }, "releaseDigest": { "$ref": "#/$defs/nonEmptyString" },
+        "path": { "$ref": "#/$defs/nonEmptyString" }, "sha256": { "$ref": "#/$defs/nonEmptyString" }, "bytes": { "$ref": "#/$defs/nonEmptyString" }, "runtimeRoot": { "$ref": "#/$defs/nonEmptyString" }, "installSource": { "$ref": "#/$defs/nonEmptyString" }, "releaseLockSha256": { "$ref": "#/$defs/nonEmptyString" }, "productionPin": { "$ref": "#/$defs/nonEmptyString" }, "errorCodes": { "$ref": "#/$defs/nonEmptyString" }, "remediation": { "$ref": "#/$defs/nonEmptyString" }, "packageSource": { "$ref": "#/$defs/nonEmptyString" }, "installedPath": { "$ref": "#/$defs/nonEmptyString" },
+        "revision": { "$ref": "#/$defs/nonEmptyString" }, "oldPinSha256": { "$ref": "#/$defs/nonEmptyString" }, "newPinSha256": { "$ref": "#/$defs/nonEmptyString" }, "oldPin": { "$ref": "#/$defs/nonEmptyString" }, "newPin": { "$ref": "#/$defs/nonEmptyString" }, "changedVersionLines": { "$ref": "#/$defs/nonEmptyString" }, "invalidateFromPhase": { "$ref": "#/$defs/nonEmptyString" }, "productionItemId": { "$ref": "#/$defs/nonEmptyString" }, "templateRevision": { "$ref": "#/$defs/nonEmptyString" }, "productionManifestSha256": { "$ref": "#/$defs/nonEmptyString" },
+        "schemaVersion": { "$ref": "#/$defs/nonEmptyString" }, "skill": { "$ref": "#/$defs/nonEmptyString" }, "releaseSha256": { "$ref": "#/$defs/nonEmptyString" }, "releaseManifestSha256": { "$ref": "#/$defs/nonEmptyString" }, "releaseFileCount": { "$ref": "#/$defs/nonEmptyString" }, "machineRulesSha256": { "$ref": "#/$defs/nonEmptyString" }, "validatorSha256": { "$ref": "#/$defs/nonEmptyString" }, "replacementSpecVersion": { "$ref": "#/$defs/nonEmptyString" }, "replacementSpecSha256": { "$ref": "#/$defs/nonEmptyString" }, "galleryContract": { "$ref": "#/$defs/nonEmptyString" }, "name": { "$ref": "#/$defs/nonEmptyString" }, "version": { "$ref": "#/$defs/nonEmptyString" }, "id": { "$ref": "#/$defs/nonEmptyString" }, "snapshot": { "$ref": "#/$defs/nonEmptyString" }, "upstreamSourceSha256": { "$ref": "#/$defs/nonEmptyString" }, "versionsDirectory": { "$ref": "#/$defs/nonEmptyString" }, "currentPointer": { "$ref": "#/$defs/nonEmptyString" }, "recordsDirectory": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    }
+  }
+}

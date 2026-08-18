@@ -17,7 +17,9 @@ from produce_meme_template.release_management import (
     build_release,
     doctor,
     install_release,
+    promote_release,
     runtime_release_contract,
+    stage_release,
     write_pin_migration_report,
 )
 
@@ -45,6 +47,17 @@ def main() -> int:
     build.add_argument("--git-commit")
     build.add_argument("--built-at")
 
+    stage = commands.add_parser("stage", help="生成待 readiness 验证的不可变候选包")
+    stage.add_argument("--source", required=True, type=Path)
+    stage.add_argument("--candidates", required=True, type=Path)
+    stage.add_argument("--git-commit")
+    stage.add_argument("--built-at")
+
+    promote = commands.add_parser("promote", help="校验 readiness 后晋升稳定候选包")
+    promote.add_argument("--candidate", required=True, type=Path)
+    promote.add_argument("--dist", required=True, type=Path)
+    promote.add_argument("--readiness", required=True, type=Path)
+
     install = commands.add_parser("install", help="安装已验证发布包")
     install.add_argument("--package", required=True, type=Path)
     install.add_argument("--install-root", required=True, type=Path)
@@ -61,18 +74,26 @@ def main() -> int:
     args = parser.parse_args()
     codes = runtime_release_contract()["errorCodes"]
     try:
-        if args.command == "build":
+        if args.command in {"build", "stage"}:
             source = args.source.resolve()
             built_at = (
                 datetime.fromisoformat(args.built_at.replace("Z", "+00:00"))
                 if args.built_at
                 else None
             )
-            result = build_release(
+            builder = build_release if args.command == "build" else stage_release
+            destination = args.dist if args.command == "build" else args.candidates
+            result = builder(
                 source,
-                args.dist,
+                destination,
                 git_commit=args.git_commit or _git_commit(source),
                 built_at=built_at,
+            )
+        elif args.command == "promote":
+            result = promote_release(
+                args.candidate,
+                args.dist,
+                readiness_root=args.readiness,
             )
         elif args.command == "install":
             result = install_release(

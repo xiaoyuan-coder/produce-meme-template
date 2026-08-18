@@ -4,9 +4,11 @@
 
 `release.json` 是唯一人工版本事实源。`skillVersion` 描述 Skill 行为与知识，`artifactSchemaVersion` 描述内部 P0–P8 产物形状，`supportedContracts.galleryTemplate` 描述当前支持的 Gallery Contract。三者独立演进；行为版本升级不会自动改写内部 Schema 或上游合同版本。
 
-## 2. 不可变发布包
+## 2. 不可变发布包与稳定版晋升
 
-`scripts/release_tool.py build` 只接受仓库根目录、真实当前 Git HEAD、与 `git ls-files` 精确一致的 manifest 和干净工作区。构建前通过独立 runner 执行完整测试集和最小纵向 smoke；门禁结束后再次核对 HEAD、状态与 Git blob，再从 Git blob 构建。结果写入 `dist/produce-meme-template/<skillVersion>/`，同版本目录 create-once 并转为只读。`release-lock.json` 绑定 Git commit、构建时间、三条版本线、Gallery Schema SHA、完整 tracked file 集合、逐文件字节数与 SHA、文件集合 content digest 和 lock digest。
+`scripts/release_tool.py build` 只接受仓库根目录、真实当前 Git HEAD、与 `git ls-files` 精确一致的 manifest 和干净工作区。构建前通过独立 runner 执行完整测试集和最小纵向 smoke；门禁结束后再次核对 HEAD、状态与 Git blob，再从 Git blob 构建。开发版结果写入 `dist/produce-meme-template/<skillVersion>/`，同版本目录 create-once 并转为只读。`release-lock.json` 绑定 Git commit、构建时间、三条版本线、Gallery Schema SHA、完整 tracked file 集合、逐文件字节数与 SHA、文件集合 content digest 和 lock digest。
+
+稳定版先用 `stage --candidates <dir>` 生成不可变候选包。`build` 遇到主版本号不小于 1 时返回 `RELEASE_READINESS_REQUIRED`，防止候选绕过真实 readiness 直接进入公开 dist。完成 live readiness 后，`promote --candidate <package> --readiness <workspace> --dist <dir>` 会深度重放请求 ledger、完成 sidecar、报告、逐场景谱系、T1、发布门禁证据、候选包摘要与 Git commit；全部一致后逐字节复制同一候选并原子晋升，候选本身保持只读。
 
 ## 3. 安装与诊断
 
@@ -20,4 +22,4 @@
 
 ## 5. 最小发布入口
 
-全新会话按 build、install、doctor、produce 顺序进入纵向切片。发布构建和真实安装不调用图片供应商或 OSS；最小生产仍通过同一 `scripts/produce.py` 公共工作流和所选 adapter 完成。
+开发版全新会话按 build、install、doctor、produce 顺序进入纵向切片。稳定版按 stage、live readiness、promote、install、doctor、produce 顺序推进。候选构建和真实安装不调用图片供应商或 OSS；live readiness 通过同一公共生产 seam 调用外部生成、审核和 OSS adapter。

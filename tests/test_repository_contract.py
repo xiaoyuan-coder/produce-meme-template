@@ -7,6 +7,8 @@ import re
 import unittest
 from pathlib import Path
 
+from jsonschema import Draft202012Validator
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -133,14 +135,23 @@ class RepositoryContractTest(unittest.TestCase):
 
     def test_formal_projection_and_schema_share_one_field_set(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
-        schema = load(ROOT / "contracts" / "gallery-template.schema.json")
+        release_contract = rules["releaseManagementContract"]
+        schema_path = ROOT / release_contract["gallerySnapshotRelativePath"]
+        metadata = load(
+            ROOT / release_contract["gallerySnapshotMetadataRelativePath"]
+        )
+        schema = load(schema_path)
 
         self.assertTrue(
             set(rules["formalProjection"]["topLevel"].values()).issubset(schema["properties"])
         )
         self.assertEqual(
-            "1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619",
-            hashlib.sha256((ROOT / "contracts" / "gallery-template.schema.json").read_bytes()).hexdigest(),
+            metadata["sourceArtifactSha256"],
+            hashlib.sha256(schema_path.read_bytes()).hexdigest(),
+        )
+        self.assertEqual("gallery-template", metadata["contractId"])
+        self.assertEqual(
+            "current-cover-contract", metadata["contractVersion"]
         )
 
     def test_historical_experience_contract_has_one_complete_typed_source(self) -> None:
@@ -311,44 +322,15 @@ class RepositoryContractTest(unittest.TestCase):
     def test_release_management_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["releaseManagementContract"]
-        for mapping_name in (
-            "errorCodes",
-            "lockFields",
-            "fileFields",
-            "diagnosticFields",
-            "installRecordFields",
-            "migrationFields",
-            "productionPinFields",
-            "productionPinSkillFields",
-            "productionPinGalleryFields",
-            "installLayout",
-        ):
-            mapping = contract[mapping_name]
-            self.assertIsInstance(mapping, dict)
+        schema = load(
+            ROOT / "contracts" / "release-management-contract.schema.json"
+        )
+        self.assertEqual([], list(Draft202012Validator(schema).iter_errors(contract)))
+        for mapping in (value for value in contract.values() if isinstance(value, dict)):
             self.assertEqual(len(mapping), len(set(mapping.values())))
-            self.assertTrue(
-                all(isinstance(value, str) and value for value in mapping.values())
-            )
-        self.assertTrue(contract["lockFileName"].endswith(".json"))
-        self.assertRegex(contract["lockSchemaVersion"], r"^\d+\.\d+\.\d+$")
-        self.assertIn("{revision}", contract["migrationFilePattern"])
         phase_index = contract["migrationInvalidateFromPhaseIndex"]
-        self.assertIsInstance(phase_index, int)
-        self.assertNotIsInstance(phase_index, bool)
-        self.assertGreaterEqual(phase_index, 0)
         self.assertLess(phase_index, len(rules["productionPhases"]))
-        for list_name in (
-            "runtimeIgnoredDirectoryNames",
-            "runtimeIgnoredSuffixes",
-        ):
-            values = contract[list_name]
-            self.assertIsInstance(values, list)
-            self.assertEqual(len(values), len(set(values)))
-            self.assertTrue(all(isinstance(value, str) and value for value in values))
         legacy_roles = contract["legacyProductionPinRequiredFieldRoles"]
-        self.assertIsInstance(legacy_roles, list)
-        self.assertTrue(legacy_roles)
-        self.assertEqual(len(legacy_roles), len(set(legacy_roles)))
         self.assertTrue(
             set(legacy_roles) <= set(contract["productionPinFields"])
         )
@@ -363,7 +345,7 @@ class RepositoryContractTest(unittest.TestCase):
             contract["validatorRelativePath"],
             contract["replacementSpecRelativePath"],
             contract["gallerySnapshotRelativePath"],
-            contract["galleryUpstreamSourceSha256"],
+            contract["gallerySnapshotMetadataRelativePath"],
             contract["migrationArtifactType"],
             contract["migrationFilePattern"],
             *contract["errorCodes"].values(),

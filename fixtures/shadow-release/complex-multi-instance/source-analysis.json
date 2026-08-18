@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.15.0",
+  "schemaVersion": "0.16.0",
   "mechanism": {
     "setup": "四张褪色群像照片按左上、右上、左下、右下组成二乘二档案网格",
     "turn": "四格中的人物组分别替换，同时保留每格边框、顺序和复古档案版式",

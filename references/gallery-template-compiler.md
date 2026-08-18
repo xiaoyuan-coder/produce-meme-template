@@ -34,7 +34,7 @@ Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存
 
 ## 4. 四层验收与正式投影
 
-P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；instruction 范围和隐藏层职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前上游合同的逐字节只读快照，SHA-256 为 `1ebe5cb0790fa20e5968570c7b09d83d7c14b9347bcf5e60ca612384a3a81619`；投影白名单继续独立存在于机器规则中。
+P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；instruction 范围和隐藏层职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前上游合同的逐字节只读快照，来源、取得时间、兼容范围和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
 
 正式记录只允许：
 

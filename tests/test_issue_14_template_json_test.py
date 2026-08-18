@@ -680,29 +680,31 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_report_before_manifest_crash_is_forward_recovered(self) -> None:
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
-        import scripts.produce_meme_template.template_test as implementation
-
-        original_write = implementation._write_mutable
-
-        def crash_before_completed_manifest(path, value):
-            state_field = CONTRACT["manifestFields"]["state"]
-            if (
-                path.name == CONTRACT["artifactNames"]["manifest"]
-                and value.get(state_field) == CONTRACT["states"]["completed"]
-            ):
-                raise SystemExit("report written before manifest")
-            return original_write(path, value)
-
-        with mock.patch.object(
-            implementation, "_write_mutable", side_effect=crash_before_completed_manifest
-        ):
-            with self.assertRaises(SystemExit):
-                run_template_test(
-                    request,
-                    self.output,
-                    DeterministicFixtureAdapters(FIXTURE),
-                    clock=lambda: FIXED_TIME,
-                )
+        first = run_template_test(
+            request,
+            self.output,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual("completed", first.outcome)
+        manifest_path = (
+            first.output_dir / CONTRACT["artifactNames"]["manifest"]
+        )
+        manifest = load_json(manifest_path)
+        manifest[CONTRACT["manifestFields"]["state"]] = CONTRACT["states"][
+            "running"
+        ]
+        manifest[CONTRACT["manifestFields"]["reportSha256"]] = None
+        manifest_path.write_text(
+            json.dumps(
+                manifest,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
         later = datetime(2026, 8, 18, 9, 0, tzinfo=timezone.utc)
         resumed = run_template_test(

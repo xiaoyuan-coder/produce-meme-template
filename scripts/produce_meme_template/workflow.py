@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import io
 import json
 import os
@@ -18,13 +17,27 @@ from urllib.parse import unquote, urlsplit
 from jsonschema import Draft202012Validator, FormatChecker
 from PIL import Image, UnidentifiedImageError
 
+from .artifacts import (
+    canonical_json_bytes as _canonical_bytes,
+    load_json as _load_json,
+    pretty_json_bytes as _json_bytes,
+    sha256_bytes as _sha_bytes,
+    sha256_file as _sha_file,
+)
 from .release_management import doctor, runtime_production_pin
 from .validation import is_safe_public_https_url, is_valid_https_url
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_PATH = REPO_ROOT / "contracts" / "machine-rules.json"
-GALLERY_SCHEMA_PATH = REPO_ROOT / "contracts" / "gallery-template.schema.json"
+GALLERY_SCHEMA_PATH = (
+    REPO_ROOT
+    / "contracts"
+    / "upstream"
+    / "gallery-template"
+    / "current-cover-contract"
+    / "gallery-template.schema.json"
+)
 RELEASE_PATH = REPO_ROOT / "release.json"
 CJK_CHARACTER = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 VISIBLE_TEXT_LEXEME = re.compile(
@@ -137,22 +150,6 @@ def _stop(
     )
 
 
-def _load_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _canonical_bytes(value: Any) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
-
-
-def _sha_bytes(value: bytes) -> str:
-    return hashlib.sha256(value).hexdigest()
-
-
-def _sha_file(path: Path) -> str:
-    return _sha_bytes(path.read_bytes())
-
-
 def _file_matches_sha(path: Path, expected_sha256: str) -> bool:
     try:
         return path.is_file() and _sha_file(path) == expected_sha256
@@ -191,10 +188,6 @@ def _normalized_identity(value: str, modifiers: list[str]) -> str:
                 normalized = normalized[:-len(modifier)]
                 changed = True
     return normalized
-
-
-def _json_bytes(value: Any) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
 
 def _atomic_write_new(path: Path, data: bytes) -> None:
