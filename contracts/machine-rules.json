@@ -1377,6 +1377,24 @@
       "textDense": "text_dense",
       "complexMultiInstance": "complex_multi_instance"
     },
+    "recordedReplayScenarioRoleKeys": [
+      "ordinaryPerson",
+      "knownCharacterIp",
+      "genericAnimal",
+      "genericObject",
+      "textDense",
+      "complexMultiInstance"
+    ],
+    "liveMandatoryScenarioRoleKeys": [
+      "ordinaryPerson",
+      "textDense",
+      "complexMultiInstance"
+    ],
+    "liveSupplementScenarioRoleKeys": [
+      "knownCharacterIp",
+      "genericAnimal"
+    ],
+    "liveSupplementScenarioCount": 1,
     "forwardScenarioRole": "unseen_forward",
     "forwardSourceCategoryRoleKey": "genericAnimal",
     "fixtureDirectoryByScenarioRoleKey": {

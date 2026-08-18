@@ -166,6 +166,17 @@ class InterruptedReadinessAdapters(RecordedShadowReadinessAdapters):
 
 
 class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
+    @staticmethod
+    def live_scenario_roles() -> set[str]:
+        role_by_key = CONTRACT["scenarioRoles"]
+        return {
+            *(
+                role_by_key[key]
+                for key in CONTRACT["liveMandatoryScenarioRoleKeys"]
+            ),
+            role_by_key[CONTRACT["liveSupplementScenarioRoleKeys"][0]],
+        }
+
     def test_review_receipt_separates_comparison_base_from_reviewed_head(self) -> None:
         fields = CONTRACT["reviewReceiptFields"]
         comparison_base = "1" * 40
@@ -244,6 +255,62 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
     @staticmethod
     def complete_scenarios() -> list[dict]:
         return recorded_shadow_request()[CONTRACT["requestFields"]["scenarios"]]
+
+    def test_live_request_uses_three_mandatory_roles_and_one_supplement(self) -> None:
+        scenarios_field = CONTRACT["requestFields"]["scenarios"]
+        role_field = SCENARIO_FIELDS["role"]
+        role_by_key = CONTRACT["scenarioRoles"]
+        mandatory = {
+            role_by_key[key]
+            for key in CONTRACT["liveMandatoryScenarioRoleKeys"]
+        }
+
+        default_roles = {
+            item[role_field] for item in live_shadow_request()[scenarios_field]
+        }
+        animal_roles = {
+            item[role_field]
+            for item in live_shadow_request(
+                supplemental_role=role_by_key["genericAnimal"]
+            )[scenarios_field]
+        }
+
+        self.assertEqual(
+            mandatory | {role_by_key["knownCharacterIp"]}, default_roles
+        )
+        self.assertEqual(
+            mandatory | {role_by_key["genericAnimal"]}, animal_roles
+        )
+        self.assertEqual(4, len(default_roles))
+
+    def test_live_request_rejects_a_non_supplement_role(self) -> None:
+        with self.assertRaises(ValueError):
+            live_shadow_request(
+                supplemental_role=CONTRACT["scenarioRoles"]["genericObject"]
+            )
+
+    def test_live_request_missing_a_mandatory_role_is_rejected_before_side_effects(
+        self,
+    ) -> None:
+        request = live_shadow_request()
+        scenarios_field = CONTRACT["requestFields"]["scenarios"]
+        ordinary_role = CONTRACT["scenarioRoles"]["ordinaryPerson"]
+        request[scenarios_field] = [
+            item
+            for item in request[scenarios_field]
+            if item[SCENARIO_FIELDS["role"]] != ordinary_role
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            output_root = Path(temporary) / "readiness"
+            report = run_release_readiness(
+                request, output_root, RelabeledRecordedReadinessAdapters()
+            )
+
+        self.assertFalse(report[REPORT_FIELDS["pass"]])
+        self.assertEqual(
+            ERROR_CODES["coverageMissing"], report[REPORT_FIELDS["errorCode"]]
+        )
+        self.assertFalse(output_root.exists())
 
     def test_incomplete_shadow_corpus_is_rejected_without_side_effects(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -452,16 +519,86 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
         }
         deterministic_reviewers = {
             role: DeterministicFixtureAdapters(BASE_FIXTURE)
-            for role in {
-                *CONTRACT["scenarioRoles"].values(),
-                CONTRACT["forwardScenarioRole"],
-            }
+            for role in self.live_scenario_roles()
         }
         with mock.patch.dict(os.environ, credentials, clear=False):
             with self.assertRaises(RuntimeError):
                 LiveShadowReadinessAdapters(
                     live_review_adapters_by_role=deterministic_reviewers
                 )
+
+    def test_live_adapter_does_not_require_a_second_forward_reviewer(self) -> None:
+        credentials = {
+            variable: f"dummy-{role}"
+            for role, variable in CONTRACT["liveCredentialEnvironment"].items()
+        }
+        reviewers = {
+            role: NeverCalledLiveReviewer()
+            for role in self.live_scenario_roles()
+        }
+        with mock.patch.dict(os.environ, credentials, clear=False):
+            adapters = LiveShadowReadinessAdapters(
+                live_review_adapters_by_role=reviewers
+            )
+
+        self.assertEqual({}, adapters.scenario_adapters)
+
+    def test_live_supplement_mismatch_stops_before_external_side_effects(self) -> None:
+        credentials = {
+            variable: f"dummy-{role}"
+            for role, variable in CONTRACT["liveCredentialEnvironment"].items()
+        }
+        reviewers = {
+            role: NeverCalledLiveReviewer()
+            for role in self.live_scenario_roles()
+        }
+        request = live_shadow_request(
+            supplemental_role=CONTRACT["scenarioRoles"]["genericAnimal"]
+        )
+        with mock.patch.dict(os.environ, credentials, clear=False):
+            adapters = LiveShadowReadinessAdapters(
+                live_review_adapters_by_role=reviewers
+            )
+            with tempfile.TemporaryDirectory() as temporary:
+                output_root = Path(temporary) / "readiness"
+                report = run_release_readiness(request, output_root, adapters)
+
+        self.assertFalse(report[REPORT_FIELDS["pass"]])
+        self.assertEqual(
+            ERROR_CODES["liveEvidenceMismatch"],
+            report[REPORT_FIELDS["errorCode"]],
+        )
+        self.assertEqual({}, adapters.scenario_adapters)
+        self.assertFalse(output_root.exists())
+
+    def test_live_request_requires_installed_forward_evidence_before_side_effects(
+        self,
+    ) -> None:
+        credentials = {
+            variable: f"dummy-{role}"
+            for role, variable in CONTRACT["liveCredentialEnvironment"].items()
+        }
+        reviewers = {
+            role: NeverCalledLiveReviewer()
+            for role in self.live_scenario_roles()
+        }
+        with mock.patch.dict(os.environ, credentials, clear=False):
+            adapters = LiveShadowReadinessAdapters(
+                live_review_adapters_by_role=reviewers
+            )
+            with tempfile.TemporaryDirectory() as temporary:
+                output_root = Path(temporary) / "readiness"
+                report = run_release_readiness(
+                    live_shadow_request(), output_root, adapters
+                )
+
+        self.assertFalse(report[REPORT_FIELDS["pass"]])
+        self.assertEqual(
+            ERROR_CODES["releaseGateIncomplete"],
+            report[REPORT_FIELDS["errorCode"]],
+        )
+        self.assertEqual({}, adapters.scenario_adapters)
+        self.assertFalse(output_root.exists())
 
     def test_recorded_adapter_cannot_claim_live_external_execution(self) -> None:
         request = recorded_shadow_request()
@@ -538,10 +675,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
         }
         reviewers = {
             role: NeverCalledLiveReviewer()
-            for role in {
-                *CONTRACT["scenarioRoles"].values(),
-                CONTRACT["forwardScenarioRole"],
-            }
+            for role in self.live_scenario_roles()
         }
         with mock.patch.dict(os.environ, credentials, clear=False):
             adapters = LiveShadowReadinessAdapters(

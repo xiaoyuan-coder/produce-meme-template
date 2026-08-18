@@ -133,6 +133,39 @@ class RepositoryContractTest(unittest.TestCase):
             {*contract["scenarioRoles"], "unseenForward"},
             set(contract["fixtureDirectoryByScenarioRoleKey"]),
         )
+        self.assertEqual(
+            set(contract["scenarioRoles"]),
+            set(contract["recordedReplayScenarioRoleKeys"]),
+        )
+        for role_list_name in (
+            "recordedReplayScenarioRoleKeys",
+            "liveMandatoryScenarioRoleKeys",
+            "liveSupplementScenarioRoleKeys",
+        ):
+            role_keys = contract[role_list_name]
+            self.assertIsInstance(role_keys, list)
+            self.assertEqual(len(role_keys), len(set(role_keys)))
+            self.assertTrue(set(role_keys) <= set(contract["scenarioRoles"]))
+        self.assertEqual(
+            {"ordinaryPerson", "textDense", "complexMultiInstance"},
+            set(contract["liveMandatoryScenarioRoleKeys"]),
+        )
+        self.assertEqual(
+            {"knownCharacterIp", "genericAnimal"},
+            set(contract["liveSupplementScenarioRoleKeys"]),
+        )
+        self.assertTrue(
+            set(contract["liveMandatoryScenarioRoleKeys"]).isdisjoint(
+                contract["liveSupplementScenarioRoleKeys"]
+            )
+        )
+        supplement_count = contract["liveSupplementScenarioCount"]
+        self.assertIsInstance(supplement_count, int)
+        self.assertNotIsInstance(supplement_count, bool)
+        self.assertEqual(1, supplement_count)
+        self.assertLessEqual(
+            supplement_count, len(contract["liveSupplementScenarioRoleKeys"])
+        )
         self.assertTrue(
             set(contract["prefixLineageArtifactRoles"])
             <= set(contract["requiredLineageArtifacts"])

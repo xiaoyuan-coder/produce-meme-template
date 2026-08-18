@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.17.3",
+  "version": "0.17.4",
   "updated_at": "2026-08-18",
-  "description": "锁定 code-review 比较基线与候选 verifier 退出码，并将生产编排收敛为无循环依赖的深模块。",
+  "description": "将发布准备调整为六类固定回放、四场景 live 风险采样和独立未见图前向验证。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -33,6 +33,7 @@
     "docs/adr/0018-开放身份采用中性默认态.md",
     "docs/adr/0019-机器规则单一来源并渐进披露.md",
     "docs/adr/0020-分离三类版本并使用不可变发布包.md",
+    "docs/adr/0021-发布准备采用全量回放与live风险采样.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",

@@ -186,6 +186,7 @@ def verify_code_review_receipt(
 def _verified_release_gates(
     evidence: Any,
     *,
+    forward_scenario: dict[str, Any],
     corpus_items: dict[str, dict[str, Any]],
     rules: dict[str, Any],
     contract: dict[str, Any],
@@ -288,6 +289,11 @@ def _verified_release_gates(
             or validate_production_manifest_lineage(forward_output, manifest)
             or manifest.get("outcome") != "completed"
             or manifest.get("state") != rules["resultStates"]["completed"]
+            or not _live_execution_evidence_valid(
+                forward_output,
+                _lineage_sha_by_role(forward_output, contract) or {},
+                rules,
+            )
         ):
             return None
     except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
@@ -315,7 +321,13 @@ def _verified_release_gates(
         )
         for axis_role in ("standards", "spec")
     )
-    if not receipts_valid:
+    if not receipts_valid or _installed_forward_evidence_error(
+        forward_scenario,
+        forward_output,
+        forward_corpus,
+        rules=rules,
+        contract=contract,
+    ) is not None:
         return None
     return {
         gate_fields["historicalRegressionPass"]: True,
@@ -499,6 +511,49 @@ def _fixture_directory(role: Any, contract: dict[str, Any]) -> str | None:
     )
 
 
+def _scenario_roles_for_execution(
+    contract: dict[str, Any],
+    execution_mode: Any,
+    observed_roles: list[Any] | None = None,
+) -> list[str] | None:
+    role_by_key = contract["scenarioRoles"]
+    if observed_roles is not None and not all(
+        isinstance(role, str) for role in observed_roles
+    ):
+        return None
+    if execution_mode == contract["executionModes"]["recordedReplay"]:
+        expected = [
+            role_by_key[key]
+            for key in contract["recordedReplayScenarioRoleKeys"]
+        ]
+        if observed_roles is None or set(observed_roles) == set(expected):
+            return expected
+        return None
+    if execution_mode != contract["executionModes"]["liveExternal"]:
+        return None
+    mandatory = [
+        role_by_key[key] for key in contract["liveMandatoryScenarioRoleKeys"]
+    ]
+    supplements = [
+        role_by_key[key] for key in contract["liveSupplementScenarioRoleKeys"]
+    ]
+    supplement_count = contract["liveSupplementScenarioCount"]
+    if observed_roles is None:
+        selected = supplements[:supplement_count]
+    else:
+        selected = [role for role in supplements if role in observed_roles]
+        if not (
+            len(observed_roles) == len(set(observed_roles))
+            and set(mandatory).issubset(observed_roles)
+            and set(observed_roles).issubset({*mandatory, *supplements})
+            and len(selected) == supplement_count
+            and len(observed_roles) == len(mandatory) + supplement_count
+        ):
+            return None
+    selected_roles = {*mandatory, *selected}
+    return [role for role in role_by_key.values() if role in selected_roles]
+
+
 class RecordedShadowReadinessAdapters:
     """Replay the reviewed real-image shadow corpus through production seams."""
 
@@ -606,13 +661,26 @@ class LiveShadowReadinessAdapters(RecordedShadowReadinessAdapters):
         statuses = contract["externalExecutionStatuses"]
         if preflight[fields["status"]] != statuses["ready"]:
             raise RuntimeError("live release readiness credentials are incomplete")
-        expected_roles = {
-            *contract["scenarioRoles"].values(),
-            contract["forwardScenarioRole"],
-        }
+        supplied_roles = (
+            set(live_review_adapters_by_role)
+            if isinstance(live_review_adapters_by_role, dict)
+            else set()
+        )
+        live_roles = _scenario_roles_for_execution(
+            contract,
+            contract["executionModes"]["liveExternal"],
+            [
+                role
+                for role in supplied_roles
+                if role != contract["forwardScenarioRole"]
+            ],
+        )
+        expected_roles = (
+            set(live_roles) if live_roles is not None else set()
+        )
         if not (
             isinstance(live_review_adapters_by_role, dict)
-            and set(live_review_adapters_by_role) == expected_roles
+            and supplied_roles == expected_roles
             and all(
                 not isinstance(adapter, DeterministicFixtureAdapters)
                 and getattr(
@@ -685,6 +753,12 @@ def _core_constructed_live_adapter(value: Any) -> bool:
         return False
 
 
+def _core_live_reviewer_roles(value: Any) -> set[str] | None:
+    context = _LIVE_ADAPTER_CONTEXTS.get(value)
+    reviewers = context.get("reviewers") if isinstance(context, dict) else None
+    return set(reviewers) if isinstance(reviewers, dict) else None
+
+
 def _core_live_workflow_adapter(
     owner: LiveShadowReadinessAdapters,
     scenario: dict[str, Any],
@@ -706,6 +780,69 @@ def _core_live_workflow_adapter(
     ):
         raise RuntimeError("live adapter topology is not core-owned")
     return adapter
+
+
+def _installed_forward_report(
+    scenario: dict[str, Any],
+    evidence: dict[str, Any],
+    *,
+    rules: dict[str, Any],
+    contract: dict[str, Any],
+) -> dict[str, Any] | None:
+    evidence_fields = contract["releaseGateEvidenceFields"]
+    scenario_fields = contract["scenarioFields"]
+    production_fields = contract["productionRequestFields"]
+    report_fields = contract["scenarioReportFields"]
+    output_directory = _ordinary_directory_path(
+        evidence.get(evidence_fields["installedForwardOutputPath"])
+    )
+    production = scenario.get(scenario_fields["productionRequest"])
+    if output_directory is None or not isinstance(production, dict):
+        return None
+    manifest = _load_object(_production_manifest_path(output_directory, contract))
+    lineage = _lineage_sha_by_role(output_directory, contract)
+    corpus_items = _corpus_by_role(contract)
+    formal_path = _ordinary_json_path(
+        str(_lineage_artifact_path(output_directory, "formalTemplate", contract))
+    )
+    if not (
+        manifest is not None
+        and lineage is not None
+        and formal_path is not None
+        and manifest.get("productionItemId")
+        == production.get(production_fields["productionItemIdentity"])
+        and manifest.get("templateKey")
+        == production.get(production_fields["templateKey"])
+        and corpus_items is not None
+        and _installed_forward_evidence_error(
+            scenario,
+            output_directory,
+            corpus_items.get(contract["forwardScenarioRole"]),
+            rules=rules,
+            contract=contract,
+        )
+        is None
+    ):
+        return None
+    return {
+        report_fields["role"]: contract["forwardScenarioRole"],
+        report_fields["productionItemId"]: production[
+            production_fields["productionItemIdentity"]
+        ],
+        report_fields["executionMode"]: contract["executionModes"][
+            "liveExternal"
+        ],
+        report_fields["pass"]: True,
+        report_fields["outcome"]: contract["outcomes"]["passed"],
+        report_fields["productionOutcome"]: "completed",
+        report_fields["errorCode"]: None,
+        report_fields["outputDirectory"]: str(output_directory),
+        report_fields["lineageSha256ByRole"]: lineage,
+        report_fields["formalTemplateSha256"]: _sha_file(formal_path),
+        report_fields["templateTestOutcome"]: None,
+        report_fields["templateTestOutputDirectory"]: None,
+        report_fields["templateTestReportSha256"]: None,
+    }
 
 
 def recorded_shadow_request() -> dict[str, Any]:
@@ -781,12 +918,44 @@ def recorded_shadow_request() -> dict[str, Any]:
 
 def live_shadow_request(
     release_gate_evidence: dict[str, Any] | None = None,
+    *,
+    supplemental_role: str | None = None,
 ) -> dict[str, Any]:
+    """Build the four-role live request with one selectable supplement."""
+
     rules = _rules()
     contract = rules["releaseReadinessContract"]
     scenario_fields = contract["scenarioFields"]
     request_fields = contract["requestFields"]
     request = recorded_shadow_request()
+    supplement_roles = [
+        contract["scenarioRoles"][key]
+        for key in contract["liveSupplementScenarioRoleKeys"]
+    ]
+    selected_supplement = (
+        supplement_roles[0] if supplemental_role is None else supplemental_role
+    )
+    if selected_supplement not in supplement_roles:
+        raise ValueError("live supplement role is not allowed")
+    selected_roles = _scenario_roles_for_execution(
+        contract,
+        contract["executionModes"]["liveExternal"],
+        [
+            *(
+                contract["scenarioRoles"][key]
+                for key in contract["liveMandatoryScenarioRoleKeys"]
+            ),
+            selected_supplement,
+        ],
+    )
+    if selected_roles is None:
+        raise ValueError("live scenario sampling contract is invalid")
+    selected_role_set = set(selected_roles)
+    request[request_fields["scenarios"]] = [
+        scenario
+        for scenario in request[request_fields["scenarios"]]
+        if scenario[scenario_fields["role"]] in selected_role_set
+    ]
     for scenario in [
         *request[request_fields["scenarios"]],
         request[request_fields["forwardScenario"]],
@@ -1000,6 +1169,49 @@ def _scenario_evidence_error(
     ):
         return errors["formalProjectionMismatch"]
     return None
+
+
+def _installed_forward_evidence_error(
+    scenario: dict[str, Any],
+    output_directory: Path,
+    corpus_item: dict[str, Any] | None,
+    *,
+    rules: dict[str, Any],
+    contract: dict[str, Any],
+) -> str | None:
+    errors = contract["errorCodes"]
+    scenario_fields = contract["scenarioFields"]
+    production_fields = contract["productionRequestFields"]
+    production = scenario.get(scenario_fields["productionRequest"])
+    manifest = _load_object(_production_manifest_path(output_directory, contract))
+    lineage = _lineage_sha_by_role(output_directory, contract)
+    if not (
+        isinstance(production, dict)
+        and manifest is not None
+        and lineage is not None
+        and manifest.get("productionItemId")
+        == production.get(production_fields["productionItemIdentity"])
+        and manifest.get("templateKey")
+        == production.get(production_fields["templateKey"])
+    ):
+        return errors["provenanceMismatch"]
+    result = ProductionResult(
+        "completed",
+        production[production_fields["productionItemIdentity"]],
+        rules["resultStates"]["completed"],
+        output_directory,
+        gallery_template=_lineage_artifact_path(
+            output_directory, "formalTemplate", contract
+        ),
+    )
+    return _scenario_evidence_error(
+        scenario=scenario,
+        result=result,
+        lineage=lineage,
+        corpus_item=corpus_item,
+        rules=rules,
+        contract=contract,
+    )
 
 
 def _live_execution_evidence_valid(
@@ -1450,6 +1662,7 @@ def _successful_report_artifacts_valid(
     verified_gates = (
         _verified_release_gates(
             gate_evidence,
+            forward_scenario=expected_forward,
             corpus_items=corpus_items,
             rules=rules,
             contract=contract,
@@ -1502,6 +1715,20 @@ def _successful_report_artifacts_valid(
         output_directory = _ordinary_directory_path(
             item.get(scenario_report_fields["outputDirectory"])
         )
+        installed_forward = bool(
+            all_live and role == contract["forwardScenarioRole"]
+        )
+        expected_installed_forward = (
+            _ordinary_directory_path(
+                gate_evidence.get(
+                    contract["releaseGateEvidenceFields"][
+                        "installedForwardOutputPath"
+                    ]
+                )
+            )
+            if installed_forward and isinstance(gate_evidence, dict)
+            else None
+        )
         if not (
             set(item) == set(scenario_report_fields.values())
             and item.get(scenario_report_fields["role"]) == role
@@ -1515,7 +1742,11 @@ def _successful_report_artifacts_valid(
             and item.get(scenario_report_fields["productionOutcome"]) == "completed"
             and item.get(scenario_report_fields["errorCode"]) is None
             and output_directory is not None
-            and output_directory.is_relative_to(readiness_root)
+            and (
+                output_directory == expected_installed_forward
+                if installed_forward
+                else output_directory.is_relative_to(readiness_root)
+            )
         ):
             return False
         manifest_path = _ordinary_json_path(
@@ -1776,7 +2007,6 @@ def verify_release_readiness_completion(
         return failure
     scenarios = request.get(request_fields["scenarios"])
     forward = request.get(request_fields["forwardScenario"])
-    required_roles = list(contract["scenarioRoles"].values())
     if not isinstance(scenarios, list) or not isinstance(forward, dict):
         return failure
     by_role = {
@@ -1784,7 +2014,12 @@ def verify_release_readiness_completion(
         for item in scenarios
         if isinstance(item, dict)
     }
-    if set(by_role) != set(required_roles):
+    required_roles = _scenario_roles_for_execution(
+        contract,
+        contract["executionModes"]["liveExternal"],
+        list(by_role),
+    )
+    if required_roles is None:
         return failure
     ordered = [by_role[role] for role in required_roles]
     all_scenarios = [*ordered, forward]
@@ -1921,7 +2156,6 @@ def run_release_readiness(
         for scenario in scenarios or []
         if isinstance(scenario, dict)
     ]
-    required_roles = set(contract["scenarioRoles"].values())
     valid_list = isinstance(scenarios, list)
     roles_are_strings = bool(
         valid_list
@@ -1940,6 +2174,10 @@ def run_release_readiness(
         if type(adapter_mode) is str
         else None
     )
+    required_roles_ordered = _scenario_roles_for_execution(
+        contract, adapter_mode, observed_roles
+    )
+    required_roles = set(required_roles_ordered or [])
     expected_request_fields = set(request_fields.values())
     complete = (
         isinstance(request, dict)
@@ -1947,6 +2185,7 @@ def run_release_readiness(
         and valid_list
         and roles_are_strings
         and len(observed_roles) == len(set(observed_roles))
+        and required_roles_ordered is not None
         and set(observed_roles) == required_roles
         and isinstance(forward_scenario, dict)
         and forward_scenario.get(scenario_fields["role"])
@@ -1958,22 +2197,45 @@ def run_release_readiness(
         error_code = errors["invalidRequest"]
     elif not valid_list or not roles_are_strings:
         error_code = errors["invalidRequest"]
+    elif adapter_mode_role is None and (
+        _scenario_roles_for_execution(
+            contract,
+            contract["executionModes"]["recordedReplay"],
+            observed_roles,
+        )
+        is not None
+        or _scenario_roles_for_execution(
+            contract,
+            contract["executionModes"]["liveExternal"],
+            observed_roles,
+        )
+        is not None
+    ):
+        error_code = errors["invalidRequest"]
     elif not complete:
         error_code = errors["coverageMissing"]
-    elif adapter_mode_role is None:
-        error_code = errors["invalidRequest"]
     elif (
         adapter_mode == contract["executionModes"]["liveExternal"]
         and not _core_constructed_live_adapter(adapters)
     ):
         error_code = errors["liveEvidenceMismatch"]
+    elif (
+        adapter_mode == contract["executionModes"]["liveExternal"]
+        and _core_live_reviewer_roles(adapters) != required_roles
+    ):
+        error_code = errors["liveEvidenceMismatch"]
+    elif (
+        adapter_mode == contract["executionModes"]["liveExternal"]
+        and release_gate_evidence is None
+    ):
+        error_code = errors["releaseGateIncomplete"]
     else:
         scenario_by_role = {
             scenario[scenario_fields["role"]]: scenario for scenario in scenarios
         }
         ordered_scenarios = [
             scenario_by_role[role]
-            for role in contract["scenarioRoles"].values()
+            for role in required_roles_ordered
         ]
         all_scenarios = [*ordered_scenarios, forward_scenario]
         corpus_items = _corpus_by_role(contract)
@@ -1987,7 +2249,7 @@ def run_release_readiness(
             for role, scenario in [
                 *[
                     (role, scenario_by_role[role])
-                    for role in contract["scenarioRoles"].values()
+                    for role in required_roles_ordered
                 ],
                 (contract["forwardScenarioRole"], forward_scenario),
             ]
@@ -2034,6 +2296,7 @@ def run_release_readiness(
             else:
                 verified_release_gates = _verified_release_gates(
                     release_gate_evidence,
+                    forward_scenario=forward_scenario,
                     corpus_items=corpus_items,
                     rules=rules,
                     contract=contract,
@@ -2120,9 +2383,32 @@ def run_release_readiness(
         )
     scenario_report_fields = contract["scenarioReportFields"]
     scenario_reports: list[dict[str, Any]] = []
-    forward_report: dict[str, Any] | None = None
+    forward_report: dict[str, Any] | None = (
+        _installed_forward_report(
+            forward_scenario,
+            release_gate_evidence,
+            rules=rules,
+            contract=contract,
+        )
+        if adapter_mode == contract["executionModes"]["liveExternal"]
+        and isinstance(release_gate_evidence, dict)
+        else None
+    )
     overall_error: str | None = None
-    for scenario in [*ordered_scenarios, forward_scenario]:
+    if (
+        adapter_mode == contract["executionModes"]["liveExternal"]
+        and forward_report is None
+    ):
+        overall_error = errors["releaseGateIncomplete"]
+    execution_scenarios = [
+        *ordered_scenarios,
+        *(
+            [forward_scenario]
+            if adapter_mode == contract["executionModes"]["recordedReplay"]
+            else []
+        ),
+    ]
+    for scenario in execution_scenarios:
         role = scenario[scenario_fields["role"]]
         production_request = scenario.get(scenario_fields["productionRequest"])
         execution_mode = scenario.get(scenario_fields["executionMode"])
@@ -2291,6 +2577,7 @@ def run_release_readiness(
     if verified_release_gates is not None:
         postflight_release_gates = _verified_release_gates(
             release_gate_evidence,
+            forward_scenario=forward_scenario,
             corpus_items=corpus_items,
             rules=rules,
             contract=contract,
