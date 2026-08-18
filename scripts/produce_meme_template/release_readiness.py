@@ -25,6 +25,7 @@ from .release_management import (
     MACHINE_RULES_RELATIVE,
     doctor,
     runtime_production_pin,
+    runtime_production_pin_sha256,
 )
 from .workflow import (
     ProductionResult,
@@ -252,7 +253,7 @@ def _verified_release_gates(
         == str(package_root)
     ):
         return None
-    installed_pin_sha = _sha_json(installed_pin)
+    installed_pin_sha = runtime_production_pin_sha256(installed_root)
     git_commit = installed_pin.get(pin_fields["gitCommit"])
     if not isinstance(git_commit, str):
         return None

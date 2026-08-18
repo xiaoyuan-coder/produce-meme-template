@@ -20,6 +20,9 @@ from scripts.produce_meme_template import (
     verify_code_review_receipt,
     verify_release_readiness_completion,
 )
+from scripts.produce_meme_template.release_management import (
+    runtime_production_pin_sha256,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -230,6 +233,27 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                     expected_reviewed_git_commit=reviewed_head,
                     expected_pin_sha256=runtime_pin_sha,
                 )
+            )
+
+    def test_runtime_pin_digest_matches_the_public_production_lineage(self) -> None:
+        request = json.loads(
+            (BASE_FIXTURE / "request.json").read_text(encoding="utf-8")
+        )
+        request["sourceImage"] = str(
+            (BASE_FIXTURE / request["sourceImage"]).resolve()
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            result = run_production(
+                request,
+                Path(temporary),
+                DeterministicFixtureAdapters(BASE_FIXTURE),
+            )
+            pin_path = result.output_dir / "production-pin.json"
+
+            self.assertEqual("completed", result.outcome)
+            self.assertEqual(
+                hashlib.sha256(pin_path.read_bytes()).hexdigest(),
+                runtime_production_pin_sha256(ROOT),
             )
 
     def test_promotion_verifier_rejects_symlink_and_runtime_workspace(self) -> None:

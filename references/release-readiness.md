@@ -45,4 +45,6 @@ T1 输出与生产项目录互为同级隔离目录。重跑必须复用已绑�
 
 最终 live 请求通过 `releaseGateEvidence` 绑定已验证发布包、期望 release digest、全新安装 runtime、由该安装副本产出的未见图 Production Item，以及 Standards/Spec 两轴 clean review receipt。请求同时冻结前向 Manifest 与两份 receipt 的 SHA。每份 receipt 分别记录 code review 的比较基线 `comparisonBaseGitCommit` 和实际被审提交 `reviewedGitCommit`；核心要求后者精确绑定安装 pin 中的 Git commit，并同时绑定同一安装 pin。核心在外部批次前后重新执行 package 与 installed runtime 的 doctor，对账两者 release digest、安装记录、完整 Production Manifest 谱系、安装 pin 和未见图来源 SHA。live readiness 直接复用并深度校验该安装副本的前向 Production Item，禁止再次提交同一未见图。该安装 pin 的 SHA 还必须与本次四个 live Production Items 及未见图项各自的 `production-pin.json` 摘要完全一致。布尔值或 adapter 自报的发布结论不参与 eligibility。
 
+Runtime pin SHA 统一指向生产 seam 实际持久化的 `production-pin.json` 字节摘要。review receipt、release gate 与 Production Item 谱系共用该文件级事实，不使用另一种 JSON 排序方式重算逻辑内容摘要。
+
 任一条不满足时，可以产出开发版 readiness 证据，但不得把 `releaseEligible` 写为 `true`，也不得执行 Tag、push 或正式发布。

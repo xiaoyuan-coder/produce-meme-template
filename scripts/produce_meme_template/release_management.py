@@ -18,6 +18,7 @@ from .artifacts import (
     canonical_json_bytes as _canonical_bytes,
     compact_json_line_bytes as _json_bytes,
     load_json_object as _load_object,
+    pretty_json_bytes as _pretty_json_bytes,
     sha256_bytes as _sha_bytes,
     sha256_file as _sha_file,
 )
@@ -1353,6 +1354,14 @@ def runtime_production_pin(runtime_root: str | Path) -> dict[str, Any]:
     if lock is None or errors:
         raise ValueError("runtime release identity is invalid")
     return _production_pin_for_state(runtime, contract, lock)
+
+
+def runtime_production_pin_sha256(runtime_root: str | Path) -> str:
+    """Return the digest of the pin bytes persisted by the production seam."""
+
+    return _sha_bytes(
+        _pretty_json_bytes(runtime_production_pin(runtime_root))
+    )
 
 
 def doctor(
