@@ -195,6 +195,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                     path,
                     expected_sha256=digest,
                     expected_axis=CONTRACT["reviewAxes"]["standards"],
+                    expected_comparison_base_git_commit=comparison_base,
                     expected_reviewed_git_commit=reviewed_head,
                     expected_pin_sha256=runtime_pin_sha,
                 )
@@ -204,7 +205,18 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                     path,
                     expected_sha256=digest,
                     expected_axis=CONTRACT["reviewAxes"]["standards"],
+                    expected_comparison_base_git_commit=comparison_base,
                     expected_reviewed_git_commit=comparison_base,
+                    expected_pin_sha256=runtime_pin_sha,
+                )
+            )
+            self.assertFalse(
+                verify_code_review_receipt(
+                    path,
+                    expected_sha256=digest,
+                    expected_axis=CONTRACT["reviewAxes"]["standards"],
+                    expected_comparison_base_git_commit=reviewed_head,
+                    expected_reviewed_git_commit=reviewed_head,
                     expected_pin_sha256=runtime_pin_sha,
                 )
             )

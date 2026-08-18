@@ -103,6 +103,11 @@ def commit_source(source: Path) -> str:
         cwd=source,
         check=True,
     )
+    subprocess.run(
+        ["git", "commit", "--allow-empty", "-qm", "review base"],
+        cwd=source,
+        check=True,
+    )
     subprocess.run(["git", "add", "-A"], cwd=source, check=True)
     subprocess.run(
         ["git", "commit", "-qm", "release fixture"],
@@ -111,6 +116,16 @@ def commit_source(source: Path) -> str:
     )
     return subprocess.run(
         ["git", "rev-parse", "HEAD"],
+        cwd=source,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def review_base(source: Path) -> str:
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD^"],
         cwd=source,
         capture_output=True,
         text=True,
@@ -311,6 +326,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
                 self.source,
                 candidates,
                 git_commit=self.git_commit,
+                comparison_base_git_commit=review_base(self.source),
                 built_at=BUILT_AT,
             )
 
@@ -320,6 +336,38 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         self.assertFalse(
             (self.dist / "produce-meme-template" / STABLE_VERSION).exists()
         )
+
+    def test_stable_candidate_rejects_empty_or_non_ancestor_review_base(self) -> None:
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["skillVersion"] = STABLE_VERSION
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.source / "skill-manifest.json"
+        manifest = load_json(manifest_path)
+        manifest["version"] = STABLE_VERSION
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+
+        for invalid_base in (self.git_commit, "f" * 40):
+            with self.subTest(invalid_base=invalid_base):
+                result = stage_release(
+                    self.source,
+                    self.root / ("candidates-" + invalid_base[:8]),
+                    git_commit=self.git_commit,
+                    comparison_base_git_commit=invalid_base,
+                    built_at=BUILT_AT,
+                )
+                self.assertFalse(result["pass"])
+                self.assertEqual(
+                    RELEASE_ERRORS["invalidReviewComparisonBase"],
+                    result["errorCode"],
+                )
 
     def test_candidate_cannot_be_promoted_without_readiness_completion(self) -> None:
         release_path = self.source / "release.json"
@@ -345,6 +393,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
                 self.source,
                 self.root / "candidates",
                 git_commit=self.git_commit,
+                comparison_base_git_commit=review_base(self.source),
                 built_at=BUILT_AT,
             )
 
@@ -387,6 +436,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
                 self.source,
                 self.root / "candidates",
                 git_commit=self.git_commit,
+                comparison_base_git_commit=review_base(self.source),
                 built_at=BUILT_AT,
             )
         candidate = Path(staged["packageDir"])
@@ -433,6 +483,62 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         command = verifier.call_args.args[0]
         self.assertEqual(candidate / "scripts" / "release_tool.py", Path(command[2]))
         self.assertEqual(candidate, verifier.call_args.kwargs["cwd"])
+
+    def test_promotion_rejects_nonzero_candidate_verifier_exit(self) -> None:
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["skillVersion"] = STABLE_VERSION
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.source / "skill-manifest.json"
+        manifest = load_json(manifest_path)
+        manifest["version"] = STABLE_VERSION
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+        with mock.patch(
+            "scripts.produce_meme_template.release_management._run_release_validation",
+            return_value=(True, None),
+        ):
+            staged = stage_release(
+                self.source,
+                self.root / "candidates",
+                git_commit=self.git_commit,
+                comparison_base_git_commit=review_base(self.source),
+                built_at=BUILT_AT,
+            )
+        verifier_result = {
+            "pass": True,
+            "reportPath": str(self.root / "report.json"),
+            "completionPath": str(self.root / "completion.json"),
+            "releaseDigest": staged["releaseDigest"],
+            "gitCommit": self.git_commit,
+        }
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=2,
+            stdout=json.dumps(verifier_result),
+            stderr="candidate verifier failed",
+        )
+
+        with mock.patch(
+            "scripts.produce_meme_template.release_management.subprocess.run",
+            return_value=completed,
+        ):
+            result = promote_release(
+                staged["packageDir"],
+                self.dist,
+                readiness_root=self.root / "readiness",
+            )
+
+        self.assertFalse(result["pass"])
+        self.assertEqual(
+            RELEASE_ERRORS["releaseReadinessRequired"], result["errorCode"]
+        )
 
     def test_release_is_frozen_before_atomic_publication(self) -> None:
         with mock.patch(

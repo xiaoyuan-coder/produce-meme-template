@@ -44,6 +44,41 @@ class RepositoryContractTest(unittest.TestCase):
             (ROOT / "SKILL.md").read_text(encoding="utf-8"),
         )
 
+    def test_runtime_module_dependencies_are_acyclic(self) -> None:
+        package = ROOT / "scripts" / "produce_meme_template"
+        modules = {path.stem: path for path in package.glob("*.py")}
+        graph = {name: set() for name in modules}
+        for name, path in modules.items():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if (
+                    isinstance(node, ast.ImportFrom)
+                    and node.level == 1
+                    and node.module in modules
+                ):
+                    graph[name].add(node.module)
+
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(name: str, path: tuple[str, ...]) -> None:
+            if name in visiting:
+                cycle_start = path.index(name)
+                self.fail(
+                    "runtime module dependency cycle: "
+                    + " -> ".join((*path[cycle_start:], name))
+                )
+            if name in visited:
+                return
+            visiting.add(name)
+            for dependency in sorted(graph[name]):
+                visit(dependency, (*path, name))
+            visiting.remove(name)
+            visited.add(name)
+
+        for name in sorted(graph):
+            visit(name, ())
+
     def test_release_readiness_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["releaseReadinessContract"]
@@ -505,7 +540,7 @@ class RepositoryContractTest(unittest.TestCase):
         }
         for path in (
             ROOT / "scripts" / "produce.py",
-            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "batch_policy.py",
             ROOT / "tests" / "test_issue_12_batch_isolation.py",
         ):
             literals = {
@@ -609,7 +644,7 @@ class RepositoryContractTest(unittest.TestCase):
             *rules["resultStates"],
         }
         sources = [
-            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "generation_runtime.py",
             ROOT / "scripts" / "produce_meme_template" / "adapters.py",
             ROOT / "tests" / "test_issue_10_generation_wal.py",
         ]
@@ -665,7 +700,7 @@ class RepositoryContractTest(unittest.TestCase):
             *contract["providerRoles"],
         }
         for path in (
-            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "delivery_runtime.py",
             ROOT / "scripts" / "produce_meme_template" / "adapters.py",
             ROOT / "tests" / "test_issue_11_oss_finalization.py",
         ):
@@ -691,9 +726,23 @@ class RepositoryContractTest(unittest.TestCase):
 
     def test_workflow_consumes_machine_states_and_error_codes_without_copying_values(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
-        workflow_source = (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8")
+        runtime_sources = [
+            (
+                ROOT / "scripts" / "produce_meme_template" / name
+            ).read_text(encoding="utf-8")
+            for name in (
+                "workflow_core.py",
+                "replacement_planning.py",
+                "batch_policy.py",
+                "generation_runtime.py",
+                "template_compiler.py",
+                "delivery_runtime.py",
+                "production_runtime.py",
+                "workflow.py",
+            )
+        ]
         test_sources = [path.read_text(encoding="utf-8") for path in sorted((ROOT / "tests").glob("test_issue_*.py"))]
-        sources = [workflow_source, *test_sources]
+        sources = [*runtime_sources, *test_sources]
         machine_values = [rules["initialState"], *rules["resultStates"].values()]
         machine_values.extend(item["state"] for item in rules["productionPhases"])
         machine_values.extend(rules["errorCodes"].values())
@@ -709,9 +758,11 @@ class RepositoryContractTest(unittest.TestCase):
             for literals in string_literals:
                 self.assertNotIn(value, literals)
 
-        workflow_literals, *test_literal_sets = string_literals
+        runtime_literal_sets = string_literals[: len(runtime_sources)]
+        test_literal_sets = string_literals[len(runtime_sources) :]
         for phase in rules["productionPhases"]:
-            self.assertNotIn(phase["phase"], workflow_literals)
+            for runtime_literals in runtime_literal_sets:
+                self.assertNotIn(phase["phase"], runtime_literals)
             for test_literals in test_literal_sets:
                 self.assertNotIn(phase["phase"], test_literals)
 
@@ -778,7 +829,7 @@ class RepositoryContractTest(unittest.TestCase):
         machine_values -= contract_role_names | {"evidence", "type", "value"}
 
         sources = [
-            (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8"),
+            (ROOT / "scripts" / "produce_meme_template" / "replacement_planning.py").read_text(encoding="utf-8"),
             (ROOT / "tests" / "test_issue_7_identity_replacement.py").read_text(encoding="utf-8"),
         ]
         for source in sources:
@@ -793,7 +844,7 @@ class RepositoryContractTest(unittest.TestCase):
         rules = load(ROOT / "contracts" / "machine-rules.json")
         evidence_fields = set(rules["visualReviewContract"]["evidenceFieldRoles"].values())
         workflow = ast.parse(
-            (ROOT / "scripts" / "produce_meme_template" / "workflow.py").read_text(encoding="utf-8")
+            (ROOT / "scripts" / "produce_meme_template" / "production_runtime.py").read_text(encoding="utf-8")
         )
         direct_review_fields = set()
         for node in ast.walk(workflow):
@@ -866,7 +917,7 @@ class RepositoryContractTest(unittest.TestCase):
         }
 
         sources = [
-            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "template_compiler.py",
             ROOT / "scripts" / "produce_meme_template" / "adapters.py",
             ROOT / "tests" / "test_issue_5_editable_prompt_compiler.py",
             ROOT / "tests" / "test_issue_7_identity_replacement.py",
@@ -1079,7 +1130,7 @@ class RepositoryContractTest(unittest.TestCase):
         machine_values -= role_names | {"id", "type", "role", "evidence"}
 
         sources = [
-            ROOT / "scripts" / "produce_meme_template" / "workflow.py",
+            ROOT / "scripts" / "produce_meme_template" / "replacement_planning.py",
             ROOT / "tests" / "fixture_contracts.py",
             ROOT / "tests" / "test_issue_9_multi_instance_operations.py",
         ]

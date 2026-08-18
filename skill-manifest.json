@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.17.2",
+  "version": "0.17.3",
   "updated_at": "2026-08-18",
-  "description": "完成稳定版晋升修复与生产阶段深模块拆分，并同步历史经验实现定位。",
+  "description": "锁定 code-review 比较基线与候选 verifier 退出码，并将生产编排收敛为无循环依赖的深模块。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -141,6 +141,7 @@
     "scripts/produce_meme_template/adapters.py",
     "scripts/produce_meme_template/artifacts.py",
     "scripts/produce_meme_template/batch_policy.py",
+    "scripts/produce_meme_template/delivery_runtime.py",
     "scripts/produce_meme_template/experience_regression.py",
     "scripts/produce_meme_template/generation_runtime.py",
     "scripts/produce_meme_template/production_runtime.py",
@@ -151,6 +152,7 @@
     "scripts/produce_meme_template/template_test.py",
     "scripts/produce_meme_template/validation.py",
     "scripts/produce_meme_template/workflow.py",
+    "scripts/produce_meme_template/workflow_core.py",
     "skill-manifest.json",
     "specs/ADR决策覆盖矩阵.md",
     "specs/历史批次经验冲突审计与策略加固清单.md",

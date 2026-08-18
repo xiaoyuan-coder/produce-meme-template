@@ -6,7 +6,7 @@ Issue #2–#12 只通过 `run_production(request, output_root, adapters)` 暴露
 
 机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。类别与策略来源使用“具名领域角色 → 机器值”映射，代码不依赖 JSON 成员顺序。代码、测试和 fixture 不再维护第二份枚举。
 
-公共 seam 保留在 `workflow.py`，内部按变化原因分成深模块：`batch_policy.py` 负责批次隔离与共享分配，`replacement_planning.py` 负责组件图和 Replacement Plan，`generation_runtime.py` 负责 task/WAL/视觉门禁，`template_compiler.py` 负责 P3–P6 编译与合同验证，`production_runtime.py` 只编排单项生命周期。模块间只传冻结领域对象和机器规则，不增加新的用户入口。
+公共 seam 保留在 `workflow.py`，依赖自下而上为单向图：`workflow_core.py` 拥有共享类型、谱系和原子文件原语；`replacement_planning.py`、`batch_policy.py`、`generation_runtime.py` 和 `template_compiler.py` 分别拥有替换、批次、生成与编译规则；`delivery_runtime.py` 拥有 P7/P8 交付与恢复审计；`production_runtime.py` 编排单项生命周期。领域模块不回向导入 `workflow.py`，公共入口只组装所有者模块。
 
 ## 2. P0–P8 产物
 

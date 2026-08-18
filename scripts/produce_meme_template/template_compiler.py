@@ -14,7 +14,12 @@ from .artifacts import (
     pretty_json_bytes as _json_bytes,
     sha256_bytes as _sha_bytes,
 )
-from .workflow import (
+from .replacement_planning import (
+    _complete_typed_relation_chain,
+    _component_graph_view,
+    _identity_relations_are_consistent,
+)
+from .workflow_core import (
     CJK_CHARACTER,
     GALLERY_SCHEMA_PATH,
     PLACEHOLDER,
@@ -22,12 +27,9 @@ from .workflow import (
     SLOT_ID,
     SUBJECT_IMAGE_MAX_COUNT,
     VISIBLE_TEXT_LEXEME,
-    _complete_typed_relation_chain,
-    _component_graph_view,
     _deep_keys,
     _deep_strings,
     _forbidden_formal_values,
-    _identity_relations_are_consistent,
     _public_asset_url_valid,
     _stop,
 )

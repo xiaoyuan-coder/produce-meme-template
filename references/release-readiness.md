@@ -35,7 +35,7 @@ T1 输出与生产项目录互为同级隔离目录。重跑必须复用已绑�
 
 ## 5. 报告和 1.0 冻结
 
-`release-readiness-report.json` 写在 runtime 之外，通过同目录临时文件、`fsync` 和排他硬链接原子发布。请求 ledger 在任何外部调用前冻结；完成 sidecar 绑定 request SHA、corpus SHA 和 report SHA。重跑遇到完成报告时先重放 ledger、完成 sidecar、逐场景 Production Manifest/谱系、正式 JSON 与 T1 报告，全部一致才直接复用，任一缺失或漂移均在 adapter 调用前返回不可变冲突。同一内容可幂等复用，已有不同内容视为不可变冲突。输出路径不得包含 `..`、符号链接或 runtime 内部路径。
+`release-readiness-report.json` 写在 runtime 之外，通过同目录临时文件、`fsync` 和排他硬链接原子发布。请求 ledger 在任何外部调用前冻结；完成 sidecar 绑定 request SHA、corpus SHA 和 report SHA。重跑遇到完成报告时先重放 ledger、完成 sidecar、逐场景 Production Manifest/谱系、正式 JSON 与 T1 报告，全部一致才直接复用，任一缺失或漂移均在 adapter 调用前返回不可变冲突。同一内容可幂等复用，已有不同内容视为不可变冲突。输出路径不得包含 `..`、符号链接或 runtime 内部路径。稳定候选的 `stage` 还要把 code review 比较点写入 release lock，并用 Git 确认它是被审 HEAD 的不同祖先。
 
 冻结 `1.0.0` 要求录制回放、六类谱系、正式投影、T1、未见图前向测试、`live_external` 批次、历史经验回归、全量测试、候选包构建、安装 smoke 和 doctor 全部 PASS，同时没有未结案的 P1/P2 review finding。稳定版候选通过 `stage_release` 生成；公共 `promote_release` 只接受经 `verify_release_readiness_completion` 深度重放为有效的完成工作区，并把候选逐字节晋升到公开 dist。
 

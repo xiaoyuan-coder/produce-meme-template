@@ -142,6 +142,7 @@ def verify_code_review_receipt(
     *,
     expected_sha256: Any,
     expected_axis: str,
+    expected_comparison_base_git_commit: str,
     expected_reviewed_git_commit: str,
     expected_pin_sha256: str,
     rules: dict[str, Any] | None = None,
@@ -163,15 +164,18 @@ def verify_code_review_receipt(
         == contract["reviewReceiptArtifactType"]
         and receipt.get(fields["schemaVersion"]) == rules["schemaVersion"]
         and receipt.get(fields["axis"]) == expected_axis
-        and isinstance(receipt.get(fields["comparisonBaseGitCommit"]), str)
+        and isinstance(expected_comparison_base_git_commit, str)
         and re.fullmatch(
-            r"[0-9a-f]{40}",
-            receipt[fields["comparisonBaseGitCommit"]],
+            r"[0-9a-f]{40}", expected_comparison_base_git_commit
         )
+        and receipt.get(fields["comparisonBaseGitCommit"])
+        == expected_comparison_base_git_commit
         and receipt.get(fields["reviewedGitCommit"])
         == expected_reviewed_git_commit
         and isinstance(expected_reviewed_git_commit, str)
         and re.fullmatch(r"[0-9a-f]{40}", expected_reviewed_git_commit)
+        and expected_comparison_base_git_commit
+        != expected_reviewed_git_commit
         and receipt.get(fields["runtimePinSha256"])
         == expected_pin_sha256
         and receipt.get(fields["clean"]) is True
@@ -214,6 +218,13 @@ def _verified_release_gates(
         return None
     package_root = package.parent
     installed_root = installed_rules.parents[1]
+    package_lock = _load_object(package)
+    lock_fields = release_contract["lockFields"]
+    comparison_base_git_commit = (
+        package_lock.get(lock_fields["reviewComparisonBaseGitCommit"])
+        if package_lock is not None
+        else None
+    )
     expected_digest = evidence.get(evidence_fields["expectedReleaseDigest"])
     if not (
         isinstance(expected_digest, str)
@@ -276,7 +287,7 @@ def _verified_release_gates(
             or _load_object(safe_pin_path) != installed_pin
             or validate_production_manifest_lineage(forward_output, manifest)
             or manifest.get("outcome") != "completed"
-            or manifest.get("state") != "FINALIZED"
+            or manifest.get("state") != rules["resultStates"]["completed"]
         ):
             return None
     except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
@@ -296,6 +307,7 @@ def _verified_release_gates(
                 evidence_fields[f"{axis_role}ReviewReceiptSha256"]
             ),
             expected_axis=contract["reviewAxes"][axis_role],
+            expected_comparison_base_git_commit=comparison_base_git_commit,
             expected_reviewed_git_commit=git_commit,
             expected_pin_sha256=installed_pin_sha,
             rules=rules,

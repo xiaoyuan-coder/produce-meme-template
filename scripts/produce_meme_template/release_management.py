@@ -417,6 +417,7 @@ def _build_release_package(
     dist_root: str | Path,
     *,
     git_commit: str,
+    comparison_base_git_commit: str | None,
     built_at: datetime | None = None,
     candidate: bool,
 ) -> dict[str, Any]:
@@ -459,6 +460,40 @@ def _build_release_package(
         }
     if not git_snapshot["clean"]:
         return {"pass": False, "errorCode": codes["dirtyWorktree"], "message": "release requires a clean Git worktree"}
+    stable_candidate = bool(
+        candidate and int(release["skillVersion"].split(".", 1)[0]) >= 1
+    )
+    if stable_candidate:
+        valid_base_shape = bool(
+            isinstance(comparison_base_git_commit, str)
+            and re.fullmatch(r"[0-9a-f]{40}", comparison_base_git_commit)
+            and comparison_base_git_commit != git_commit
+        )
+        ancestry = (
+            subprocess.run(
+                [
+                    "git",
+                    "merge-base",
+                    "--is-ancestor",
+                    comparison_base_git_commit or "",
+                    git_commit,
+                ],
+                cwd=source,
+                capture_output=True,
+                check=False,
+            )
+            if valid_base_shape
+            else None
+        )
+        if ancestry is None or ancestry.returncode != 0:
+            return {
+                "pass": False,
+                "errorCode": codes["invalidReviewComparisonBase"],
+                "message": (
+                    "stable candidate review base must be a distinct ancestor "
+                    "of the reviewed Git commit"
+                ),
+            }
     if git_snapshot["files"] != set(manifest["tracked_files"]):
         return {
             "pass": False,
@@ -528,6 +563,9 @@ def _build_release_package(
             git_blobs[gallery_relative]
         ),
         lock_fields["gitCommit"]: git_commit,
+        lock_fields["reviewComparisonBaseGitCommit"]: (
+            comparison_base_git_commit if stable_candidate else None
+        ),
         lock_fields["builtAt"]: (built_at or datetime.now(timezone.utc))
         .astimezone(timezone.utc)
         .isoformat()
@@ -595,6 +633,7 @@ def build_release(
         source_root,
         dist_root,
         git_commit=git_commit,
+        comparison_base_git_commit=None,
         built_at=built_at,
         candidate=False,
     )
@@ -605,12 +644,14 @@ def stage_release(
     candidate_root: str | Path,
     *,
     git_commit: str,
+    comparison_base_git_commit: str | None = None,
     built_at: datetime | None = None,
 ) -> dict[str, Any]:
     return _build_release_package(
         source_root,
         candidate_root,
         git_commit=git_commit,
+        comparison_base_git_commit=comparison_base_git_commit,
         built_at=built_at,
         candidate=True,
     )
@@ -658,6 +699,22 @@ def _verify_release(
         and lock[lock_fields["galleryContractVersion"]].strip()
         and isinstance(lock.get(lock_fields["gitCommit"]), str)
         and re.fullmatch(r"[0-9a-f]{40}", lock[lock_fields["gitCommit"]])
+        and (
+            (
+                isinstance(
+                    lock.get(lock_fields["reviewComparisonBaseGitCommit"]),
+                    str,
+                )
+                and re.fullmatch(
+                    r"[0-9a-f]{40}",
+                    lock[lock_fields["reviewComparisonBaseGitCommit"]],
+                )
+                and lock[lock_fields["reviewComparisonBaseGitCommit"]]
+                != lock[lock_fields["gitCommit"]]
+            )
+            if int(lock[lock_fields["skillVersion"]].split(".", 1)[0]) >= 1
+            else lock.get(lock_fields["reviewComparisonBaseGitCommit"]) is None
+        )
         and isinstance(lock.get(lock_fields["builtAt"]), str)
         and lock[lock_fields["builtAt"]].strip()
         and isinstance(files, list)
@@ -755,6 +812,7 @@ def promote_release(
             "errorCode": codes["invalidReleaseMetadata"],
             "message": "only stable releases use readiness promotion",
         }
+    verifier_returncode: int | None = None
     try:
         if (
             candidate == dist
@@ -787,6 +845,7 @@ def promote_release(
             check=False,
             timeout=contract["validationTimeoutSeconds"],
         )
+        verifier_returncode = completed.returncode
         readiness = json.loads(completed.stdout)
         if not isinstance(readiness, dict):
             readiness = {"pass": False}
@@ -800,7 +859,8 @@ def promote_release(
     ):
         readiness = {"pass": False}
     if not (
-        readiness.get("pass") is True
+        verifier_returncode == 0
+        and readiness.get("pass") is True
         and readiness.get("releaseDigest")
         == lock[lock_fields["releaseDigest"]]
         and readiness.get("gitCommit") == lock[lock_fields["gitCommit"]]
@@ -1409,7 +1469,7 @@ def write_pin_migration_report(
         ):
             raise ValueError("unsafe production manifest")
         production_manifest = _load_object(manifest_path)
-        from .workflow import validate_production_manifest_lineage
+        from .workflow_core import validate_production_manifest_lineage
 
         lineage_errors = validate_production_manifest_lineage(
             item_dir, production_manifest

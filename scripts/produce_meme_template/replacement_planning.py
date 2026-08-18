@@ -4,7 +4,7 @@ import copy
 from typing import Any
 
 from .release_management import runtime_production_pin
-from .workflow import REPO_ROOT, _normalized_identity, _stop
+from .workflow_core import REPO_ROOT, _normalized_identity, _stop
 
 
 def _build_pin(rules: dict[str, Any], release: dict[str, Any]) -> dict[str, Any]:

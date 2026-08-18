@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.16.1",
+  "schemaVersion": "0.16.2",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -34,7 +34,8 @@
       "invalidProductionManifest": "INVALID_PRODUCTION_MANIFEST",
       "newRuntimeInvalid": "NEW_RUNTIME_INVALID",
       "immutableMigrationConflict": "IMMUTABLE_MIGRATION_CONFLICT",
-      "releaseReadinessRequired": "RELEASE_READINESS_REQUIRED"
+      "releaseReadinessRequired": "RELEASE_READINESS_REQUIRED",
+      "invalidReviewComparisonBase": "INVALID_REVIEW_COMPARISON_BASE"
     },
     "lockFields": {
       "artifactType": "artifactType",
@@ -45,6 +46,7 @@
       "galleryContractVersion": "galleryContractVersion",
       "galleryContractSha256": "galleryContractSha256",
       "gitCommit": "gitCommit",
+      "reviewComparisonBaseGitCommit": "reviewComparisonBaseGitCommit",
       "builtAt": "builtAt",
       "files": "files",
       "contentDigest": "contentDigest",

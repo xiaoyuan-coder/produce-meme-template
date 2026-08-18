@@ -14,7 +14,7 @@ from .artifacts import (
     sha256_file as _sha_file,
 )
 from .replacement_planning import _plan_replacement
-from .workflow import (
+from .workflow_core import (
     WorkflowAdapters,
     WorkflowStop,
     _adapter_snapshot_image_object_call,

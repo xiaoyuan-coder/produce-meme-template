@@ -16,7 +16,7 @@ from .artifacts import (
     sha256_bytes as _sha_bytes,
     sha256_file as _sha_file,
 )
-from .workflow import (
+from .workflow_core import (
     WorkflowStop,
     _atomic_write_new,
     _persist_manifest,

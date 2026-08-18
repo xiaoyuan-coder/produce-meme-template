@@ -54,6 +54,11 @@ def main() -> int:
     stage.add_argument("--source", required=True, type=Path)
     stage.add_argument("--candidates", required=True, type=Path)
     stage.add_argument("--git-commit")
+    stage.add_argument(
+        "--comparison-base-git-commit",
+        required=True,
+        help="已验证为被审 HEAD 祖先的 code-review 固定比较点",
+    )
     stage.add_argument("--built-at")
 
     promote = commands.add_parser("promote", help="校验 readiness 后晋升稳定候选包")
@@ -99,6 +104,15 @@ def main() -> int:
                 source,
                 destination,
                 git_commit=args.git_commit or _git_commit(source),
+                **(
+                    {
+                        "comparison_base_git_commit": (
+                            args.comparison_base_git_commit
+                        )
+                    }
+                    if args.command == "stage"
+                    else {}
+                ),
                 built_at=built_at,
             )
         elif args.command == "promote":
