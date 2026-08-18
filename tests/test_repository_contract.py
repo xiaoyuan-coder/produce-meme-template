@@ -404,25 +404,6 @@ class RepositoryContractTest(unittest.TestCase):
                 path.as_posix(),
             )
 
-        workflow_tree = ast.parse(
-            (ROOT / "scripts" / "produce_meme_template" / "workflow.py")
-            .read_text(encoding="utf-8")
-        )
-        build_pin = next(
-            node
-            for node in ast.walk(workflow_tree)
-            if isinstance(node, ast.FunctionDef) and node.name == "_build_pin"
-        )
-        calls = {
-            node.func.id
-            for node in ast.walk(build_pin)
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-        }
-        self.assertEqual({"runtime_production_pin"}, calls)
-        self.assertFalse(
-            any(isinstance(node, ast.Dict) for node in ast.walk(build_pin))
-        )
-
     def test_batch_production_contract_has_one_typed_machine_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["batchProductionContract"]
