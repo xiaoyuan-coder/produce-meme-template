@@ -17,6 +17,8 @@ from scripts.produce_meme_template import (
     recorded_shadow_request,
     run_production,
     run_release_readiness,
+    verify_code_review_receipt,
+    verify_release_readiness_completion,
 )
 
 
@@ -164,6 +166,69 @@ class InterruptedReadinessAdapters(RecordedShadowReadinessAdapters):
 
 
 class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
+    def test_review_receipt_separates_comparison_base_from_reviewed_head(self) -> None:
+        fields = CONTRACT["reviewReceiptFields"]
+        comparison_base = "1" * 40
+        reviewed_head = "2" * 40
+        runtime_pin_sha = "3" * 64
+        receipt = {
+            fields["artifactType"]: CONTRACT["reviewReceiptArtifactType"],
+            fields["schemaVersion"]: RULES["schemaVersion"],
+            fields["axis"]: CONTRACT["reviewAxes"]["standards"],
+            fields["comparisonBaseGitCommit"]: comparison_base,
+            fields["reviewedGitCommit"]: reviewed_head,
+            fields["runtimePinSha256"]: runtime_pin_sha,
+            fields["clean"]: True,
+            fields["findingCount"]: 0,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary).resolve() / "review-receipt.json"
+            path.write_text(
+                json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+
+            self.assertTrue(
+                verify_code_review_receipt(
+                    path,
+                    expected_sha256=digest,
+                    expected_axis=CONTRACT["reviewAxes"]["standards"],
+                    expected_reviewed_git_commit=reviewed_head,
+                    expected_pin_sha256=runtime_pin_sha,
+                )
+            )
+            self.assertFalse(
+                verify_code_review_receipt(
+                    path,
+                    expected_sha256=digest,
+                    expected_axis=CONTRACT["reviewAxes"]["standards"],
+                    expected_reviewed_git_commit=comparison_base,
+                    expected_pin_sha256=runtime_pin_sha,
+                )
+            )
+
+    def test_promotion_verifier_rejects_symlink_and_runtime_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            actual = root / "actual-readiness"
+            actual.mkdir()
+            linked = root / "linked-readiness"
+            linked.symlink_to(actual, target_is_directory=True)
+
+            for unsafe in (linked, ROOT):
+                result = verify_release_readiness_completion(
+                    unsafe,
+                    expected_package_path=ROOT,
+                    expected_release_digest="0" * 64,
+                    expected_git_commit="0" * 40,
+                )
+                self.assertFalse(result["pass"])
+                self.assertEqual(
+                    "readiness workspace path is unsafe", result["message"]
+                )
+
     @staticmethod
     def complete_scenarios() -> list[dict]:
         return recorded_shadow_request()[CONTRACT["requestFields"]["scenarios"]]

@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.16.0",
+  "schemaVersion": "0.16.1",
   "contentSha256": "fcc0eb9a07ccf0754a8f78b8ebd532e600a46209a2d9d5c96aa3e6a3b2e77323",
   "checks": {
     "promptResolutionsNatural": true,

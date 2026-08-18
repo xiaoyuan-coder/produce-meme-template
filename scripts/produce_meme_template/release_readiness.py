@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import tempfile
 import weakref
 from pathlib import Path
@@ -136,17 +137,19 @@ def _ordinary_directory_path(value: Any) -> Path | None:
         return None
 
 
-def _review_receipt_valid(
+def verify_code_review_receipt(
     value: Any,
     *,
     expected_sha256: Any,
     expected_axis: str,
-    expected_git_commit: str,
+    expected_reviewed_git_commit: str,
     expected_pin_sha256: str,
-    rules: dict[str, Any],
-    contract: dict[str, Any],
+    rules: dict[str, Any] | None = None,
+    contract: dict[str, Any] | None = None,
 ) -> bool:
-    path = _ordinary_json_path(value)
+    rules = rules or _rules()
+    contract = contract or rules["releaseReadinessContract"]
+    path = _ordinary_json_path(str(value) if isinstance(value, Path) else value)
     receipt = _load_object(path) if path is not None else None
     fields = contract["reviewReceiptFields"]
     return bool(
@@ -160,8 +163,15 @@ def _review_receipt_valid(
         == contract["reviewReceiptArtifactType"]
         and receipt.get(fields["schemaVersion"]) == rules["schemaVersion"]
         and receipt.get(fields["axis"]) == expected_axis
-        and receipt.get(fields["fixedPointGitCommit"])
-        == expected_git_commit
+        and isinstance(receipt.get(fields["comparisonBaseGitCommit"]), str)
+        and re.fullmatch(
+            r"[0-9a-f]{40}",
+            receipt[fields["comparisonBaseGitCommit"]],
+        )
+        and receipt.get(fields["reviewedGitCommit"])
+        == expected_reviewed_git_commit
+        and isinstance(expected_reviewed_git_commit, str)
+        and re.fullmatch(r"[0-9a-f]{40}", expected_reviewed_git_commit)
         and receipt.get(fields["runtimePinSha256"])
         == expected_pin_sha256
         and receipt.get(fields["clean"]) is True
@@ -280,13 +290,13 @@ def _verified_release_gates(
     ):
         return None
     receipts_valid = all(
-        _review_receipt_valid(
+        verify_code_review_receipt(
             evidence.get(evidence_fields[f"{axis_role}ReviewReceiptPath"]),
             expected_sha256=evidence.get(
                 evidence_fields[f"{axis_role}ReviewReceiptSha256"]
             ),
             expected_axis=contract["reviewAxes"][axis_role],
-            expected_git_commit=git_commit,
+            expected_reviewed_git_commit=git_commit,
             expected_pin_sha256=installed_pin_sha,
             rules=rules,
             contract=contract,
@@ -1718,12 +1728,15 @@ def verify_release_readiness_completion(
         "errorCode": errors["releaseGateIncomplete"],
     }
     try:
-        root = _ordinary_directory_path(str(Path(output_root).resolve()))
+        root = _safe_readiness_root(output_root)
         package = Path(expected_package_path).resolve()
     except (TypeError, ValueError, OSError, RuntimeError):
         return failure
     if root is None:
-        return failure
+        return {
+            **failure,
+            "message": "readiness workspace path is unsafe",
+        }
     ledger_path = root / contract["requestFileName"]
     report_path = root / contract["reportFileName"]
     completion_path = root / contract["completionFileName"]

@@ -22,6 +22,9 @@ from produce_meme_template.release_management import (
     stage_release,
     write_pin_migration_report,
 )
+from produce_meme_template.release_readiness import (
+    verify_release_readiness_completion,
+)
 
 
 def _git_commit(source: Path) -> str:
@@ -57,6 +60,15 @@ def main() -> int:
     promote.add_argument("--candidate", required=True, type=Path)
     promote.add_argument("--dist", required=True, type=Path)
     promote.add_argument("--readiness", required=True, type=Path)
+
+    verify = commands.add_parser(
+        "verify-readiness",
+        help="使用当前不可变 runtime 深度重放稳定版 readiness",
+    )
+    verify.add_argument("--readiness", required=True, type=Path)
+    verify.add_argument("--candidate", required=True, type=Path)
+    verify.add_argument("--expected-release-digest", required=True)
+    verify.add_argument("--expected-git-commit", required=True)
 
     install = commands.add_parser("install", help="安装已验证发布包")
     install.add_argument("--package", required=True, type=Path)
@@ -94,6 +106,13 @@ def main() -> int:
                 args.candidate,
                 args.dist,
                 readiness_root=args.readiness,
+            )
+        elif args.command == "verify-readiness":
+            result = verify_release_readiness_completion(
+                args.readiness,
+                expected_package_path=args.candidate,
+                expected_release_digest=args.expected_release_digest,
+                expected_git_commit=args.expected_git_commit,
             )
         elif args.command == "install":
             result = install_release(

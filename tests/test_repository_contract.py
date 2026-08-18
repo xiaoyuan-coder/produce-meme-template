@@ -326,6 +326,12 @@ class RepositoryContractTest(unittest.TestCase):
             ROOT / "contracts" / "release-management-contract.schema.json"
         )
         self.assertEqual([], list(Draft202012Validator(schema).iter_errors(contract)))
+        cross_mapped = json.loads(json.dumps(contract))
+        foreign_role = next(iter(contract["errorCodes"]))
+        cross_mapped["lockFields"][foreign_role] = "unexpectedLockField"
+        self.assertTrue(
+            list(Draft202012Validator(schema).iter_errors(cross_mapped))
+        )
         for mapping in (value for value in contract.values() if isinstance(value, dict)):
             self.assertEqual(len(mapping), len(set(mapping.values())))
         phase_index = contract["migrationInvalidateFromPhaseIndex"]

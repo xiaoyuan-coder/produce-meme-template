@@ -363,6 +363,77 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
             (self.dist / "produce-meme-template" / STABLE_VERSION).exists()
         )
 
+    def test_verified_candidate_is_promoted_byte_for_byte(self) -> None:
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["skillVersion"] = STABLE_VERSION
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        manifest_path = self.source / "skill-manifest.json"
+        manifest = load_json(manifest_path)
+        manifest["version"] = STABLE_VERSION
+        manifest_path.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+        with mock.patch(
+            "scripts.produce_meme_template.release_management._run_release_validation",
+            return_value=(True, None),
+        ):
+            staged = stage_release(
+                self.source,
+                self.root / "candidates",
+                git_commit=self.git_commit,
+                built_at=BUILT_AT,
+            )
+        candidate = Path(staged["packageDir"])
+        readiness = self.root / "readiness"
+        readiness.mkdir()
+        verifier_result = {
+            "pass": True,
+            "errorCode": None,
+            "reportPath": str(readiness / "release-readiness-report.json"),
+            "completionPath": str(readiness / "release-readiness-completion.json"),
+            "releaseDigest": staged["releaseDigest"],
+            "gitCommit": self.git_commit,
+        }
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(verifier_result),
+            stderr="",
+        )
+
+        with mock.patch(
+            "scripts.produce_meme_template.release_management.subprocess.run",
+            return_value=completed,
+        ) as verifier:
+            promoted = promote_release(
+                candidate,
+                self.dist,
+                readiness_root=readiness,
+            )
+
+        self.assertTrue(promoted["pass"])
+        package = Path(promoted["packageDir"])
+        lock = load_json(candidate / LOCK_NAME)
+        for entry in lock[LOCK_FIELDS["files"]]:
+            relative = entry[FILE_FIELDS["path"]]
+            self.assertEqual(
+                (candidate / relative).read_bytes(),
+                (package / relative).read_bytes(),
+            )
+        self.assertEqual(
+            (candidate / LOCK_NAME).read_bytes(),
+            (package / LOCK_NAME).read_bytes(),
+        )
+        command = verifier.call_args.args[0]
+        self.assertEqual(candidate / "scripts" / "release_tool.py", Path(command[2]))
+        self.assertEqual(candidate, verifier.call_args.kwargs["cwd"])
+
     def test_release_is_frozen_before_atomic_publication(self) -> None:
         with mock.patch(
             "scripts.produce_meme_template.release_management._make_runtime_read_only",
@@ -686,7 +757,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         )
 
     def test_release_cli_exposes_stage_and_promote_commands(self) -> None:
-        for command in ("stage", "promote"):
+        for command in ("stage", "verify-readiness", "promote"):
             completed = subprocess.run(
                 [
                     sys.executable,

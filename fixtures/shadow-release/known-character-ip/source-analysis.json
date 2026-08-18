@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.16.0",
+  "schemaVersion": "0.16.1",
   "mechanism": {
     "setup": "一个黄色充气角色装置站在展会大厅中央",
     "turn": "夸张的大头比例与真实会场人群形成反差",

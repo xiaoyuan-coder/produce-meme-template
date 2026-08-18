@@ -766,17 +766,47 @@ def promote_release(
                 "errorCode": codes["installPathConflict"],
                 "message": "candidate and public dist roots must not overlap",
             }
-        from .release_readiness import verify_release_readiness_completion
-
-        readiness = verify_release_readiness_completion(
-            readiness_root,
-            expected_package_path=candidate,
-            expected_release_digest=lock[lock_fields["releaseDigest"]],
-            expected_git_commit=lock[lock_fields["gitCommit"]],
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                str(candidate / "scripts" / "release_tool.py"),
+                "verify-readiness",
+                "--readiness",
+                str(Path(readiness_root).absolute()),
+                "--candidate",
+                str(candidate),
+                "--expected-release-digest",
+                lock[lock_fields["releaseDigest"]],
+                "--expected-git-commit",
+                lock[lock_fields["gitCommit"]],
+            ],
+            cwd=candidate,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=contract["validationTimeoutSeconds"],
         )
-    except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
+        readiness = json.loads(completed.stdout)
+        if not isinstance(readiness, dict):
+            readiness = {"pass": False}
+    except (
+        OSError,
+        TypeError,
+        ValueError,
+        KeyError,
+        json.JSONDecodeError,
+        subprocess.SubprocessError,
+    ):
         readiness = {"pass": False}
-    if readiness.get("pass") is not True:
+    if not (
+        readiness.get("pass") is True
+        and readiness.get("releaseDigest")
+        == lock[lock_fields["releaseDigest"]]
+        and readiness.get("gitCommit") == lock[lock_fields["gitCommit"]]
+        and isinstance(readiness.get("reportPath"), str)
+        and isinstance(readiness.get("completionPath"), str)
+    ):
         return {
             "pass": False,
             "errorCode": codes["releaseReadinessRequired"],

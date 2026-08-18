@@ -18,6 +18,7 @@ from .release_readiness import (
     live_shadow_request,
     recorded_shadow_request,
     run_release_readiness,
+    verify_code_review_receipt,
     verify_release_readiness_completion,
 )
 from .release_management import build_release, promote_release, stage_release
@@ -42,5 +43,6 @@ __all__ = [
     "run_release_readiness",
     "stage_release",
     "run_template_test",
+    "verify_code_review_receipt",
     "verify_release_readiness_completion",
 ]

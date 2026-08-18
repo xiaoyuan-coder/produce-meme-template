@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.16.0",
+  "schemaVersion": "0.16.1",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -1469,7 +1469,8 @@
       "artifactType": "artifactType",
       "schemaVersion": "schemaVersion",
       "axis": "axis",
-      "fixedPointGitCommit": "fixedPointGitCommit",
+      "comparisonBaseGitCommit": "comparisonBaseGitCommit",
+      "reviewedGitCommit": "reviewedGitCommit",
       "runtimePinSha256": "runtimePinSha256",
       "clean": "clean",
       "findingCount": "findingCount"

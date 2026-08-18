@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.16.0",
+  "schemaVersion": "0.16.1",
   "mechanism": {
     "setup": "一个小动物蜷卧在软垫上",
     "turn": "前爪搭住垫边，困倦神态很突出",
