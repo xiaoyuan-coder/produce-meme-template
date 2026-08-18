@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import shutil
 import tempfile
 import unittest
 from unittest import mock
@@ -23,6 +24,7 @@ from scripts.produce_meme_template import (
 from scripts.produce_meme_template.release_management import (
     runtime_production_pin_sha256,
 )
+from scripts.produce_meme_template import release_readiness as readiness_module
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -255,6 +257,179 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                 hashlib.sha256(pin_path.read_bytes()).hexdigest(),
                 runtime_production_pin_sha256(ROOT),
             )
+
+    def test_forward_replay_uses_the_verified_installed_runtime_corpus(self) -> None:
+        forward = recorded_shadow_request()[CONTRACT["requestFields"]["forwardScenario"]]
+        production = forward[SCENARIO_FIELDS["productionRequest"]]
+        corpus_item = next(
+            item
+            for item in CORPUS["scenarios"]
+            if item["role"] == CONTRACT["forwardScenarioRole"]
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            installed_runtime = (root / "installed-runtime").resolve()
+            installed_source = (
+                installed_runtime
+                / "fixtures"
+                / "shadow-release"
+                / corpus_item["sourcePath"]
+            )
+            installed_source.parent.mkdir(parents=True)
+            shutil.copyfile(production["sourceImage"], installed_source)
+            shutil.copyfile(
+                SHADOW_FIXTURE / "unseen-forward" / "request.json",
+                installed_source.parent / "request.json",
+            )
+            production["sourceImage"] = str(installed_source)
+            result = run_production(
+                production,
+                root / "forward-output",
+                DeterministicFixtureAdapters(SHADOW_FIXTURE / "unseen-forward"),
+            )
+            lineage = readiness_module._lineage_sha_by_role(
+                result.output_dir,
+                CONTRACT,
+            )
+
+            self.assertEqual("completed", result.outcome)
+            self.assertIsNotNone(lineage)
+            self.assertTrue(
+                readiness_module._request_scenario_matches_corpus(
+                    forward,
+                    corpus_item,
+                    CONTRACT,
+                    corpus_runtime_root=installed_runtime,
+                )
+            )
+            self.assertIsNone(
+                readiness_module._scenario_evidence_error(
+                    scenario=forward,
+                    result=result,
+                    lineage=lineage,
+                    corpus_item=corpus_item,
+                    corpus_runtime_root=installed_runtime,
+                    rules=RULES,
+                    contract=CONTRACT,
+                )
+            )
+            evidence_fields = CONTRACT["releaseGateEvidenceFields"]
+            self.assertIsNotNone(
+                readiness_module._installed_forward_report(
+                    forward,
+                    {
+                        evidence_fields["installedForwardOutputPath"]: str(
+                            result.output_dir
+                        ),
+                        evidence_fields["installedRuntimePath"]: str(
+                            installed_runtime
+                        ),
+                    },
+                    rules=RULES,
+                    contract=CONTRACT,
+                )
+            )
+
+    def test_completion_verifier_reads_requests_from_the_installed_corpus(
+        self,
+    ) -> None:
+        request_fields = CONTRACT["requestFields"]
+        evidence_fields = CONTRACT["releaseGateEvidenceFields"]
+        ledger_fields = CONTRACT["requestLedgerFields"]
+        gate_fields = CONTRACT["releaseGateFields"]
+        release_contract = RULES["releaseManagementContract"]
+        lock_fields = release_contract["lockFields"]
+        release_digest = "1" * 64
+        git_commit = "2" * 40
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            candidate = root / "candidate"
+            candidate.mkdir()
+            installed_runtime = root / "installed-runtime"
+            shutil.copytree(
+                SHADOW_FIXTURE,
+                installed_runtime / "fixtures" / "shadow-release",
+            )
+            evidence = {
+                evidence_fields["releasePackagePath"]: str(candidate),
+                evidence_fields["expectedReleaseDigest"]: release_digest,
+                evidence_fields["installedRuntimePath"]: str(installed_runtime),
+                evidence_fields["installedForwardOutputPath"]: str(
+                    root / "installed-forward"
+                ),
+                evidence_fields["installedForwardManifestSha256"]: "3" * 64,
+                evidence_fields["standardsReviewReceiptPath"]: str(
+                    root / "standards-review.json"
+                ),
+                evidence_fields["standardsReviewReceiptSha256"]: "4" * 64,
+                evidence_fields["specReviewReceiptPath"]: str(
+                    root / "spec-review.json"
+                ),
+                evidence_fields["specReviewReceiptSha256"]: "5" * 64,
+            }
+            request = live_shadow_request(
+                evidence,
+                supplemental_role=CONTRACT["scenarioRoles"]["genericAnimal"],
+            )
+            corpus_by_role = {
+                item["role"]: item for item in CORPUS["scenarios"]
+            }
+            for scenario in [
+                *request[request_fields["scenarios"]],
+                request[request_fields["forwardScenario"]],
+            ]:
+                role = scenario[SCENARIO_FIELDS["role"]]
+                scenario[SCENARIO_FIELDS["productionRequest"]]["sourceImage"] = str(
+                    installed_runtime
+                    / "fixtures"
+                    / "shadow-release"
+                    / corpus_by_role[role]["sourcePath"]
+                )
+            readiness = root / "readiness"
+            readiness.mkdir()
+            ledger = {
+                ledger_fields["artifactType"]: CONTRACT["requestArtifactType"],
+                ledger_fields["schemaVersion"]: RULES["schemaVersion"],
+                ledger_fields["requestSha256"]: "6" * 64,
+                ledger_fields["corpusSha256"]: "7" * 64,
+                ledger_fields["request"]: request,
+            }
+            (readiness / CONTRACT["requestFileName"]).write_text(
+                json.dumps(ledger),
+                encoding="utf-8",
+            )
+            for name in (CONTRACT["reportFileName"], CONTRACT["completionFileName"]):
+                (readiness / name).write_text("{}", encoding="utf-8")
+            (candidate / release_contract["lockFileName"]).write_text(
+                json.dumps(
+                    {
+                        lock_fields["releaseDigest"]: release_digest,
+                        lock_fields["gitCommit"]: git_commit,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            terminal_report = {
+                REPORT_FIELDS["pass"]: True,
+                REPORT_FIELDS["releaseEligible"]: True,
+                REPORT_FIELDS["releaseGates"]: {
+                    gate_fields["releasePackageDigest"]: release_digest
+                },
+            }
+
+            with mock.patch.object(
+                readiness_module,
+                "_existing_terminal_report",
+                return_value=("complete", terminal_report),
+            ):
+                result = verify_release_readiness_completion(
+                    readiness,
+                    expected_package_path=candidate,
+                    expected_release_digest=release_digest,
+                    expected_git_commit=git_commit,
+                )
+
+            self.assertTrue(result["pass"])
 
     def test_promotion_verifier_rejects_symlink_and_runtime_workspace(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

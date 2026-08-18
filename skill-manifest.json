@@ -2,7 +2,7 @@
   "name": "produce-meme-template",
   "version": "1.0.0",
   "updated_at": "2026-08-18",
-  "description": "冻结六类固定回放、四场景 live 风险采样、文字槽位与整段编辑双模式、安装副本前向验证、runtime pin 文件级摘要、完整验证超时预算及不可变晋升门禁。",
+  "description": "冻结六类固定回放、四场景 live 风险采样、文字槽位与整段编辑双模式、安装副本前向验证与 candidate 重放、runtime pin 文件级摘要、完整验证超时预算及不可变晋升门禁。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",

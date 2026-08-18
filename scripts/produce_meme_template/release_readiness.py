@@ -326,6 +326,7 @@ def _verified_release_gates(
         forward_scenario,
         forward_output,
         forward_corpus,
+        installed_root,
         rules=rules,
         contract=contract,
     ) is not None:
@@ -797,8 +798,15 @@ def _installed_forward_report(
     output_directory = _ordinary_directory_path(
         evidence.get(evidence_fields["installedForwardOutputPath"])
     )
+    installed_runtime_root = _ordinary_directory_path(
+        evidence.get(evidence_fields["installedRuntimePath"])
+    )
     production = scenario.get(scenario_fields["productionRequest"])
-    if output_directory is None or not isinstance(production, dict):
+    if (
+        output_directory is None
+        or installed_runtime_root is None
+        or not isinstance(production, dict)
+    ):
         return None
     manifest = _load_object(_production_manifest_path(output_directory, contract))
     lineage = _lineage_sha_by_role(output_directory, contract)
@@ -819,6 +827,7 @@ def _installed_forward_report(
             scenario,
             output_directory,
             corpus_items.get(contract["forwardScenarioRole"]),
+            installed_runtime_root,
             rules=rules,
             contract=contract,
         )
@@ -1007,6 +1016,8 @@ def _request_scenario_matches_corpus(
     scenario: dict[str, Any],
     corpus_item: dict[str, Any],
     contract: dict[str, Any],
+    *,
+    corpus_runtime_root: Path,
 ) -> bool:
     scenario_fields = contract["scenarioFields"]
     provenance_fields = contract["sourceProvenanceFields"]
@@ -1015,7 +1026,9 @@ def _request_scenario_matches_corpus(
     fixture_directory = _fixture_directory(role, contract)
     if fixture_directory is None:
         return False
-    corpus_root = (ROOT / contract["corpusRelativePath"]).parent
+    corpus_root = (
+        corpus_runtime_root / contract["corpusRelativePath"]
+    ).parent
     expected_request = _load_object(
         corpus_root / fixture_directory / "request.json"
     )
@@ -1063,6 +1076,7 @@ def _scenario_evidence_error(
     result: ProductionResult,
     lineage: dict[str, str],
     corpus_item: dict[str, Any] | None,
+    corpus_runtime_root: Path,
     rules: dict[str, Any],
     contract: dict[str, Any],
 ) -> str | None:
@@ -1096,7 +1110,9 @@ def _scenario_evidence_error(
     production_fields = contract["productionRequestFields"]
     execution_mode = scenario.get(scenario_fields["executionMode"])
     try:
-        corpus_root = (ROOT / contract["corpusRelativePath"]).parent
+        corpus_root = (
+            corpus_runtime_root / contract["corpusRelativePath"]
+        ).parent
         corpus_source = (corpus_root / source_path_value).resolve()
         request_source = Path(
             production_request[production_fields["sourceImage"]]
@@ -1107,7 +1123,7 @@ def _scenario_evidence_error(
         isinstance(source_path_value, str)
         and corpus_source.is_file()
         and not corpus_source.is_symlink()
-        and corpus_source.is_relative_to(ROOT)
+        and corpus_source.is_relative_to(corpus_runtime_root)
         and request_source == corpus_source
         and isinstance(source_sha, str)
         and _sha_file(corpus_source) == source_sha
@@ -1176,6 +1192,7 @@ def _installed_forward_evidence_error(
     scenario: dict[str, Any],
     output_directory: Path,
     corpus_item: dict[str, Any] | None,
+    installed_runtime_root: Path,
     *,
     rules: dict[str, Any],
     contract: dict[str, Any],
@@ -1210,6 +1227,7 @@ def _installed_forward_evidence_error(
         result=result,
         lineage=lineage,
         corpus_item=corpus_item,
+        corpus_runtime_root=installed_runtime_root,
         rules=rules,
         contract=contract,
     )
@@ -2025,8 +2043,18 @@ def verify_release_readiness_completion(
     ordered = [by_role[role] for role in required_roles]
     all_scenarios = [*ordered, forward]
     corpus_items = _corpus_by_role(contract)
+    gate_evidence = request.get(request_fields["releaseGateEvidence"])
+    evidence_fields = contract["releaseGateEvidenceFields"]
+    corpus_runtime_root = (
+        _ordinary_directory_path(
+            gate_evidence.get(evidence_fields["installedRuntimePath"])
+        )
+        if isinstance(gate_evidence, dict)
+        else None
+    )
     if not (
         corpus_items is not None
+        and corpus_runtime_root is not None
         and forward.get(scenario_fields["role"]) == contract["forwardScenarioRole"]
         and all(
             _request_scenario_valid(
@@ -2035,7 +2063,12 @@ def verify_release_readiness_completion(
                 contract=contract,
                 adapter_mode=contract["executionModes"]["liveExternal"],
             )
-            and _request_scenario_matches_corpus(item, corpus_items[role], contract)
+            and _request_scenario_matches_corpus(
+                item,
+                corpus_items[role],
+                contract,
+                corpus_runtime_root=corpus_runtime_root,
+            )
             for role, item in [
                 *zip(required_roles, ordered, strict=True),
                 (contract["forwardScenarioRole"], forward),
@@ -2284,6 +2317,7 @@ def run_release_readiness(
                     scenario,
                     corpus_items[scenario[scenario_fields["role"]]],
                     contract,
+                    corpus_runtime_root=ROOT,
                 )
                 for scenario in all_scenarios
             )
@@ -2459,6 +2493,7 @@ def run_release_readiness(
                         if corpus_items is not None
                         else None
                     ),
+                    corpus_runtime_root=ROOT,
                     rules=rules,
                     contract=contract,
                 )

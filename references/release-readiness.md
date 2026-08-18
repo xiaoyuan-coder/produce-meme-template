@@ -47,4 +47,6 @@ T1 输出与生产项目录互为同级隔离目录。重跑必须复用已绑�
 
 Runtime pin SHA 统一指向生产 seam 实际持久化的 `production-pin.json` 字节摘要。review receipt、release gate 与 Production Item 谱系共用该文件级事实，不使用另一种 JSON 排序方式重算逻辑内容摘要。
 
+Promotion 由冻结 candidate 副本重放 completion，但未见图的来源路径和 corpus 必须继续锚定 release gate 中经 doctor 验证的 installed runtime。candidate 只负责重放规则，不把已安装谱系的来源路径改写为 candidate 内路径。
+
 任一条不满足时，可以产出开发版 readiness 证据，但不得把 `releaseEligible` 写为 `true`，也不得执行 Tag、push 或正式发布。
