@@ -5,13 +5,14 @@
     "一张竖幅复古海报以赭黄、酒红和褐色构成",
     "左上人物仰头并向画面中央伸出双手",
     "下半部清楚写有 TODAY、REST、TOMORROW、CREATE 四行英文大字",
+    "四行主文字下方保留 EXPOSITION 与 Peinture—Sculpture 两行法文副文字",
     "多重红褐边框、右侧竖向色块、折痕和旧纸磨损清楚可见"
   ],
   "inferences": [
     "四行短句形成休息与创作交替的宣言式节奏"
   ],
   "confirmedMeaning": [
-    "四行主文字与旧纸色调分别具有独立编辑价值，人物插画和版式保持稳定"
+    "四行主文字与旧纸色调分别具有独立结构化编辑价值；法文副文字保留在整段 Prompt Template 中编辑，不单独占用槽位"
   ],
   "hasPrimarySubject": true,
   "subjectKind": "person",
@@ -45,6 +46,16 @@
         "evidence": "确认模板图下半部四行英文大字"
       },
       {
+        "componentId": "approved-secondary-copy",
+        "role": "text",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "approved-poster-frame",
+        "evidence": "确认四行主文字下方的 EXPOSITION 与 Peinture—Sculpture 法文副文字"
+      },
+      {
         "componentId": "approved-poster-background",
         "role": "background",
         "identityUnitId": null,
@@ -66,7 +77,7 @@
       }
     ],
     "relations": [],
-    "evidence": "确认模板图中的人物插画、四行主文字、旧纸背景与海报边框分别清点"
+    "evidence": "确认模板图中的人物插画、四行主文字、法文副文字、旧纸背景与海报边框分别清点"
   },
   "approvedOperationBindings": [
     {
@@ -76,6 +87,7 @@
       ],
       "stableAnchorComponentIds": [
         "approved-poster-figure",
+        "approved-secondary-copy",
         "approved-poster-background",
         "approved-poster-frame"
       ],
@@ -86,11 +98,12 @@
     }
   ],
   "neutralTitle": "旧海报里的四行宣言",
-  "neutralDescription": "左上人物插画与下半部四行大字共同组成复古宣言海报，边框、旧纸纹理和红褐色块保留年代感",
-  "promptTemplate": "让{{ poster_figure | \"复古仰头人物剪影\" }}位于左上并向画面中央伸出手臂，保留复古海报边框与旧纸纹理，在下半部以四行英文大字逐字写出{{ headline_text | \"TODAY\nREST\nTOMORROW\nCREATE\" }}，使用{{ poster_tone | \"赭黄与酒红旧纸色调\" }}，保持原有排版容器、字形层级和折痕磨损。",
+  "neutralDescription": "左上人物插画、下半部四行大字与两行法文副文字共同组成复古宣言海报，边框、旧纸纹理和红褐色块保留年代感",
+  "promptTemplate": "让{{ poster_figure | \"复古仰头人物剪影\" }}位于左上并向画面中央伸出手臂，保留复古海报边框与旧纸纹理，在下半部以四行英文大字逐字写出{{ headline_text | \"TODAY\nREST\nTOMORROW\nCREATE\" }}，主文字下方保留两行法文副文字“EXPOSITION\nPeinture—Sculpture”，使用{{ poster_tone | \"赭黄与酒红旧纸色调\" }}，保持原有排版容器、字形层级和折痕磨损。",
   "freeEditableContent": [
     "位于左上并向画面中央伸出手臂",
-    "保持原有排版容器、字形层级和折痕磨损"
+    "保持原有排版容器、字形层级和折痕磨损",
+    "EXPOSITION\nPeinture—Sculpture"
   ],
   "textRegions": [
     {
@@ -125,14 +138,43 @@
         "symbolTopology": "四个全大写英文词按四行垂直排列",
         "evidence": "逐字逐行核对 Approved Template Image 的英文大字和精确排版事实"
       }
+    },
+    {
+      "id": "secondary-copy-region",
+      "sourceText": "EXPOSITION\nPeinture—Sculpture",
+      "role": "content",
+      "valueClass": "secondary_readable",
+      "action": "free_editable",
+      "selectedText": "EXPOSITION\nPeinture—Sculpture",
+      "exactTextEvidence": {
+        "language": "en",
+        "tokens": [
+          "EXPOSITION",
+          "Peinture—Sculpture"
+        ],
+        "lines": [
+          "EXPOSITION",
+          "Peinture—Sculpture"
+        ],
+        "caseSensitiveTokens": [
+          "EXPOSITION",
+          "Peinture—Sculpture"
+        ],
+        "rareSymbols": [
+          "—"
+        ],
+        "symbolTopology": "全大写 EXPOSITION 位于首行，Peinture—Sculpture 位于次行",
+        "evidence": "逐字逐行核对 Approved Template Image 中保留的法文副文字"
+      }
     }
   ],
   "visibleTextInventory": {
     "complete": true,
     "regionIds": [
-      "headline-region"
+      "headline-region",
+      "secondary-copy-region"
     ],
-    "evidence": "全画布逐区清点后仅有一组主要视觉文字"
+    "evidence": "全画布逐区清点了四行主文字和两行法文副文字"
   },
   "slotCandidates": [
     {
@@ -197,7 +239,7 @@
       "textRegionId": "headline-region",
       "exactVisibleText": true,
       "exactVisibleTextEvidence": {
-        "approvedImageSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+        "approvedImageSha256": "04fe29651b6d2f67a4104ba2b1f313af4627d24f1e09f366407f8d98e1650e74",
         "visibleText": "TODAY\nREST\nTOMORROW\nCREATE",
         "evidence": "逐字逐行核对四行英文主文字"
       }
@@ -291,7 +333,7 @@
       "evidence": "人物颜色跟随海报整体印刷色调，不建立独立颜色槽"
     }
   },
-  "visualFactSourceSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+  "visualFactSourceSha256": "04fe29651b6d2f67a4104ba2b1f313af4627d24f1e09f366407f8d98e1650e74",
   "defaultValuePreferenceExceptionEvidence": {
     "headline_text": {
       "reviewed": true,

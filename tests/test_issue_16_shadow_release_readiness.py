@@ -487,6 +487,40 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                 },
             )
 
+    def test_text_dense_template_keeps_secondary_copy_in_the_whole_prompt_only(self) -> None:
+        fixture_dir = SHADOW_FIXTURE / "text-dense"
+        request = json.loads(
+            (fixture_dir / "request.json").read_text(encoding="utf-8")
+        )
+        request["sourceImage"] = str(fixture_dir / request["sourceImage"])
+        secondary_copy = "EXPOSITION\nPeinture—Sculpture"
+
+        with tempfile.TemporaryDirectory() as temporary:
+            result = run_production(
+                request,
+                Path(temporary),
+                DeterministicFixtureAdapters(fixture_dir),
+            )
+
+            self.assertEqual(RULES["resultStates"]["completed"], result.state)
+            formal = json.loads(
+                (result.output_dir / "gallery-template.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            editable = json.loads(
+                (result.output_dir / "editable-template-spec.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertIn(secondary_copy, formal["promptTemplate"])
+        self.assertIn(secondary_copy, editable["freeEditableContent"])
+        self.assertEqual(
+            {"poster_figure", "headline_text", "poster_tone"},
+            {item["id"] for item in formal["inputSchema"]},
+        )
+
     def test_unseen_forward_fixture_runs_without_an_image_path_override(self) -> None:
         request = recorded_shadow_request()[
             CONTRACT["requestFields"]["forwardScenario"]

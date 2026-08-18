@@ -2,15 +2,15 @@
   "artifactType": "source-analysis",
   "schemaVersion": "0.16.2",
   "mechanism": {
-    "setup": "一张竖幅复古艺术展海报以大段装饰文字占据下半部",
+    "setup": "一张竖幅复古艺术展海报以主标题和多行次要文字占据下半部",
     "turn": "左上人物剪影、红褐边框与手绘字形共同形成十九世纪海报感",
-    "payoff": "主文字可以逐字替换，人物插画、纸张纹理、边框和排版容器保持稳定",
+    "payoff": "主标题可以逐字替换，人物插画、法文副文字、纸张纹理、边框和排版容器保持稳定",
     "tone": "复古、宣言式"
   },
   "target": {
     "category": "text_content",
-    "role": "海报中的完整主文字区域",
-    "identity": "POUR L'ART 展览海报文字"
+    "role": "海报中的主视觉标题",
+    "identity": "POUR L'ART 主标题"
   },
   "componentGraph": {
     "components": [
@@ -32,7 +32,17 @@
         "uploadAssetId": null,
         "controlId": null,
         "containerId": "poster-frame",
-        "evidence": "占据海报下半部的法文展览主文字与装饰字形"
+        "evidence": "占据海报下半部的 POUR L'ART 主视觉标题与装饰字形"
+      },
+      {
+        "componentId": "secondary-copy",
+        "role": "text",
+        "identityUnitId": null,
+        "visualInstance": false,
+        "uploadAssetId": null,
+        "controlId": null,
+        "containerId": "poster-frame",
+        "evidence": "EXPOSITION 与 Peinture—Sculpture 是非主视觉、不影响身份的法文副文字"
       },
       {
         "componentId": "poster-background",
@@ -56,7 +66,7 @@
       }
     ],
     "relations": [],
-    "evidence": "逐区域记录人物插画、主文字、旧纸背景与海报边框"
+    "evidence": "逐区域记录人物插画、主标题、法文副文字、旧纸背景与海报边框"
   },
   "imageOperations": [
     {
@@ -66,15 +76,16 @@
         "headline-text"
       ],
       "clearRequirements": [
-        "清除原法文展览文字及其笔画残影，同时保留文字容器和装饰排版层级"
+        "仅清除 POUR L'ART 主标题及其笔画残影，保留 EXPOSITION 与 Peinture—Sculpture 副文字、文字容器和装饰排版层级"
       ],
       "stableAnchorIds": [
         "poster-figure",
+        "secondary-copy",
         "poster-background",
         "poster-frame"
       ],
       "preservedRelationIds": [],
-      "evidence": "仅重写主文字区域，人物插画、旧纸纹理、边框与排版容器保持稳定"
+      "evidence": "仅重写 POUR L'ART 主标题，人物插画、法文副文字、旧纸纹理、边框与排版容器保持稳定"
     }
   ],
   "replacementPool": [
@@ -92,7 +103,7 @@
     {
       "componentId": "headline-text",
       "type": "mask_region",
-      "value": "POUR L'ART、EXPOSITION、Peinture—Sculpture 与展期地点等完整主文字区域"
+      "value": "POUR L'ART 主标题字形与其笔画残影"
     }
   ],
   "frozenSet": [
@@ -100,28 +111,27 @@
     "左上仰头人物及伸出手臂的姿态",
     "红褐多重边框与装饰花纹",
     "泛黄旧纸、折痕、裂纹与磨损",
-    "手绘复古海报媒介与主文字容器"
+    "手绘复古海报媒介与主文字容器",
+    "EXPOSITION 与 Peinture—Sculpture 法文副文字"
   ],
   "visualContract": {
     "medium": "十九世纪复古石版印刷海报与旧纸纹理",
-    "form": "竖幅海报，上半部人物插画，下半部多行装饰文字",
+    "form": "竖幅海报，上半部人物插画，下半部主标题与法文副文字分层排列",
     "edge": "红褐线框、手绘字形与人物轮廓清楚，纸张磨损自然",
     "colorAndShading": "赭黄、酒红与褐色为主，平涂色块和旧纸泛黄统一",
     "surface": "纸张折痕、裂纹、剥落、印刷颗粒与手绘线条可辨",
-    "composition": "人物位于左上，主文字占据下半部，右侧竖向色块与多重边框稳定"
+    "composition": "人物位于左上，主标题占据下半部主要尺度，法文副文字位于其下，右侧竖向色块与多重边框稳定"
   },
   "spatialRelations": [
     "人物头肩位于左上并向右上仰望",
     "伸出的手臂横跨上半部并在中央交握",
-    "主文字完整位于人物下方和海报边框内部"
+    "主标题完整位于人物下方和海报边框内部",
+    "EXPOSITION 与 Peinture—Sculpture 副文字位于主标题下方"
   ],
   "languagePolicy": "preserve_source_language",
   "imageSize": "1024x1024",
   "forbiddenLegacyClaims": [
-    "POUR L'ART",
-    "EXPOSITION",
-    "Peinture—Sculpture",
-    "Musée Moderne"
+    "POUR L'ART"
   ],
   "sourceImageSha256": "5276caa18cbfb05237fd6f74b71f25edac66e2b74d0f04ea98b4a1b832a6f629",
   "explicitReplacementEvaluation": {

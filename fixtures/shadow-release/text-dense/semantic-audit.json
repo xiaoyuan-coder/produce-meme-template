@@ -1,7 +1,7 @@
 {
   "artifactType": "semantic-audit",
   "schemaVersion": "0.16.2",
-  "contentSha256": "42234092fbcfe963e52594709754c009963623ec204e19fd69278f1013c7ed60",
+  "contentSha256": "389c00a903d7a932bffa2f813bb46591bf551c634e08ae3096aaaaa255c481b5",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,
@@ -62,7 +62,8 @@
     },
     "visibleTextClassificationReview": {
       "reviewedRegionIds": [
-        "headline-region"
+        "headline-region",
+        "secondary-copy-region"
       ],
       "roleActionDecisions": [
         {
@@ -79,6 +80,19 @@
           ],
           "identityNeutral": true,
           "evidence": "逐区复核文字角色、编辑价值和处理操作"
+        },
+        {
+          "id": "secondary-copy-region",
+          "role": "content",
+          "action": "free_editable",
+          "valueClass": "secondary_readable",
+          "observedLanguage": "en",
+          "observedTokens": [
+            "EXPOSITION",
+            "Peinture—Sculpture"
+          ],
+          "identityNeutral": true,
+          "evidence": "法文副文字不影响身份且不是主视觉，保留整段 Prompt Template 编辑权而不新增槽位"
         }
       ],
       "slotOriginDecisions": [
@@ -108,6 +122,11 @@
           "content": "保持原有排版容器、字形层级和折痕磨损",
           "originTextRegionId": null,
           "evidence": "独立判断自由编辑内容是否取自某个可见文字区域"
+        },
+        {
+          "content": "EXPOSITION\nPeinture—Sculpture",
+          "originTextRegionId": "secondary-copy-region",
+          "evidence": "法文副文字保留在整段 Prompt Template 中，不为它单独开放槽位"
         }
       ],
       "fixedRegionLeakIds": [],
@@ -115,5 +134,5 @@
       "evidence": "独立复核全部可见文字区域的角色、价值类别与处理决定"
     }
   },
-  "observedContentSha256": "42234092fbcfe963e52594709754c009963623ec204e19fd69278f1013c7ed60"
+  "observedContentSha256": "389c00a903d7a932bffa2f813bb46591bf551c634e08ae3096aaaaa255c481b5"
 }

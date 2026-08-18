@@ -336,6 +336,52 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 generation[CONTRACT["generationRequestFields"]["imageCount"]],
             )
 
+    def test_non_slot_copy_is_stable_in_slot_edit_and_editable_in_whole_prompt_mode(self) -> None:
+        default_secondary_copy = "EXPOSITION\nPeinture—Sculpture"
+        edited_secondary_copy = "WEEKEND SHOW\nPainting—Sculpture"
+        template = load_json(self.template_path)
+        template["promptTemplate"] += (
+            f"副文字两行写着“{default_secondary_copy}”。"
+        )
+        self.template_path.write_text(
+            json.dumps(template, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        request = t1_request(self.template_path)
+        request[REQUEST_FIELDS["cases"]][1][CASE_FIELDS["freePrompt"]] = (
+            "一只水豚趴在格纹坐垫上，夜晚暖灯从右侧照入，"
+            f"副文字改为“{edited_secondary_copy}”。"
+        )
+
+        result = run_template_test(
+            request,
+            self.output,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        report = load_json(result.report_path)
+        cases = {
+            item[CASE_REPORT_FIELDS["caseIdentity"]]: item
+            for item in report[REPORT_FIELDS["cases"]]
+        }
+        self.assertIn(
+            default_secondary_copy,
+            cases["slot-change"][CASE_REPORT_FIELDS["resolvedPrompt"]],
+        )
+        self.assertNotIn(
+            edited_secondary_copy,
+            cases["slot-change"][CASE_REPORT_FIELDS["resolvedPrompt"]],
+        )
+        self.assertEqual(
+            request[REQUEST_FIELDS["cases"]][1][CASE_FIELDS["freePrompt"]],
+            cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]],
+        )
+        self.assertIn(
+            edited_secondary_copy,
+            cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]],
+        )
+
     def test_submitted_case_resumes_without_a_second_submit(self) -> None:
         adapters = InterruptOnceAdapters(FIXTURE)
         request = t1_request(self.template_path)

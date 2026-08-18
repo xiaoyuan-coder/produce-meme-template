@@ -40,7 +40,7 @@
   },
   "visibleTextEvidence": {
     "pass": true,
-    "evidence": "未授权文字保持不变，未出现旧身份文字或新增污染文字"
+    "evidence": "POUR L'ART 主标题已替换；EXPOSITION 与 Peinture—Sculpture 作为非主视觉法文副文字按约定保留，未出现新增污染文字"
   },
   "identityTextEvidence": {
     "applicable": false,
@@ -55,7 +55,7 @@
       "stableAnchorsPreserved": true,
       "relationsPreserved": true,
       "nonTargetContentPreserved": true,
-      "evidence": "原法文主文字已完整清除并替换为四行英文，人物插画、旧纸纹理、边框和文字容器保持"
+      "evidence": "POUR L'ART 主标题已完整清除并替换为四行英文，EXPOSITION 与 Peinture—Sculpture 副文字、人物插画、旧纸纹理、边框和文字容器保持"
     }
   ],
   "cleanlinessFindings": {
@@ -80,7 +80,7 @@
   },
   "reviewedAt": "2026-08-16T08:00:00Z",
   "bindings": {
-    "generatedImageSha256": "f037d33af54c76df531548b6103cdfaf4b31468d5fce73e5e11907ba95d2d261",
+    "generatedImageSha256": "04fe29651b6d2f67a4104ba2b1f313af4627d24f1e09f366407f8d98e1650e74",
     "generationPackageSha256": "3f62575ff37d1de83f5f03168e037f972ab780c0ca9ceefa7179b55f70af6bf0",
     "evidenceSha256": "deb48a4da1e1a1a3dcddeec9773d1d8eb30543a8f101edd0697eab7c4ffb9768"
   },
