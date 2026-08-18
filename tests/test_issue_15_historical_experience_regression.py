@@ -29,6 +29,7 @@ from tests.test_issue_13_release_doctor_install import (
     BUILT_AT,
     commit_source,
     copy_release_source,
+    prepare_development_source,
 )
 
 
@@ -667,6 +668,7 @@ class Issue15HistoricalExperienceRegressionTest(unittest.TestCase):
         self,
     ) -> None:
         source = copy_release_source(self.root / "source")
+        prepare_development_source(source)
         git_commit = commit_source(source)
         with mock.patch(
             "scripts.produce_meme_template.release_management._run_release_validation",

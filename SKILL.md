@@ -39,7 +39,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 - 三线版本、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
 - T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
 - E01–E39 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
-- 六类真实影子样本、未见图前向测试、发布 readiness 报告和 `1.0.0` 冻结读取 [真实影子批次与 1.0 发布准备合同](references/release-readiness.md)。
+- 六类真实影子样本、未见图前向测试、发布 readiness 报告和首个稳定版本冻结读取 [真实影子批次与稳定版发布准备合同](references/release-readiness.md)。
 - P3–P8 的槽位、Prompt Template、隐藏约束和正式投影读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 遇到可见文字、文字密集海报或文字槽时读取 [可见文字区域与文字槽合同](references/visible-text-contract.md)。
 - 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json`。
@@ -52,4 +52,4 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 完成条件
 
-实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E39 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。`1.0.0` 另外要求 readiness 报告的真实外部执行完成且 `releaseEligible=true`。
+实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E39 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。首个稳定版本另外要求 readiness 报告的真实外部执行完成且 `releaseEligible=true`。

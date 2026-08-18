@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "fixtures" / "e2e" / "simple-animal"
 BUILT_AT = datetime(2026, 8, 17, 8, 0, tzinfo=timezone.utc)
 STABLE_VERSION = ".".join(str(part) for part in (1, 0, 0))
+DEVELOPMENT_VERSION = ".".join(str(part) for part in (0, 99, 0))
 RULES = json.loads(
     (ROOT / "contracts" / "machine-rules.json").read_text(encoding="utf-8")
 )
@@ -45,6 +46,42 @@ BATCH_CONTRACT = RULES["batchProductionContract"]
 
 def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def prepare_versioned_source(
+    source: Path,
+    version: str,
+    *,
+    description_suffix: str | None = None,
+) -> None:
+    release_path = source / "release.json"
+    release = load_json(release_path)
+    release["skillVersion"] = version
+    release_path.write_text(
+        json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = source / "skill-manifest.json"
+    manifest = load_json(manifest_path)
+    manifest["version"] = version
+    if description_suffix is not None:
+        manifest["description"] += description_suffix
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def prepare_stable_candidate_source(source: Path) -> None:
+    prepare_versioned_source(
+        source,
+        STABLE_VERSION,
+        description_suffix=" [stable candidate fixture]",
+    )
+
+
+def prepare_development_source(source: Path) -> None:
+    prepare_versioned_source(source, DEVELOPMENT_VERSION)
 
 
 def production_artifact_record(
@@ -205,6 +242,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.source = copy_release_source(self.root / "source")
+        prepare_development_source(self.source)
         self.git_commit = commit_source(self.source)
         self.dist = self.root / "dist"
         self.install_root = self.root / "install"
@@ -274,20 +312,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
     def test_one_dot_zero_release_requires_verified_readiness_before_publication(
         self,
     ) -> None:
-        release_path = self.source / "release.json"
-        release = load_json(release_path)
-        release["skillVersion"] = STABLE_VERSION
-        release_path.write_text(
-            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        manifest_path = self.source / "skill-manifest.json"
-        manifest = load_json(manifest_path)
-        manifest["version"] = STABLE_VERSION
-        manifest_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        prepare_stable_candidate_source(self.source)
         self.git_commit = commit_source(self.source)
 
         result = self.build()
@@ -301,20 +326,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         )
 
     def test_one_dot_zero_candidate_can_be_staged_without_publication(self) -> None:
-        release_path = self.source / "release.json"
-        release = load_json(release_path)
-        release["skillVersion"] = STABLE_VERSION
-        release_path.write_text(
-            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        manifest_path = self.source / "skill-manifest.json"
-        manifest = load_json(manifest_path)
-        manifest["version"] = STABLE_VERSION
-        manifest_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        prepare_stable_candidate_source(self.source)
         self.git_commit = commit_source(self.source)
         candidates = self.root / "candidates"
 
@@ -338,20 +350,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         )
 
     def test_stable_candidate_rejects_empty_or_non_ancestor_review_base(self) -> None:
-        release_path = self.source / "release.json"
-        release = load_json(release_path)
-        release["skillVersion"] = STABLE_VERSION
-        release_path.write_text(
-            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        manifest_path = self.source / "skill-manifest.json"
-        manifest = load_json(manifest_path)
-        manifest["version"] = STABLE_VERSION
-        manifest_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        prepare_stable_candidate_source(self.source)
         self.git_commit = commit_source(self.source)
 
         for invalid_base in (self.git_commit, "f" * 40):
@@ -370,20 +369,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
                 )
 
     def test_candidate_cannot_be_promoted_without_readiness_completion(self) -> None:
-        release_path = self.source / "release.json"
-        release = load_json(release_path)
-        release["skillVersion"] = STABLE_VERSION
-        release_path.write_text(
-            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        manifest_path = self.source / "skill-manifest.json"
-        manifest = load_json(manifest_path)
-        manifest["version"] = STABLE_VERSION
-        manifest_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        prepare_stable_candidate_source(self.source)
         self.git_commit = commit_source(self.source)
         with mock.patch(
             "scripts.produce_meme_template.release_management._run_release_validation",
@@ -413,20 +399,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         )
 
     def test_verified_candidate_is_promoted_byte_for_byte(self) -> None:
-        release_path = self.source / "release.json"
-        release = load_json(release_path)
-        release["skillVersion"] = STABLE_VERSION
-        release_path.write_text(
-            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        manifest_path = self.source / "skill-manifest.json"
-        manifest = load_json(manifest_path)
-        manifest["version"] = STABLE_VERSION
-        manifest_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        prepare_stable_candidate_source(self.source)
         self.git_commit = commit_source(self.source)
         with mock.patch(
             "scripts.produce_meme_template.release_management._run_release_validation",
@@ -485,20 +458,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         self.assertEqual(candidate, verifier.call_args.kwargs["cwd"])
 
     def test_promotion_rejects_nonzero_candidate_verifier_exit(self) -> None:
-        release_path = self.source / "release.json"
-        release = load_json(release_path)
-        release["skillVersion"] = STABLE_VERSION
-        release_path.write_text(
-            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        manifest_path = self.source / "skill-manifest.json"
-        manifest = load_json(manifest_path)
-        manifest["version"] = STABLE_VERSION
-        manifest_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        prepare_stable_candidate_source(self.source)
         self.git_commit = commit_source(self.source)
         with mock.patch(
             "scripts.produce_meme_template.release_management._run_release_validation",
@@ -664,6 +624,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         )
 
         self.source = copy_release_source(self.root / "symlink-source")
+        prepare_development_source(self.source)
         self.git_commit = commit_source(self.source)
         external = self.root / "external-skill.md"
         external.write_text("external", encoding="utf-8")

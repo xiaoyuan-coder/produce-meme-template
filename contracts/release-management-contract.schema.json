@@ -42,7 +42,7 @@
     "runtimeIgnoredSuffixes": { "$ref": "#/$defs/uniqueStrings" },
     "buildValidationRunnerRelativePath": { "$ref": "#/$defs/relativePath" },
     "smokeFixtureRelativePath": { "$ref": "#/$defs/relativePath" },
-    "validationTimeoutSeconds": { "type": "integer", "minimum": 1 },
+    "validationTimeoutSeconds": { "type": "integer", "minimum": 600 },
     "errorCodes": { "$ref": "#/$defs/errorCodes" },
     "lockFields": { "$ref": "#/$defs/lockFields" },
     "fileFields": { "$ref": "#/$defs/fileFields" },

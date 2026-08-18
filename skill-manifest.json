@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "0.17.4",
+  "version": "1.0.0",
   "updated_at": "2026-08-18",
-  "description": "将发布准备调整为六类固定回放、四场景 live 风险采样和独立未见图前向验证。",
+  "description": "冻结六类固定回放、四场景 live 风险采样、安装副本前向验证、完整验证超时预算及不可变晋升门禁。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",

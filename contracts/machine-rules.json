@@ -8,7 +8,7 @@
     "runtimeIgnoredSuffixes": [],
     "buildValidationRunnerRelativePath": "scripts/release_validation_runner.py",
     "smokeFixtureRelativePath": "fixtures/e2e/simple-animal",
-    "validationTimeoutSeconds": 240,
+    "validationTimeoutSeconds": 900,
     "errorCodes": {
       "invalidReleaseMetadata": "INVALID_RELEASE_METADATA",
       "invalidGitCommit": "INVALID_GIT_COMMIT",
