@@ -34,7 +34,7 @@
       "migrationStatus": "rewritten",
       "legacyDisposition": "废止来源网图直接生成最终标题、默认值和 Prompt 的旧阶段顺序。",
       "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 1. 视觉事实来源"},
-      "implementation": {"kind": "python-symbol", "path": "scripts/produce_meme_template/workflow.py", "locator": "_compile_draft"},
+      "implementation": {"kind": "python-symbol", "path": "scripts/produce_meme_template/template_compiler.py", "locator": "_compile_draft"},
       "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_e04_source_identity_leak_blocks_before_upload", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/source-analysis.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
     },
     {
