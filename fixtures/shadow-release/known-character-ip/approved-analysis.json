@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.16.2",
+  "schemaVersion": "0.17.0",
   "visibleFacts": [
     "一只白色长耳充气兔角色站在展会大厅中央",
     "角色穿红色背心、蓝色领结并手持怀表",
@@ -188,16 +188,6 @@
       }
     }
   ],
-  "promptEnhancement": {
-    "instruction": "媒介：保持展会现场纪实摄影与充气塑料质感。卖点：夸张角色与真实会场人群的反差。色彩：可调整地面与会场灯光。",
-    "lockedConstraints": [
-      "保持主体全身入镜、中央占比与夸张头身比例",
-      "保持角色底部接触地面、展位建筑与旁观人群"
-    ],
-    "preserve": [
-      "保持充气角色置身真实会场的奇趣叙事职责"
-    ]
-  },
   "tags": [
     "角色装置",
     "展会现场",
@@ -244,6 +234,28 @@
       "mechanismPreserved": false,
       "includedAsSlot": false,
       "evidence": "已独立评估 color，当前画面不具备独立开放价值"
+    }
+  },
+  "runtimeSemantics": {
+    "targetInstances": [
+      {"id": "fixture-component-0", "kind": "identity_subject", "role": "会场中央的充气角色主体", "region": "画面中央的完整角色轮廓区域"},
+      {"id": "fixture-component-1", "kind": "content_element", "role": "承托角色的会场地面", "region": "画面下半部和角色脚下"},
+      {"id": "fixture-component-2", "kind": "content_element", "role": "建筑、展位与旁观人群构成的会场", "region": "主体后方及画面四周"}
+    ],
+    "visualContract": {
+      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "styleTraits": [
+        "保持确认模板图的造型语言、轮廓方式与细节密度"
+      ],
+      "composition": [
+        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+      ],
+      "relations": [
+        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+      ],
+      "colorAndLight": [
+        "保持确认模板图的明暗层级，并服从用户开放输入"
+      ]
     }
   }
 }

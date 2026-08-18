@@ -1,6 +1,6 @@
 {
   "artifactType": "visual-review",
-  "schemaVersion": "0.16.2",
+  "schemaVersion": "0.17.0",
   "hardGates": {
     "replacementComplete": true,
     "dependencyClosureComplete": true,

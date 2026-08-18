@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import subprocess
@@ -42,6 +43,8 @@ def formal_template() -> dict:
         "title": "软垫上的安静时刻",
         "description": "一只小动物蜷卧在软垫上的温柔室内画面。",
         "imageSize": "1024x1024",
+        "imageN": 1,
+        "kind": "PROMPT",
         "promptTemplate": (
             "一只{{ pet_subject | \"柯基犬\" }}蜷卧在"
             "{{ cushion_look | \"暖黄色软垫\" }}上，"
@@ -52,28 +55,47 @@ def formal_template() -> dict:
                 "type": "prompt",
                 "id": "pet_subject",
                 "label": "主体",
-                "suggestions": ["垂耳兔", "水豚"],
+                "required": False,
+                "placeholder": "描述画面主体",
+                "suggestions": ["垂耳兔", "水豚", "小羊"],
             },
             {
                 "type": "prompt",
                 "id": "cushion_look",
                 "label": "软垫",
-                "suggestions": ["深蓝色绒垫", "格纹坐垫"],
+                "required": False,
+                "placeholder": "描述软垫颜色或材质",
+                "suggestions": ["深蓝色绒垫", "格纹坐垫", "奶油白绒垫"],
             },
             {
                 "type": "prompt",
                 "id": "room_mood",
                 "label": "环境光",
-                "suggestions": ["清晨冷光", "夜晚暖灯"],
+                "required": False,
+                "placeholder": "描述室内环境光",
+                "suggestions": ["清晨冷光", "夜晚暖灯", "雨天柔光"],
             },
         ],
-        "promptEnhancement": {
-            "stageKey": "gallery.prompt_rewrite",
-            "instruction": "保持主体、软垫、光线和安静室内构图。",
-            "referenceField": "referenceImage",
-            "lockedConstraints": ["保持方形近景构图"],
-            "preserve": ["主体蜷卧在软垫上"],
-            "output": {"format": "json", "promptField": "finalPrompt"},
+        "preprocessSteps": [],
+        "runtimeSemantics": {
+            "version": 1,
+            "targetInstances": [
+                {"id": "pet", "kind": "content_element", "role": "蜷卧的小动物", "region": "画面中央"},
+                {"id": "cushion", "kind": "content_element", "role": "承托主体的软垫", "region": "画面下半部"},
+                {"id": "room_light", "kind": "content_element", "role": "室内环境光", "region": "画面背景"},
+            ],
+            "inputBindings": {
+                "pet_subject": {"operation": "replace_content", "targetIds": ["pet"], "distributionPolicy": "replace_as_unit"},
+                "cushion_look": {"operation": "replace_content", "targetIds": ["cushion"], "distributionPolicy": "replace_as_unit"},
+                "room_mood": {"operation": "replace_content", "targetIds": ["room_light"], "distributionPolicy": "replace_as_unit"},
+            },
+            "visualContract": {
+                "medium": "自然光室内摄影",
+                "styleTraits": ["短毛和织物细节清楚"],
+                "composition": ["方形近景构图"],
+                "relations": ["主体蜷卧在软垫上"],
+                "colorAndLight": ["柔和冷暖对比"],
+            },
         },
         "metadata": {"tags": ["宠物", "室内"]},
         "cover": "https://fixtures.memebuy.test/gallery/templates/t1-cosy-pet.png",
@@ -319,11 +341,12 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertIn("清晨冷光", slot_prompt)
         self.assertNotIn("{{", slot_prompt)
         free_prompt = cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]]
-        self.assertEqual(
-            t1_request(self.template_path)[REQUEST_FIELDS["cases"]][1][
-                CASE_FIELDS["freePrompt"]
-            ],
-            free_prompt,
+        self.assertTrue(
+            free_prompt.startswith(
+                t1_request(self.template_path)[REQUEST_FIELDS["cases"]][1][
+                    CASE_FIELDS["freePrompt"]
+                ]
+            )
         )
         for item in cases.values():
             generation = item[CASE_REPORT_FIELDS["generationRequest"]]
@@ -332,9 +355,38 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 generation[CONTRACT["generationRequestFields"]["prompt"]],
             )
             self.assertEqual(
+                formal_template()["runtimeSemantics"],
+                generation[
+                    CONTRACT["generationRequestFields"]["runtimeSemantics"]
+                ],
+            )
+            self.assertEqual(
                 CONTRACT["defaultImageCount"],
                 generation[CONTRACT["generationRequestFields"]["imageCount"]],
             )
+
+    def test_optional_author_fields_may_be_omitted_and_distribution_fields_are_accepted(self) -> None:
+        template = formal_template()
+        for field in ("description", "imageN", "kind", "preprocessSteps", "metadata"):
+            template.pop(field)
+        for item in template["inputSchema"]:
+            if item["type"] == "subject":
+                item["text"].pop("placeholder", None)
+        template["communityKey"] = "fixture-community"
+        template["featureKeys"] = ["fixture-feature"]
+        self.template_path.write_text(
+            json.dumps(template, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        result = run_template_test(
+            t1_request(self.template_path),
+            self.output,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual("completed", result.outcome)
 
     def test_non_slot_copy_is_stable_in_slot_edit_and_editable_in_whole_prompt_mode(self) -> None:
         default_secondary_copy = "EXPOSITION\nPeinture—Sculpture"
@@ -373,9 +425,10 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             edited_secondary_copy,
             cases["slot-change"][CASE_REPORT_FIELDS["resolvedPrompt"]],
         )
-        self.assertEqual(
-            request[REQUEST_FIELDS["cases"]][1][CASE_FIELDS["freePrompt"]],
-            cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]],
+        self.assertTrue(
+            cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]].startswith(
+                request[REQUEST_FIELDS["cases"]][1][CASE_FIELDS["freePrompt"]]
+            )
         )
         self.assertIn(
             edited_secondary_copy,
@@ -457,7 +510,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertEqual(CONTRACT["errorCodes"]["invalidTemplate"], result.error_code)
         self.assertEqual([], adapters.submission_calls)
 
-    def test_string_slot_values_cannot_fake_an_image_slot_edit(self) -> None:
+    def test_legacy_pure_image_slot_is_rejected_by_the_v2_formal_contract(self) -> None:
         template = formal_template()
         template["promptTemplate"] = '把{{ photo | "默认照片" }}放在画面中央。'
         template["inputSchema"] = [
@@ -479,7 +532,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
 
         self.assertEqual("blocked", result.outcome)
-        self.assertEqual(CONTRACT["errorCodes"]["invalidRequest"], result.error_code)
+        self.assertEqual(CONTRACT["errorCodes"]["invalidTemplate"], result.error_code)
         self.assertEqual([], adapters.submission_calls)
 
     def test_existing_completed_invocation_is_create_once_and_resumable(self) -> None:
@@ -1147,9 +1200,11 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         class InterruptedClient:
             def __init__(self) -> None:
                 self.submit_calls = 0
+                self.arguments: dict | None = None
 
             def submit(self, _model, *, arguments):
                 self.submit_calls += 1
+                self.arguments = copy.deepcopy(arguments)
                 return Handle()
 
             def status(self, _model, _request_id):
@@ -1210,6 +1265,12 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
         self.assertEqual("completed", second.outcome)
         self.assertEqual(1, first_client.submit_calls)
+        self.assertIsNotNone(first_client.arguments)
+        actual_prompt = first_client.arguments["prompt"]
+        self.assertIn("垂耳兔", actual_prompt)
+        self.assertIn("自然光室内摄影", actual_prompt)
+        self.assertIn("画面中央", actual_prompt)
+        self.assertIn("主体蜷卧在软垫上", actual_prompt)
         self.assertEqual(0, recovery_client.submit_calls)
         self.assertEqual([Handle.request_id], recovery_client.status_ids)
 

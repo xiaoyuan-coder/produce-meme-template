@@ -29,21 +29,17 @@ from .validation import is_safe_public_https_url, is_valid_https_url
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_PATH = REPO_ROOT / "contracts" / "machine-rules.json"
-GALLERY_SCHEMA_PATH = (
-    REPO_ROOT
-    / "contracts"
-    / "upstream"
-    / "gallery-template"
-    / "current-cover-contract"
-    / "gallery-template.schema.json"
-)
 RELEASE_PATH = REPO_ROOT / "release.json"
 CJK_CHARACTER = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 VISIBLE_TEXT_LEXEME = re.compile(
     r"[A-Za-z]+(?:['’][A-Za-z]+)*|\d+|[\u3400-\u4dbf\u4e00-\u9fff]{2,}"
 )
-GALLERY_SCHEMA = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
 MACHINE_RULES = json.loads(RULES_PATH.read_text(encoding="utf-8"))
+GALLERY_SCHEMA_PATH = (
+    REPO_ROOT
+    / MACHINE_RULES["releaseManagementContract"]["gallerySnapshotRelativePath"]
+)
+GALLERY_SCHEMA = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
 BATCH_PRODUCTION_CONTRACT = MACHINE_RULES["batchProductionContract"]
 INPUT_ID_PATTERN = GALLERY_SCHEMA["$defs"]["inputId"]["pattern"]
 SUBJECT_IMAGE_MAX_COUNT = GALLERY_SCHEMA["$defs"]["subjectImageConfig"]["properties"][

@@ -1,10 +1,14 @@
 {
-  "key": "wedding-couple-pet-parade",
-  "status": "DRAFT",
-  "title": "把重要伙伴带进婚礼合照",
-  "description": "婚礼合照把相伴的宠物也带进画面",
+  "key": "pop-art-ring-celebration-couple",
+  "title": "新郎举起戒指大喊YEAH",
+  "description": "举起婚戒的动作配上YEAH对白",
+  "cover": "https://assets.memebuy.cn/gallery/templates/d64aa816-aed5-4a9e-992b-dcec110f837b.png",
+  "referenceImage": "https://assets.memebuy.cn/gallery/templates/d64aa816-aed5-4a9e-992b-dcec110f837b.png",
   "imageSize": "1024x1024",
-  "promptTemplate": "白底婚礼涂鸦里，{{ boy_subject | \"男生\" }}穿黑色礼服站左侧，{{ girl_subject | \"女生\" }}穿白色婚纱站右侧；{{ wedding_pets | \"两只猫和一只蓝色小鸟\" }}根据数量自然安排在两人怀中、肩侧或脚边，黄色星星、铃兰与绿叶围绕整体。",
+  "imageN": 1,
+  "kind": "PROMPT",
+  "status": "DRAFT",
+  "promptTemplate": "复古波普漫画婚礼场景中，{{ boy_subject | \"男生\" }}站在前景，张嘴大笑并把戴戒指的左手夸张举到镜头前，再用右手指向戒指；{{ girl_subject | \"女生\" }}穿婚纱站在左后方。右上对白框逐字显示{{ celebration_text | \"YEAH!!!\" }}。",
   "inputSchema": [
     {
       "id": "boy_subject",
@@ -13,20 +17,18 @@
       "required": false,
       "resolutionStrategy": "image_over_text",
       "text": {
-        "placeholder": "描述男生",
         "allowCustom": true,
         "defaultValue": "男生",
         "suggestions": [
-          "深灰短狼尾、戴细框眼镜的男青年",
-          "沙金短狼尾、戴细框眼镜的男青年",
-          "墨棕短狼尾、戴细框眼镜的男青年"
+          "短发新郎男生",
+          "卷发男生",
+          "戴眼镜男生"
         ]
       },
       "image": {
         "enabled": true,
         "promptValue": "用户上传图中的男生",
-        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
-        "extract": "提取男生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "hint": "上传1张清晰主体图，用于替换“男生”的身份特征",
         "maxCount": 1,
         "minWidth": 256,
         "minHeight": 256,
@@ -45,20 +47,18 @@
       "required": false,
       "resolutionStrategy": "image_over_text",
       "text": {
-        "placeholder": "描述女生",
         "allowCustom": true,
         "defaultValue": "女生",
         "suggestions": [
-          "酒红丸子头、配珍珠发夹的新娘",
-          "银灰丸子头、配珍珠发夹的新娘",
-          "墨黑丸子头、配珍珠发夹的新娘"
+          "短发女生",
+          "卷发女生",
+          "戴眼镜女生"
         ]
       },
       "image": {
         "enabled": true,
         "promptValue": "用户上传图中的女生",
-        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
-        "extract": "提取女生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "hint": "上传1张清晰主体图，用于替换“女生”的身份特征",
         "maxCount": 1,
         "minWidth": 256,
         "minHeight": 256,
@@ -71,43 +71,110 @@
       }
     },
     {
-      "id": "wedding_pets",
+      "id": "celebration_text",
       "type": "prompt",
-      "label": "一起入镜的宠物",
-      "placeholder": "输入一起入镜的宠物",
+      "label": "对白框英文",
+      "placeholder": "输入对白框英文",
       "required": false,
       "suggestions": [
-        "一只猫和一只小狗",
-        "两只猫和一只兔子",
-        "三只不同花色的猫"
+        "WE DID IT!!!",
+        "I SAID YES!!!",
+        "JUST MARRIED!!!"
       ]
     }
   ],
-  "promptEnhancement": {
-    "stageKey": "gallery.prompt_rewrite",
-    "instruction": "媒介：白纸底上的幼稚透明水彩涂鸦，暖灰棕铅笔抖线、可控断线与薄水彩渗边，少量蜡笔颗粒与局部漏白，人物为大头短身的稚拙比例。卖点：婚礼双人肖像把用户指定的宠物一并纳入家庭合照，宠物与人物的亲密位置关系是这张图的独特价值。色彩：沿用模板参考图的低饱和主色与单级透明水彩阴影层级，保留大量纸白。",
-    "referenceField": "referenceImage",
-    "lockedConstraints": [
-      "沿用参考图的画幅、裁切、留白、镜头景别与元素位置比例",
-      "沿用参考图的媒介质感与材质表现",
-      "沿用参考图的主体造型比例、轮廓概括与艺术夸张方式",
-      "沿用参考图的前景背景层级、遮挡关系与阅读顺序"
+  "preprocessSteps": [],
+  "runtimeSemantics": {
+    "version": 1,
+    "targetInstances": [
+      {
+        "id": "foreground_groom",
+        "kind": "identity_subject",
+        "role": "前景举手展示婚戒的新郎",
+        "region": "画面中央至右侧前景，包含放大的左手和指向戒指的右手"
+      },
+      {
+        "id": "rear_bride",
+        "kind": "identity_subject",
+        "role": "左后方新娘",
+        "region": "前景新郎身后的画面左侧"
+      },
+      {
+        "id": "speech_bubble_text",
+        "kind": "content_element",
+        "role": "右上对白框中的庆祝英文",
+        "region": "画面右上方对白框"
+      },
+      {
+        "id": "fixed_pop_art_field",
+        "kind": "content_element",
+        "role": "粉色半调网点背景与对白框",
+        "region": "整张方形画布"
+      }
     ],
-    "preserve": [
-      "婚礼双人肖像把用户指定的宠物一并纳入家庭合照，宠物与人物的亲密位置关系是画面的独特价值"
-    ],
-    "output": {
-      "format": "json",
-      "promptField": "finalPrompt"
+    "inputBindings": {
+      "boy_subject": {
+        "operation": "replace_identity",
+        "targetIds": [
+          "foreground_groom"
+        ],
+        "bindingPolicy": "one_to_one",
+        "renderingMode": "illustration_redraw",
+        "allowedSourceGrouping": [
+          "single_subject"
+        ],
+        "groupToSinglePolicy": "reject"
+      },
+      "girl_subject": {
+        "operation": "replace_identity",
+        "targetIds": [
+          "rear_bride"
+        ],
+        "bindingPolicy": "one_to_one",
+        "renderingMode": "illustration_redraw",
+        "allowedSourceGrouping": [
+          "single_subject"
+        ],
+        "groupToSinglePolicy": "reject"
+      },
+      "celebration_text": {
+        "operation": "replace_content",
+        "targetIds": [
+          "speech_bubble_text"
+        ],
+        "distributionPolicy": "replace_as_unit"
+      }
+    },
+    "visualContract": {
+      "medium": "复古印刷波普漫画，以粗重黑色墨线、封闭平涂色块、规则半调网点、轻微套色偏移和纸面印刷颗粒呈现",
+      "styleTraits": [
+        "人物面部以粗黑眉眼、少量鼻口线和大块肤色概括，表情夸张且保持印刷漫画的低细节密度",
+        "头发、脸、手、婚礼服装和对白框共享同一粗黑轮廓与半调网点语法",
+        "新郎外套内部使用深青蓝半调点阵，新娘婚纱使用奶白平涂与少量黑线褶皱",
+        "对白框为黑色闭合边缘、白色内部和粗黑手写漫画字形"
+      ],
+      "composition": [
+        "沿用参考图的方形画幅和紧凑婚礼海报裁切，新郎为中央前景主视觉，新娘位于左后方",
+        "新郎左手使用强烈近大远小透视并占据左上前景，右手从右侧指向戒指",
+        "对白框固定在右上方，粉色半调圆点由人物背后向四周扩散"
+      ],
+      "relations": [
+        "男生与女生上传身份分别一对一接管新郎和新娘角色位，每个角色位仅出现一个对应人物",
+        "戒指牢固戴在新郎举起的左手手指上，右手食指明确指向戒指，左手遮挡部分头部并保持前景焦点",
+        "新郎张嘴大笑并面向镜头，新娘在其身后微笑面向镜头，前后遮挡层级沿用参考图",
+        "新郎礼服、领结与新娘婚纱、头纱和珍珠配饰沿用参考图角色位，上传图只提供人物身份线索",
+        "对白框只承载当前 celebration_text 的原文字符，位置、框形和阅读顺序保持不变"
+      ],
+      "colorAndLight": [
+        "沿用粉白半调背景、深青蓝礼服、奶白婚纱、黑色墨线和高对比平面印刷色层"
+      ]
     }
   },
   "metadata": {
     "tags": [
-      "宠物婚礼",
-      "全家合照",
-      "水彩婚纱照"
+      "婚戒庆祝",
+      "波普婚礼",
+      "新婚漫画"
     ]
-  },
-  "cover": "https://assets.memebuy.cn/gallery/templates/0a4d6028-4cae-4e25-adaf-65ed0686a4f4.png",
-  "referenceImage": "https://assets.memebuy.cn/gallery/templates/0a4d6028-4cae-4e25-adaf-65ed0686a4f4.png"
+  }
 }

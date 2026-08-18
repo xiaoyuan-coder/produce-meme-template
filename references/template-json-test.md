@@ -2,7 +2,7 @@
 
 ## 1. 入口与边界
 
-T1 只由用户通过 `scripts/produce.py t1` 或 `run_template_test` 明确唤起。请求必须指定一份已落盘且通过当前 Gallery Schema 与 `cover === referenceImage` 门禁的正式 `gallery-template.json`、正整数 `templateRevision`、独立 invocation ID 和测试用例。T1 输出根目录与正式 JSON 所在的 Production workspace 必须完全分离。P0–P8 不调用 T1；T1 不读取来源网图、不上传 OSS，也不写 Production Manifest 或正式 JSON。
+T1 只由用户通过 `scripts/produce.py t1` 或 `run_template_test` 明确唤起。请求必须指定一份已落盘且通过当前 Gallery v2 Schema、`runtimeSemantics` 跨字段关系与 `cover === referenceImage` 门禁的正式 `gallery-template.json`、正整数 `templateRevision`、独立 invocation ID 和测试用例。T1 输出根目录与正式 JSON 所在的 Production workspace 必须完全分离。P0–P8 不调用 T1；T1 不读取来源网图、不上传 OSS，也不写 Production Manifest 或正式 JSON。
 
 ## 2. 冻结测试事实
 
@@ -10,10 +10,10 @@ T1 只由用户通过 `scripts/produce.py t1` 或 `run_template_test` 明确唤�
 
 ## 3. 两种用户编辑
 
-- `slot_edit` 只接受正式 `inputSchema` 中的槽 ID。普通文字和主体的文字模式直接代入；select 先按 option value 选择，再允许解析该 option 的 payload 字段。纯 `image` 槽需要二进制测试素材，当前的字符串 `slotValues` 请求会在生成前稳定拒绝，不会把资源 ID 当成 Prompt 文字。未显式编辑的占位符继续使用 Prompt Template 的字面兜底。
+- `slot_edit` 只接受正式 `inputSchema` 中的槽 ID。`prompt` 直接代入；`subject` 的文字模式代入 `text` 语义值，图片模式由运行时按 `inputBindings` 接管唯一身份目标。v2 正式合同不接受旧的纯 `image` 槽或 select 扩展字段。未显式编辑的占位符继续使用 Prompt Template 的字面兜底。
 - `free_edit` 直接使用用户给出的完整 Prompt 文本。
 
-两种模式都输出同一个 `resolvedPrompt`，并要求冻结 generation request 中的 prompt 与之逐字一致。结构化编辑和全文编辑不得由隐藏字段恢复旧主体、文字、颜色、配饰、服装、道具或场景。
+两种模式先得到用户基础 Prompt，再与 `runtimeSemantics.targetInstances`、`inputBindings` 和 `visualContract` 一次性编译为实际 Prompt。逐 case 报告的 `resolvedPrompt`、generation request 和真实 Fal 请求中的 prompt 必须逐字一致。测试任务同时冻结整份模板 JSON 摘要；结构化编辑和全文编辑的用户内容权限继续最高，`visualContract` 不得恢复旧主体、文字、颜色、配饰、服装、道具或场景。
 
 ## 4. 真实生成与恢复
 

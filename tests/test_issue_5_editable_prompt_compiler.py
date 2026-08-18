@@ -485,15 +485,18 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
 
     def test_instruction_scope_and_hidden_layer_responsibilities_are_enforced(self) -> None:
         def out_of_scope_instruction(analysis: dict) -> dict:
-            analysis["promptEnhancement"]["instruction"] = "添加摄影师署名和品牌标志"
+            analysis["runtimeSemantics"]["visualContract"]["medium"] = (
+                "媒介层同时固定暖黄色软垫"
+            )
             return analysis
 
         out_of_scope = self.run_case("out-of-scope-instruction", out_of_scope_instruction)
         self.assertEqual(RULES["resultStates"]["blocked"], out_of_scope.state)
 
         def duplicated_hidden_responsibility(analysis: dict) -> dict:
-            locked = analysis["promptEnhancement"]["lockedConstraints"]
-            analysis["promptEnhancement"]["preserve"].append(locked[0])
+            analysis["runtimeSemantics"]["visualContract"]["relations"].append(
+                analysis["slotCandidates"][1]["defaultValue"]
+            )
             return analysis
 
         duplicated = self.run_case("duplicated-hidden-responsibility", duplicated_hidden_responsibility)
@@ -533,7 +536,9 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         def mutating_audit(content: dict) -> dict:
             first = content["slots"][1]["suggestions"][0]
             content["slots"][1]["suggestions"].append(f" {first} ")
-            content["promptEnhancement"]["preserve"].append("审计期间注入的语义锚点")
+            content["runtimeSemantics"]["visualContract"]["relations"].append(
+                "审计期间注入的语义锚点"
+            )
             audit = original_audit(content)
             digest = hashlib.sha256(
                 json.dumps(content, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -555,7 +560,10 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         editable = load_json(result.output_dir / "editable-template-spec.json")
         draft = load_json(result.output_dir / "gallery-template.draft.json")
         self.assertEqual(3, len(editable["slots"][1]["suggestions"]))
-        self.assertNotIn("审计期间注入的语义锚点", draft["promptEnhancement"]["preserve"])
+        self.assertNotIn(
+            "审计期间注入的语义锚点",
+            draft["runtimeSemantics"]["visualContract"]["relations"],
+        )
         self.assertFalse((result.output_dir / "gallery-template.json").exists())
         self.assertEqual([], adapters.upload_calls)
 

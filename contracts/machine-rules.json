@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.16.2",
+  "schemaVersion": "0.17.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -128,8 +128,8 @@
     "validatorRelativePath": "scripts/produce_meme_template/workflow.py",
     "replacementSpecRelativePath": "references/replacement-spec.md",
     "replacementSpecVersion": "1.0.0",
-    "gallerySnapshotRelativePath": "contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json",
-    "gallerySnapshotMetadataRelativePath": "contracts/upstream/gallery-template/current-cover-contract/snapshot-metadata.json",
+    "gallerySnapshotRelativePath": "contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json",
+    "gallerySnapshotMetadataRelativePath": "contracts/upstream/gallery-template/runtime-semantics-v2-contract/snapshot-metadata.json",
     "installLayout": {
       "versionsDirectory": "versions",
       "currentPointer": "current",
@@ -224,6 +224,7 @@
     "generationRequestFields": {
       "requestIdentity": "generationRequestId",
       "prompt": "prompt",
+      "runtimeSemantics": "runtimeSemantics",
       "imageCount": "imageCount",
       "primaryOutputIndex": "primaryOutputIndex",
       "imageSize": "imageSize",
@@ -611,9 +612,12 @@
       "userTitle": "title",
       "userDescription": "description",
       "outputImageSize": "imageSize",
+      "outputImageCount": "imageN",
+      "templateKind": "kind",
       "userPromptTemplate": "promptTemplate",
       "userInputSchema": "inputSchema",
-      "hiddenPromptEnhancement": "promptEnhancement",
+      "preprocessingSteps": "preprocessSteps",
+      "runtimeSemantics": "runtimeSemantics",
       "formalMetadata": "metadata",
       "coverAsset": "cover",
       "referenceAsset": "referenceImage"
@@ -627,7 +631,8 @@
       "runtimeCapability": "runtimeRequirements",
       "sourceEvidence": "templateSource",
       "inputAnalysis": "inputSemantics",
-      "optimizationEvidence": "optimizationAudit"
+      "optimizationEvidence": "optimizationAudit",
+      "contractAudit": "contractAudit"
     },
     "legacyTermMigrations": {
       "templateCandidateImage": {"from": "本模板候选图", "to": "模板参考图"},
@@ -643,6 +648,8 @@
     },
     "forbiddenKeys": {
       "legacyCover": "coverUrl",
+      "legacyPromptEnhancement": "promptEnhancement",
+      "legacySubjectExtract": "extract",
       "candidatePlanning": "candidateScope",
       "runtimeCapability": "runtimeRequirements",
       "sourceEvidence": "templateSource",
@@ -658,21 +665,45 @@
     }
   },
   "prompt": {
-    "instructionMaxCharacters": 150,
-    "instructionAllowedSections": {
-      "medium": "媒介",
-      "templateSellingPoint": "模板卖点",
-      "optionalColor": "可选色彩"
+    "forbiddenProductionTerms": ["候选图", "来源图", "原图", "作者源", "revision", "审核"]
+  },
+  "runtimeSemanticsContract": {
+    "version": 1,
+    "fields": {
+      "version": "version",
+      "targetInstances": "targetInstances",
+      "inputBindings": "inputBindings",
+      "visualContract": "visualContract"
     },
-    "hiddenLayerRoles": {
-      "lockedConstraints": "呈现维度",
-      "preserve": "语义锚点"
+    "templateKind": "PROMPT",
+    "outputImageCount": 1,
+    "canonicalImageSizes": ["1024x1024", "1152x896", "896x1152"],
+    "suggestionCount": 3,
+    "targetKinds": {
+      "identitySubject": "identity_subject",
+      "contentElement": "content_element"
     },
-    "forbiddenProductionTerms": ["候选图", "来源图", "原图", "作者源", "revision", "审核"],
-    "forbiddenInstructionTerms": [
-      "禁止", "不要", "不得", "清除", "具体IP", "候选图", "来源图",
-      "摄影师署名", "品牌标志", "品牌Logo", "平台水印"
-    ]
+    "operations": {
+      "replaceIdentity": "replace_identity",
+      "replaceContent": "replace_content"
+    },
+    "subjectBinding": {
+      "bindingPolicy": "one_to_one",
+      "renderingMode": "illustration_redraw",
+      "allowedSourceGrouping": ["single_subject"],
+      "groupToSinglePolicy": "reject"
+    },
+    "contentDistributionPolicies": {
+      "singleTarget": "replace_as_unit",
+      "targetGroup": "preserve_target_group"
+    },
+    "visualContractFields": {
+      "medium": "medium",
+      "styleTraits": "styleTraits",
+      "composition": "composition",
+      "relations": "relations",
+      "colorAndLight": "colorAndLight"
+    }
   },
   "semanticAuditChecks": {
     "resolvedPrompts": {
@@ -691,13 +722,13 @@
       "check": "slotSuggestionsSameAxisAndGranularity",
       "evidence": "slotSuggestionReviews"
     },
-    "instructionScope": {
-      "check": "instructionScopeValid",
-      "evidence": "instructionScopeReview"
+    "runtimeSemanticsScope": {
+      "check": "runtimeSemanticsScopeValid",
+      "evidence": "runtimeSemanticsScopeReview"
     },
-    "hiddenLayerResponsibilities": {
-      "check": "hiddenLayersResponsibilitiesSeparated",
-      "evidence": "hiddenLayerResponsibilityReview"
+    "runtimeSemanticsResponsibilities": {
+      "check": "runtimeSemanticsResponsibilitiesSeparated",
+      "evidence": "runtimeSemanticsResponsibilityReview"
     },
     "identityNeutrality": {
       "check": "identityNeutralDefaultsValid",
@@ -1023,6 +1054,7 @@
     "approvedControlBindings": {
       "subject": [
         {"slotTypeRole": "primarySubjectUpload", "semanticRoleKey": "primarySubject"},
+        {"slotTypeRole": "freePrompt", "semanticRoleKey": "sceneContent"},
         {"slotTypeRole": "freePrompt", "semanticRoleKey": "clothing"},
         {"slotTypeRole": "freePrompt", "semanticRoleKey": "styling"},
         {"slotTypeRole": "freePrompt", "semanticRoleKey": "hairstyle"},
@@ -1609,25 +1641,25 @@
       "latestHeartInput": {
         "path": "fixtures/contracts/latest-gallery-samples/heart.input.json",
         "selectorPointer": "/key",
-        "selectorValue": "layered-heart-anime-duo",
+        "selectorValue": "mutual-cheek-hold-couple-portrait",
         "contentKind": "json-pointer"
       },
       "latestHeartExpected": {
         "path": "fixtures/contracts/latest-gallery-samples/heart.expected.json",
         "selectorPointer": "/key",
-        "selectorValue": "layered-heart-anime-duo",
+        "selectorValue": "mutual-cheek-hold-couple-portrait",
         "contentKind": "json-pointer"
       },
       "latestWeddingInput": {
         "path": "fixtures/contracts/latest-gallery-samples/wedding.input.json",
         "selectorPointer": "/key",
-        "selectorValue": "wedding-couple-pet-parade",
+        "selectorValue": "pop-art-ring-celebration-couple",
         "contentKind": "json-pointer"
       },
       "latestWeddingExpected": {
         "path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json",
         "selectorPointer": "/key",
-        "selectorValue": "wedding-couple-pet-parade",
+        "selectorValue": "pop-art-ring-celebration-couple",
         "contentKind": "json-pointer"
       },
       "ordinaryPerson": {
@@ -1751,10 +1783,10 @@
       "E25": "0bfaa3185936b8803e7ba9b670704645fbd075b4c48cd93d77e30f0d081db884",
       "E26": "46d6554dc490279902367a73124357f99f96fd8d4a5b8396a6ea1af38a9dfae2",
       "E27": "372d7cafe621e0bb2a9672f3057b83213abe60195d46a806fa655eebf8964cf9",
-      "E28": "3a5f1654a863ce4f6af4f12f09f0f1d5a4e565366952f9d5c43547ff9a85c84e",
+      "E28": "4ec8b85e454592148d93b13e8a21821671bfb45e3d6095b3f1dd05dca21cdfd9",
       "E29": "ce51c3aaf48990e634dd8c9b0ea690ce98f16d1bc6936ac159554b810d285327",
-      "E30": "a179654ef0510d360e319fd60ab6d453dcfb0a3701272083d2fb1679e7917c97",
-      "E31": "2a8fc13682fd73e88e22a8da3ccd037410a8c1183bb1d69aacf33b45653e2d3a",
+      "E30": "cabedca695261d19ff1a5a81bc8b99748fa2d91f9da6aa976a7dc1a9ae77efaa",
+      "E31": "5762d9c66ea82226117ede4958c24663e186815c44d318cda3cd8add62b7743a",
       "E32": "738ad6ae0d41823bd67df3a6b8b691527a1824c7ebe68d94709f53ee024c97f2",
       "E33": "026332c0bd23c864fb35f6863f65261cbe47d4120be8142e6ca72ea3804bab71",
       "E34": "b3f027e4d598ccf15a28f7396b6fa50d9d57436d4a1967ded37fabba983688db",

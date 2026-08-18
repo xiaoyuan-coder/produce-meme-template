@@ -252,8 +252,8 @@
       "topic": "用户字面权限不被隐藏层锁回",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. 隐藏约束"},
-      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/hiddenLayerResponsibilities"},
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. runtimeSemantics"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/runtimeSemanticsResponsibilities"},
       "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_hidden_constraints_cannot_lock_prompt_slot_or_free_content", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
     },
     {
@@ -267,20 +267,20 @@
     },
     {
       "experienceId": "E30",
-      "topic": "正式 instruction 只保留允许职责",
+      "topic": "visualContract 只保留视觉职责",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. 隐藏约束"},
-      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/prompt/instructionAllowedSections"},
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. runtimeSemantics"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/runtimeSemanticsContract/visualContractFields"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_instruction_scope_and_hidden_layer_responsibilities_are_enforced", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/resultStates/blocked"}]
     },
     {
       "experienceId": "E31",
-      "topic": "lockedConstraints 与 preserve 职责分离",
+      "topic": "目标绑定与视觉合同职责分离",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. 隐藏约束"},
-      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/prompt/hiddenLayerRoles"},
+      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. runtimeSemantics"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/runtimeSemanticsResponsibilities"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_instruction_scope_and_hidden_layer_responsibilities_are_enforced", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/resultStates/blocked"}]
     },
     {
@@ -357,14 +357,14 @@
     }
   ],
   "corpus": {
-    "latest-heart-input": {"path": "fixtures/contracts/latest-gallery-samples/heart.input.json", "selector": "/key", "sha256": "e0970eda3bbc77399ff222bce0023c38e8917dbf817830942489b36d18c0ad34"},
-    "latest-heart-expected": {"path": "fixtures/contracts/latest-gallery-samples/heart.expected.json", "selector": "/key", "sha256": "f01fe5f46bab758f70f55effed9dbea6a63235f504632445209e9ca5a90f91cb"},
-    "latest-wedding-input": {"path": "fixtures/contracts/latest-gallery-samples/wedding.input.json", "selector": "/key", "sha256": "5786703f093b64513e556a77ae0af9455e6af41d9bdd1d922444774174b5736e"},
-    "latest-wedding-expected": {"path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json", "selector": "/key", "sha256": "185b227136a7a88a622c36e3e0b9678c9426a2bc5a96ec982ddcf27c9c036cc5"},
+    "latest-heart-input": {"path": "fixtures/contracts/latest-gallery-samples/heart.input.json", "selector": "/key", "sha256": "24003b3c81b4213903abc8db4b100f936618315362c3364708295fb483dcf77f"},
+    "latest-heart-expected": {"path": "fixtures/contracts/latest-gallery-samples/heart.expected.json", "selector": "/key", "sha256": "0ecae7bb7bd005755151251608bc9f38e313ebbf9f2eb11ea789556e992cf546"},
+    "latest-wedding-input": {"path": "fixtures/contracts/latest-gallery-samples/wedding.input.json", "selector": "/key", "sha256": "0400d9194ca3e03abc47f96c25cab28996ac8b9c1b786631467f883b6a3005ed"},
+    "latest-wedding-expected": {"path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json", "selector": "/key", "sha256": "63fdc66551920cae96cd4890bd66388028746fba6e4e06988a951283581101da"},
     "ordinary-person": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ordinary/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
     "known-character-ip": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ip/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
     "animal": {"path": "fixtures/e2e/simple-animal/source-image.ppm", "selector": null, "sha256": "b24c23d936effa3a455065e2be41498f85fe5b59204f80448daca56ec1e2f3b0"},
     "visible-text": {"path": "fixtures/e2e/text-dense/scenarios.json", "selector": "/textCard/regionId", "sha256": "bea0b903b48d15c355b589bbb93e5069cee258d7593259e1548f3f89b3a27523"},
-    "complex-composition": {"path": "fixtures/e2e/multi-instance/scenarios.json", "selector": "/multiPersonGrid/operationRole", "sha256": "739a38ae32f001832f9c8054840c56c7cf05c2725da2a68b314832c18cfb93d5"}
+    "complex-composition": {"path": "fixtures/e2e/multi-instance/scenarios.json", "selector": "/multiPersonGrid/operationRole", "sha256": "a0312b43123ef19edf1352cd04f79a2807a49d5fcdf9a1cadac1432b4624b919"}
   }
 }

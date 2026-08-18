@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.16.2",
+  "schemaVersion": "0.17.0",
   "visibleFacts": [
     "一张竖幅复古海报以赭黄、酒红和褐色构成",
     "左上人物仰头并向画面中央伸出双手",
@@ -275,17 +275,6 @@
       }
     }
   ],
-  "promptEnhancement": {
-    "instruction": "媒介：十九世纪石版印刷海报与旧纸纹理，手绘线条和印刷颗粒清楚。卖点：左上人物与下半部四行宣言形成强烈版式。色彩：可调整旧纸与印刷色调。",
-    "lockedConstraints": [
-      "保持竖幅海报、左上人物、下半部四行主文字与右侧色块的版式",
-      "保持石版印刷媒介、纸张折痕、裂纹、剥落与装饰边框",
-      "保持四行英文逐字清楚、全大写并按原容器垂直排列"
-    ],
-    "preserve": [
-      "保持人物插画与宣言文字共同构成复古艺术海报"
-    ]
-  },
   "tags": [
     "复古海报",
     "四行文字",
@@ -342,6 +331,28 @@
     "poster_tone": {
       "reviewed": true,
       "reason": "需要同时描述纸张底色与印刷主色，保留可辨识的复古海报色彩轴"
+    }
+  },
+  "runtimeSemantics": {
+    "targetInstances": [
+      {"id": "approved-poster-figure", "kind": "identity_subject", "role": "仰头并伸出手臂的海报人物", "region": "画面左上方的人物头部、躯干与手臂区域"},
+      {"id": "approved-headline-text", "kind": "content_element", "role": "四行英文主标题", "region": "画面下半部的大字标题区"},
+      {"id": "approved-poster-background", "kind": "content_element", "role": "旧纸、酒红色块与磨损构成的海报底图", "region": "人物与文字后方的整张画面"}
+    ],
+    "visualContract": {
+      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "styleTraits": [
+        "保持确认模板图的造型语言、轮廓方式与细节密度"
+      ],
+      "composition": [
+        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+      ],
+      "relations": [
+        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+      ],
+      "colorAndLight": [
+        "保持确认模板图的明暗层级，并服从用户开放输入"
+      ]
     }
   }
 }

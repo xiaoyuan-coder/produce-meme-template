@@ -1,4 +1,4 @@
 interface:
   display_name: "Meme 模板生产"
-  short_description: "从网图换图、模板图分析到正式 JSON 交付的完整生产工作流"
-  default_prompt: "使用 $produce-meme-template 从网图生产一份完成换图、分析、校验和 OSS 回填的正式模板 JSON。"
+  short_description: "从网图换图、模板分析到 runtimeSemantics v2 JSON 交付"
+  default_prompt: "使用 $produce-meme-template 从网图生产一份完成换图、runtimeSemantics 编译、合同校验和 OSS 回填的正式模板 JSON。"

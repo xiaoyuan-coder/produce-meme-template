@@ -124,7 +124,9 @@ class Issue2VerticalSliceTest(unittest.TestCase):
 
         def conflicting_analysis(path):
             analysis = original(path)
-            analysis["promptEnhancement"]["lockedConstraints"].append("承托垫的色调维持暖色系")
+            analysis["runtimeSemantics"]["visualContract"]["composition"].append(
+                "软垫样式必须固定"
+            )
             return analysis
 
         adapters.analyze_approved = conflicting_analysis

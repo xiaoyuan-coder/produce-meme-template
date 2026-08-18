@@ -329,8 +329,15 @@ def approved_scenario(
                     COUNT_FIELDS["uploads"]: 0,
                 }
             )
-        analysis["promptEnhancement"]["lockedConstraints"] = ["保持画幅、构图关系与原有媒介"]
-        analysis["promptEnhancement"]["preserve"] = ["保持画面核心内容与环境的空间关系"]
+        analysis["runtimeSemantics"]["visualContract"].update(
+            {
+                "medium": "沿用确认模板图的统一媒介",
+                "styleTraits": ["保持轮廓方式与细节密度"],
+                "composition": ["保持画幅、主体尺度与空间层级"],
+                "relations": ["保持核心内容与环境的空间关系"],
+                "colorAndLight": ["保持明暗层级并服从开放输入"],
+            }
+        )
         if subject_role == "text":
             text_contract = RULES["visibleTextContract"]
             region_fields = text_contract["regionFields"]
@@ -697,7 +704,9 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
 
     def test_semantic_audit_blocks_cross_axis_or_wrong_granularity_suggestions(self) -> None:
         def cross_axis_suggestions(analysis: dict) -> dict:
-            analysis["slotCandidates"][0]["suggestions"] = ["几何抽象版本", "复古版本"]
+            analysis["slotCandidates"][0]["suggestions"] = [
+                "几何抽象版本", "复古版本", "柔光摄影版本"
+            ]
             return analysis
 
         adapters = ScenarioAdapters(

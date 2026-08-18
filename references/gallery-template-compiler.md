@@ -2,7 +2,7 @@
 
 ## 1. 视觉事实来源
 
-P3 以后只读取 Approved Template Image 的 SHA 绑定分析。Source Web Image 的身份、物种、文字和颜色作为 `forbiddenLegacyClaims` 参与泄漏检查，不参与标题、描述、槽位默认值、Prompt Template 或隐藏约束编译。
+P3 以后只读取 Approved Template Image 的 SHA 绑定分析。Source Web Image 的身份、物种、文字和颜色作为 `forbiddenLegacyClaims` 参与泄漏检查，不参与标题、描述、槽位默认值、Prompt Template 或 `runtimeSemantics` 编译。
 
 ## 2. 高价值槽位与 Prompt Template
 
@@ -18,7 +18,7 @@ Prompt Template 是完整自然语言描述：
 - 保留没有入槽但仍有编辑价值的动作、背景和氛围；
 - 允许用户全文改写；
 - 不写生产过程术语；
-- 隐藏层不恢复用户改写后的主体、文字、颜色、服装、道具或场景。
+- `runtimeSemantics.visualContract` 不恢复用户改写后的主体、文字、颜色、服装、道具或场景。
 
 `editable-template-spec.json` 保存 `resolvedPromptContract`：`promptTemplate` 是槽位编辑与全文编辑的唯一用户可见文字源；每个 placeholder 必须携带与侧车 `defaultValue` 完全一致的内联默认值，默认槽位值代入后形成无残留 placeholder 的 `defaultResolvedPrompt`。次要可读文字具有编辑价值时留在 `freeEditableContent` 和 Prompt Template，不自动暴露为控件。
 
@@ -28,18 +28,32 @@ P6 必须确认全部 `freeEditableContent` 原样进入 Prompt Template，并�
 
 Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存于 `editable-template-spec.json`。两个集合独立编译，正式 JSON 只包含产品合同支持的槽位建议。
 
-## 3. 隐藏约束
+## 3. runtimeSemantics
 
-`instruction` 只写媒介、模板卖点和可选色彩，字符上限、生产禁词与署名/品牌/水印等越界词读取机器规则。`lockedConstraints` 锁定画幅、媒介、造型、材质和接触等呈现维度；`preserve` 保存编辑后仍需成立的语义关系。两层都必须是非空、无重复的字符串列表，精确内容不得交叉；同义职责重叠由独立语义审计判断。每个高价值槽位必须提供 `hiddenConflictTokens` 和 `titleForbiddenTokens`，为确定性字面检查提供第一层证据。P6 还调用独立语义审计 adapter，判断 instruction 范围、隐藏层职责、同义锁回和最大差异标题。审计 SHA 同时绑定标题、Prompt、隐藏层、自由内容和全部槽位默认值/推荐值；任何被审计内容变化都会让旧结论失效。
+`runtimeSemantics.version` 固定为 `1`。Approved Template Image 分析必须逐个写出 `targetInstances` 的稳定 ID、可观察角色和明确空间区域；编译器保留这些作者事实，并与 Approved 组件图双向核对。subject 输入对应唯一 `identity_subject`，prompt 内容输入对应一个或一组 `content_element`；关键固定内容可以作为无输入绑定的 `content_element`。每个 input id 必须在 `inputBindings` 中出现且只能绑定类型匹配的目标。
+
+subject binding 固定使用 `replace_identity + one_to_one + illustration_redraw + single_subject + reject`，并只接受一张单主体图片。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。当前正式合同不声明合照成员选择、像素保留或未经客户端确认的多主体能力。
+
+`visualContract` 精确包含：
+
+- `medium`：一句正向、可观察的绘制或摄影媒介；
+- `styleTraits`：替换区与固定区共享的造型比例、线条、细节密度和材质语言；
+- `composition`：画幅、裁切、位置、比例、留白和阅读顺序；
+- `relations`：身份边界、接触、遮挡、承托、容器关系和逐模板服装裁决；
+- `colorAndLight`：只有色光属于模板卖点时填写，允许空数组。
+
+每个高价值槽位继续提供 `hiddenConflictTokens` 和 `titleForbiddenTokens`。确定性门禁拒绝 visual contract 锁回槽位默认值、建议值或自由编辑内容；独立语义审计复核目标—绑定职责、开放内容权限、身份中性和最大差异标题。审计 SHA 同时绑定标题、Prompt、runtimeSemantics、自由内容和全部槽位默认值/推荐值；任何被审计内容变化都会让旧结论失效。
 
 ## 4. 四层验收与正式投影
 
-P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；instruction 范围和隐藏层职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前上游合同的逐字节只读快照，来源、取得时间、兼容范围和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
+P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；runtimeSemantics 范围和目标—绑定职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前作者合同的只读快照，来源、取得时间、兼容范围和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
 
-正式记录只允许：
+本 Skill 的 P8 生产投影固定输出：
 
-`key`、`status`、`title`、`description`、`imageSize`、`promptTemplate`、`inputSchema`、`promptEnhancement`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover`、`referenceImage`。
+`key`、`status`、`title`、`description`、`imageSize`、`imageN`、`kind`、`promptTemplate`、`inputSchema`、`preprocessSteps`、`runtimeSemantics`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover`、`referenceImage`。
+
+作者 Schema 中 `description`、`imageN`、`kind`、`preprocessSteps` 和 `metadata` 保持可选，并允许调用方分发使用的 `communityKey` 与 `featureKeys`；T1 可以测试这些合法形状。P8 继续输出上述稳定子集，不为生产项自行添加社区或专题归属。subject 的 `text` 仅保留 `allowCustom`、`defaultValue` 和三条 `suggestions`；上传提示只位于 `image.hint`。
 
 `cover` 与 `referenceImage` 写入 Asset Receipt 中同一个 HTTPS URL。投影源若含未知顶层字段、未知 metadata、空 `needsReview` 或非 HTTPS URL，直接阻断；冻结 Schema 允许但业务白名单未开放的 metadata 同样不能静默进入正式记录。最终验证还拒绝 Data URL、文件 URL、临时/用户绝对路径、生成 request 字段和审计字段。
 
-`coverUrl`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结两份最新正式样例的逐字节 input 与显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的旧 metadata sidecar，未分类数保持为 0。expected 执行白名单投影、机器声明的旧术语迁移，并按样例合同审计精确修正中性标题与开放实体数量兼容性；每条纠偏路径都由回归测试明确比较，并继续通过冻结 Gallery Schema 与最终业务门禁。
+`coverUrl`、`promptEnhancement`、`inputSchema[].image.extract`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在存量迁移输入或 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结研发已验证的 v2 正式样例及显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的 metadata sidecar，未分类数保持为 0。expected 执行白名单投影和中性文案纠偏，并继续通过冻结 Gallery Schema 与最终业务门禁。

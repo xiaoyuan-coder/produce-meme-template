@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.16.2",
+  "schemaVersion": "0.17.0",
   "visibleFacts": [
     "一只柯基犬坐在树根旁的地面上",
     "四肢稳定支撑身体",
@@ -240,21 +240,32 @@
       }
     }
   ],
-  "promptEnhancement": {
-    "instruction": "媒介：自然光户外动物摄影，短毛与土壤、树根细节清楚。卖点：主体蜷卧地面并把四肢支撑于地面接触处，平静神态突出。色彩：保持柔和冷暖对比，可随用户指定调整地面与环境光。",
-    "lockedConstraints": [
-      "沿用模板参考图的方形画幅、主体占比、伏卧姿态与浅景深",
-      "保持自然光户外摄影媒介、真实短毛、泥土与树根材质",
-      "保持四肢稳定接触地面的支撑关系"
-    ],
-    "preserve": [
-      "保持主体在树根旁平静停留的户外观察关系"
-    ]
-  },
   "tags": [
     "户外动物",
     "树根",
     "平静"
   ],
-  "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd"
+  "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd",
+  "runtimeSemantics": {
+    "targetInstances": [
+      {"id": "approved-animal-main", "kind": "identity_subject", "role": "软垫上蜷卧的中央主体", "region": "画面中央偏下的头部、躯干与前爪区域"},
+      {"id": "approved-ground", "kind": "content_element", "role": "承托主体的软垫", "region": "画面下半部、主体胸腹与前爪下方"},
+      {"id": "approved-room", "kind": "content_element", "role": "室内背景与侧面光线", "region": "主体后方及画面四周"}
+    ],
+    "visualContract": {
+      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "styleTraits": [
+        "保持确认模板图的造型语言、轮廓方式与细节密度"
+      ],
+      "composition": [
+        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+      ],
+      "relations": [
+        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+      ],
+      "colorAndLight": [
+        "保持确认模板图的明暗层级，并服从用户开放输入"
+      ]
+    }
+  }
 }

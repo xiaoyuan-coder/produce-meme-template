@@ -15,7 +15,7 @@
 1. 完整继承 Unified 已经验证有效的能力。
 2. 以生成后的模板图为最终视觉事实源，消除旧网图对模板数据的隐性污染。
 3. 替换策略支持“显式策略优先、无策略时自主策划”。自主策划受严格替换规范约束。
-4. 用户可见内容与隐藏模板字段分层编译，最终统一写入正式模板 JSON。
+4. 用户可见内容与 `runtimeSemantics` 运行语义分层编译，最终统一写入正式模板 JSON。
 5. 各阶段产物可追踪、可恢复、可复核，禁止通过后续阶段静默改写上游事实。
 6. 机器规则只有一个定义位置，文档负责解释，脚本负责执行。
 7. Skill 源码、安装副本、生产批次和外部契约都能明确回答“当前用的是哪个版本”。
@@ -26,9 +26,9 @@
 | --- | --- | --- |
 | 网图 | 原始笑点机制、结构关系、可替换目标、风险线索、重构方向 | 最终标题、最终描述、最终默认主体、最终画面细节 |
 | 已确认模板图 | 最终可见主体、媒介、形态、构图、默认内容、reference/cover 视觉事实 | 产品不支持的字段和运行时行为 |
-| 正式模板 JSON 合同 | 字段结构、槽位类型、隐藏字段、上传字段和取值限制 | 模板图中不存在的视觉事实、合同未声明的运行行为 |
+| 正式模板 JSON 合同 | 字段结构、槽位类型、目标实例、输入绑定、视觉合同和取值限制 | 模板图中不存在的视觉事实、合同未声明的运行行为 |
 
-这三个事实源必须在产物中分别记录来源。模板图确认以后，标题、描述、槽位默认值、promptTemplate 和隐藏约束全部重新以模板图为依据编译。
+这三个事实源必须在产物中分别记录来源。模板图确认以后，标题、描述、槽位默认值、promptTemplate 和 `runtimeSemantics` 全部重新以模板图为依据编译。
 
 ## 4. 核心领域对象
 
@@ -43,7 +43,7 @@
 | `ApprovedTemplateImage` | 通过画面验收的唯一模板图，也是 cover/reference 的上传源 |
 | `TemplateAnalysis` | 对已确认模板图的结构化视觉与语义分析 |
 | `EditableTemplateSpec` | 用户可编辑内容、槽位、推荐项和 promptTemplate 的中间模型 |
-| `HiddenTemplateSpec` | inputSchema、instruction、lockedConstraints、preserve 的中间模型 |
+| `RuntimeTemplateSpec` | inputSchema、targetInstances、inputBindings 和 visualContract 的中间模型 |
 | `GalleryTemplateRecord` | 编译后的正式业务 JSON |
 | `AssetReceipt` | OSS 上传结果、摘要和路径证明 |
 | `ProductionManifest` | 全流程版本、输入、产物、状态、摘要和审计记录 |
@@ -159,16 +159,16 @@ title 使用中性标题，描述画面机制、视觉钩子、动作、关系�
 
 实现上保存“槽位中间模型 + 编译后的 promptTemplate”，禁止分别手工维护两份含义相同的文本。
 
-### P5：编译隐藏运行约束
+### P5：编译 runtimeSemantics 运行合同
 
-隐藏层包括：
+运行合同层包括：
 
-- `inputSchema`：槽位、输入形态、推荐项和图片输入行为的正式 JSON 字段。
-- `instruction`：按 2026-08-14 `promptEnhancement` v2 规范写成“媒介 / 卖点 / 可选色彩”三段式，≤150 字；不写身份、清除、实例脚手架、具体 IP 或负向句。
-- `lockedConstraints`：声明需要锁定的维度，不复述整张模板图。
-- `preserve`：只保留真正影响语义的锚点。
+- `inputSchema`：槽位、输入形态、三条同轴推荐项和 subject 单图入口。
+- `targetInstances`：每个可接管身份位或内容位的稳定 ID、角色与区域。
+- `inputBindings`：将 subject 一对一绑定到 `identity_subject`，将 prompt 绑定到单个或一组 `content_element`。
+- `visualContract`：仅保留媒介、风格、构图、关系和色光，不锁回用户开放内容。
 
-只编译正式模板合同已经支持且运行或产品展示需要的字段。正式 metadata 默认白名单为 `tags`，确有人工复核原因时增加 `needsReview`。`candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 留在生产 sidecar，不进入正式 JSON。`inputSchema[].image.extract` 由当前 Schema 要求留档，保持简短并使用“模板参考图”表述。
+只编译正式模板合同已经支持且运行或产品展示需要的字段。正式 metadata 默认白名单为 `tags`，确有人工复核原因时增加 `needsReview`。`candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 留在生产 sidecar，不进入正式 JSON。新正式 JSON 不输出 `inputSchema[].image.extract` 或手写 `promptEnhancement`。
 
 身份文字自动识别、别名推导、计算默认值或联动字段如果未进入正式 JSON 合同，就不写入正式数据。此时使用中性模板图、中性标题和中性文字默认值消除身份冲突。
 

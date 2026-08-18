@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "updated_at": "2026-08-18",
-  "description": "冻结六类固定回放、四场景 live 风险采样、文字槽位与整段编辑双模式、安装副本前向验证与 candidate 重放、runtime pin 文件级摘要、完整验证超时预算及不可变晋升门禁。",
+  "description": "从 Approved Template Image 编译 Gallery Template v2：输出作者定位的 runtimeSemantics 目标、输入绑定与视觉合同，T1 将它与用户 Prompt 编译成真实生图请求，同时保留换图、OSS 终结与不可变发布门禁。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -12,6 +12,8 @@
     "contracts/release-management-contract.schema.json",
     "contracts/upstream/gallery-template/current-cover-contract/gallery-template.schema.json",
     "contracts/upstream/gallery-template/current-cover-contract/snapshot-metadata.json",
+    "contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json",
+    "contracts/upstream/gallery-template/runtime-semantics-v2-contract/snapshot-metadata.json",
     "contracts/machine-rules.json",
     "docs/adr/0001-生产流程与独立模板测试边界.md",
     "docs/adr/0002-批量提交默认保持生产项隔离.md",
@@ -34,6 +36,7 @@
     "docs/adr/0019-机器规则单一来源并渐进披露.md",
     "docs/adr/0020-分离三类版本并使用不可变发布包.md",
     "docs/adr/0021-发布准备采用全量回放与live风险采样.md",
+    "docs/adr/0022-正式JSON采用runtimeSemantics-v2合同.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",

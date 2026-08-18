@@ -1,0 +1,22 @@
+{
+  "artifactType": "upstream-contract-snapshot",
+  "contractId": "gallery-template",
+  "contractVersion": "runtime-semantics-v2-contract",
+  "source": "研发《Agent 模板 JSON 与运行时上下文合同》及用户确认的《新 Skill 正式模板 JSON 运行合同》",
+  "sourceEvidence": "2026-08-17 研发合同与 2026-08-18 五模板生产验证",
+  "acquisitionCommit": null,
+  "acquiredAt": "2026-08-18T18:00:00+08:00",
+  "schemaFile": "gallery-template.schema.json",
+  "sourceArtifactSha256": "cb8bb8ff11841cb6eeeb4325a60b1d573e9a19b7ab644663552d7441f8689eb0",
+  "sourceDocumentSha256": "3aeb47099dea23cad7de41d170ae15a0aabe46589e06e1b9a46aa59d7b963793",
+  "compatibility": {
+    "consumer": "produce-meme-template",
+    "supportedContract": "runtime-semantics-v2-contract",
+    "authorProtocolVersion": 2,
+    "runtimeSemanticsVersion": 1,
+    "formalCoverField": "cover",
+    "formalReferenceField": "referenceImage",
+    "legacyPromptEnhancementAllowed": false,
+    "legacySubjectExtractAllowed": false
+  }
+}

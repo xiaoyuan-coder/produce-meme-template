@@ -134,6 +134,93 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
         self.assertTrue(record[COVER_FIELD].startswith("https://"))
         self.assertTrue(_validate_final(record, RULES)["pass"])
 
+    def test_public_workflow_emits_the_v2_runtime_contract(self) -> None:
+        result = self.run_case(
+            "v2-runtime-contract",
+            DeterministicFixtureAdapters(FIXTURE),
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        record = load_json(result.gallery_template)
+        self.assertEqual(1, record["imageN"])
+        self.assertEqual("PROMPT", record["kind"])
+        self.assertEqual([], record["preprocessSteps"])
+        self.assertNotIn("promptEnhancement", record)
+        self.assertNotIn("extract", json.dumps(record, ensure_ascii=False))
+
+        semantics = record["runtimeSemantics"]
+        self.assertEqual(
+            {"version", "targetInstances", "inputBindings", "visualContract"},
+            set(semantics),
+        )
+        self.assertEqual(1, semantics["version"])
+        target_by_id = {
+            target["id"]: target for target in semantics["targetInstances"]
+        }
+        self.assertEqual(
+            {item["id"] for item in record["inputSchema"]},
+            set(semantics["inputBindings"]),
+        )
+        for item in record["inputSchema"]:
+            suggestions = (
+                item["text"]["suggestions"]
+                if item["type"] == "subject"
+                else item["suggestions"]
+            )
+            self.assertEqual(3, len(suggestions))
+            binding = semantics["inputBindings"][item["id"]]
+            self.assertTrue(binding["targetIds"])
+            self.assertTrue(
+                all(target_id in target_by_id for target_id in binding["targetIds"])
+            )
+
+        visual = semantics["visualContract"]
+        self.assertEqual(
+            {"medium", "styleTraits", "composition", "relations", "colorAndLight"},
+            set(visual),
+        )
+        self.assertTrue(visual["medium"])
+        self.assertTrue(visual["styleTraits"])
+        self.assertTrue(visual["composition"])
+        self.assertTrue(visual["relations"])
+
+    def test_public_workflow_uses_authored_target_roles_and_regions(self) -> None:
+        authored_targets = [
+            {
+                "id": "approved-animal-main",
+                "kind": "identity_subject",
+                "role": "软垫上蜷卧的中央主体",
+                "region": "画面中央偏下的头部、躯干与前爪区域",
+            },
+            {
+                "id": "approved-cushion",
+                "kind": "content_element",
+                "role": "承托主体的软垫",
+                "region": "画面下半部、主体胸腹与前爪下方",
+            },
+            {
+                "id": "approved-room",
+                "kind": "content_element",
+                "role": "室内背景与侧面光线",
+                "region": "主体后方及画面四周",
+            },
+        ]
+
+        def author_runtime_targets(analysis: dict) -> dict:
+            analysis["runtimeSemantics"]["targetInstances"] = copy.deepcopy(
+                authored_targets
+            )
+            return analysis
+
+        result = self.run_case(
+            "authored-runtime-targets",
+            ApprovedAnalysisAdapters(author_runtime_targets),
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        record = load_json(result.gallery_template)
+        self.assertEqual(authored_targets, record["runtimeSemantics"]["targetInstances"])
+
     def test_needs_review_is_conditional_and_preserves_draft_status(self) -> None:
         reason = "画内文字角色仍需人工复核"
 
@@ -184,18 +271,10 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
 
     def test_two_latest_samples_have_explicit_comparable_projections(self) -> None:
         expected_hashes = {
-            "heart": "e0970eda3bbc77399ff222bce0023c38e8917dbf817830942489b36d18c0ad34",
-            "wedding": "5786703f093b64513e556a77ae0af9455e6af41d9bdd1d922444774174b5736e",
+            "heart": "24003b3c81b4213903abc8db4b100f936618315362c3364708295fb483dcf77f",
+            "wedding": "0400d9194ca3e03abc47f96c25cab28996ac8b9c1b786631467f883b6a3005ed",
         }
         recognized_sidecars = set(RULES["formalProjection"]["recognizedMetadataSidecars"].values())
-        semantic_corrections = {
-            "heart": {(TOP_LEVEL_FIELDS["userTitle"],)},
-            "wedding": {
-                (TOP_LEVEL_FIELDS["userTitle"],),
-                (TOP_LEVEL_FIELDS["userDescription"],),
-                (TOP_LEVEL_FIELDS["userPromptTemplate"],),
-            },
-        }
 
         for name, expected_hash in expected_hashes.items():
             with self.subTest(sample=name):
@@ -205,11 +284,7 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
                 self.assertEqual(expected_hash, hashlib.sha256(input_path.read_bytes()).hexdigest())
                 self.assertTrue(set(source[METADATA_FIELD]) - {TAGS_FIELD} <= recognized_sidecars)
                 source_projection = _formal_projection(source, source[COVER_FIELD], RULES)
-                migrated_projection = migrate_legacy_terms(source_projection)
-                self.assertEqual(
-                    semantic_corrections[name],
-                    set(differing_leaf_paths(migrated_projection, expected)),
-                )
+                self.assertEqual(expected, source_projection)
                 projected_expected = _formal_projection(expected, expected[COVER_FIELD], RULES)
                 self.assertEqual(expected, projected_expected)
                 self.assertTrue(_validate_final(projected_expected, RULES)["pass"])
@@ -226,12 +301,11 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
                 self.assertIn("formal", classifications)
                 self.assertIn("sidecar", classifications)
 
-        heart = load_json(SAMPLE_FIXTURE / "heart.expected.json")
-        wedding = load_json(SAMPLE_FIXTURE / "wedding.expected.json")
-        self.assertNotIn("他", heart[TOP_LEVEL_FIELDS["userTitle"]])
-        self.assertNotIn("猫咪", wedding[TOP_LEVEL_FIELDS["userTitle"]])
-        self.assertNotIn("三只宠物", wedding[TOP_LEVEL_FIELDS["userDescription"]])
-        self.assertIn("根据数量", wedding[TOP_LEVEL_FIELDS["userPromptTemplate"]])
+        for name in expected_hashes:
+            record = load_json(SAMPLE_FIXTURE / f"{name}.expected.json")
+            self.assertEqual(1, record["runtimeSemantics"]["version"])
+            self.assertNotIn("promptEnhancement", record)
+            self.assertNotIn("extract", json.dumps(record, ensure_ascii=False))
 
     def test_unknown_formal_fields_are_rejected_instead_of_silently_dropped(self) -> None:
         base = load_json(SAMPLE_FIXTURE / "heart.expected.json")
@@ -258,6 +332,48 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
                 mutate(record)
                 with self.assertRaises(WorkflowStop):
                     _formal_projection(record, record[COVER_FIELD], RULES)
+
+    def test_v2_runtime_relationships_and_removed_fields_are_hard_gates(self) -> None:
+        base = load_json(SAMPLE_FIXTURE / "heart.expected.json")
+
+        def missing_binding(record: dict) -> None:
+            first_input = record["inputSchema"][0]["id"]
+            record["runtimeSemantics"]["inputBindings"].pop(first_input)
+
+        def unknown_target(record: dict) -> None:
+            first_input = record["inputSchema"][0]["id"]
+            record["runtimeSemantics"]["inputBindings"][first_input]["targetIds"] = [
+                "missing_target"
+            ]
+
+        def duplicate_identity_owner(record: dict) -> None:
+            first, second = record["inputSchema"][:2]
+            target_id = record["runtimeSemantics"]["inputBindings"][first["id"]][
+                "targetIds"
+            ][0]
+            record["runtimeSemantics"]["inputBindings"][second["id"]]["targetIds"] = [
+                target_id
+            ]
+
+        def legacy_extract(record: dict) -> None:
+            record["inputSchema"][0]["image"]["extract"] = {
+                "enabled": True
+            }
+
+        cases = {
+            "missingBinding": missing_binding,
+            "unknownTarget": unknown_target,
+            "duplicateIdentityOwner": duplicate_identity_owner,
+            "legacyExtract": legacy_extract,
+            "legacyPromptEnhancement": lambda record: record.update(
+                {"promptEnhancement": {"instruction": "legacy"}}
+            ),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(case=name):
+                record = copy.deepcopy(base)
+                mutate(record)
+                self.assertFalse(_validate_final(record, RULES)["pass"])
 
     def test_temporary_paths_data_urls_and_audit_fields_fail_final_validation(self) -> None:
         base = load_json(SAMPLE_FIXTURE / "heart.expected.json")

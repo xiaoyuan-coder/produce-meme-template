@@ -102,7 +102,11 @@ class Issue8TextDenseTemplatesTest(unittest.TestCase):
                 "label": "画面主文字",
                 "placeholder": "输入主文字",
                 "defaultValue": scenario["sourceText"],
-                "suggestions": ["今天先放空\n(－_－) zzZ", "周末慢一点\n(－_－) zzZ"],
+                "suggestions": [
+                    "今天先放空\n(－_－) zzZ",
+                    "周末慢一点\n(－_－) zzZ",
+                    "明天再努力\n(－_－) zzZ",
+                ],
                 "hiddenConflictTokens": ["画面主文字", "文字内容", "文字排版"],
                 "titleForbiddenTokens": [
                     scenario["sourceText"], "今天先放空", "周末慢一点"

@@ -79,14 +79,14 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 57. As a 模板生产者, I want 槽位编辑和自由编辑归一为同一种 resolved prompt, so that 两种并列交互模式拥有一致语义。
 58. As a 模板生产者, I want 用户字面对主体、文字、颜色、服装、道具和场景拥有最终权限, so that隐藏约束不会恢复用户已经改掉的默认内容。
 59. As a 模板生产者, I want 固定媒介和防漂移要求保留在隐藏层, so that Prompt Template 保持用户可读和可自由编辑。
-60. As a 模板生产者, I want instruction 只描述媒介、模板卖点和可选色彩, so that 每条模板不再重复身份、清除和自检脚手架。
-61. As a 模板生产者, I want instruction 控制在当前正式规范长度内, so that 数据保持简洁并符合现有消费合同。
-62. As a 模板生产者, I want lockedConstraints 和 preserve 分工明确, so that 呈现维度与语义锚点不会互相重复。
-63. As a 模板生产者, I want 编译器审计 Prompt Template 与隐藏字段冲突, so that 开放内容不会被隐藏默认值锁回。
+60. As a 模板生产者, I want visualContract 使用正向、可观察的视觉事实, so that 运行合同不再重复生产清除和自检脚手架。
+61. As a 模板生产者, I want visualContract 分开表达媒介、画风、构图、关系和条件性色光, so that 数据简洁且可以被运行时逐项验证。
+62. As a 模板生产者, I want targetInstances、inputBindings 和 visualContract 分工明确, so that 输入接管位置与跨输入保持的视觉事实可以稳定运行。
+63. As a 模板生产者, I want 编译器审计 Prompt Template 与 runtimeSemantics 冲突, so that 开放内容不会被视觉合同中的默认值锁回。
 64. As a 模板生产者, I want 正式 JSON 只输出当前白名单字段, so that旧生产审计信息不会继续混入业务数据。
 65. As a 模板生产者, I want metadata 默认只包含 tags, so that正式记录保持小而清晰。
 66. As a 模板生产者, I want 确有人工复核原因时记录 needsReview, so that DRAFT 状态拥有可理解的复核依据。
-67. As a 模板生产者, I want `image.extract` 保持简短语义留档, so that满足当前 Schema，又不会被误解为生成行为承诺。
+67. As a 模板生产者, I want subject 图片槽只保存上传模式和素材约束, so that 身份提取、位置绑定和画风规则统一由 runtimeSemantics 表达。
 68. As a 模板生产者, I want 正式数据使用 `cover` 和 `referenceImage`, so that输出与当前正式样例和 Schema 一致。
 69. As a 模板生产者, I want `cover` 与 `referenceImage` 指向同一张确认模板图, so that封面和运行参考没有 revision 偏差。
 70. As a 模板生产者, I want 正式输出拒绝 `coverUrl`, so that Unified 和旧管理台的版本残留不会形成双写合同。
@@ -146,17 +146,17 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - title 统一使用中性的画面机制、动作、关系、容器、视觉钩子或场景，通过最大差异输入测试。具体 IP、姓名、年龄、性别、物种、发型、服装和身份配色不进入标题。
 - Prompt Template 是用户可见、可全文编辑的完整自然语言画面描述。它包含全部结构化槽位和未入槽但仍有编辑价值的内容；结构化编辑和全文编辑最终编译为同一种 resolved prompt。
 - Prompt Template 拥有用户内容权限。隐藏字段不能恢复用户修改后的主体、文字、颜色、配饰、服装、道具和场景。
-- inputSchema、instruction、lockedConstraints、preserve 和 output 从中间模型确定性编译。instruction 使用“媒介、模板卖点、可选色彩”结构并保持在当前 150 字限制内，不写具体身份、清除脚手架或负向要求。
-- lockedConstraints 锁定正式合同支持的呈现维度；preserve 保存换开放内容后仍成立的语义锚点。编译器必须检查二者与开放槽位和自由编辑内容的冲突。
-- 正式模板记录使用白名单投影，只保留 `key`、`status`、`title`、`description`、`imageSize`、`promptTemplate`、`inputSchema`、`promptEnhancement`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover` 和 `referenceImage`。
-- `inputSchema[].image.extract` 因当前 Schema 要求继续保留，使用简短的身份特征提取留档文字，并统一称为“模板参考图”。
+- `inputSchema`、`targetInstances`、`inputBindings` 和 `visualContract` 从中间模型确定性编译。身份输入一对一绑定唯一身份目标；内容输入绑定类型匹配的内容目标或目标组。
+- `visualContract` 使用正向、可观察的媒介、画风、构图、关系和条件性色光事实；编译器必须检查它与开放槽位和自由编辑内容的冲突。
+- 正式模板记录使用白名单投影，只保留 `key`、`status`、`title`、`description`、`imageSize`、`imageN`、`kind`、`promptTemplate`、`inputSchema`、`preprocessSteps`、`runtimeSemantics`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover` 和 `referenceImage`。
+- 新模板的 `inputSchema[].image` 不输出 `extract`；`runtimeSemantics` 是输入目标、绑定和视觉约束的唯一正式运行权威，正式 JSON 不输出 `promptEnhancement`。
 - `candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 以及其他生产审计字段全部保留在 sidecar，不进入正式 JSON。
 - 当前正式封面字段固定为 `cover`。`coverUrl` 不输出、不双写，并作为版本冲突 fixture 持续验证。
 - P7 只上传当前 Approved Template Image。Asset Receipt 保存图片摘要、对象键、URL 和幂等信息；P8 将同一 HTTPS URL 写入 `cover` 与 `referenceImage`。
 - OSS 已成功而最终落盘失败时，恢复流程复用 Asset Receipt，不重复上传。图片 SHA 不变的 metadata 修订可以显式复用已有 URL。
 - 生产目录保留正式 JSON、manifest、pin、replacement plan、template analysis、editable spec、hidden spec、validation report、asset receipt 和 evidence。下游只读取正式 JSON。
 - 正式 JSON 默认状态采用当前合同支持的 DRAFT；确有复核原因时通过 `needsReview` 表达。Skill 不负责数据库导入和发布状态推进。
-- 机器规则单一来源至少覆盖类别枚举、图片操作、文字角色、状态迁移、失败类型、instruction 结构、视觉维度、字段白名单和 Schema 条件。文档解释语义，编译器和验证器读取同一份机器定义。
+- 机器规则单一来源至少覆盖类别枚举、图片操作、文字角色、状态迁移、失败类型、runtimeSemantics 结构、视觉维度、字段白名单和 Schema 条件。文档解释语义，编译器和验证器读取同一份机器定义。
 - Skill 使用渐进式披露。主文件保留端到端步骤与完成条件；替换、文字、模板图分析、槽位、用户文案、JSON 编译、生命周期、OSS 和 T1 分别通过一级 reference 指针按分支加载。
 - 确定性 scripts 负责合同编译、Schema 验证、正式投影、placeholder 解析、冲突审计、版本摘要、依赖失效、恢复和发布校验。推理性判断由 Skill 按 reference 执行并产出结构化证据。
 - Skill、内部 artifact Schema 和 gallery contract 使用三个独立版本。唯一 release 描述文件是人工修改版本的事实源，其他版本声明由脚本生成或核验。
@@ -197,11 +197,11 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 建立推荐项测试，覆盖同轴、同颗粒度、默认值去重、生成可行性和纯图片槽无需文本建议。
 - 建立 Prompt Template 测试，证明全部结构化槽位都有绑定，非槽位自由编辑内容允许存在，所有默认值和推荐项代入后语法自然。
 - 建立两种编辑模式等价测试，证明槽位编辑与全文编辑最后都得到完整 resolved prompt。
-- 建立用户权限冲突测试，证明 instruction、lockedConstraints 和 preserve 不会恢复用户修改过的主体、文字、颜色、服装、道具和场景。
-- 建立 instruction 测试，覆盖媒介、卖点、可选色彩三段信息、150 字限制，以及身份、清除脚手架、具体 IP 和负向句的拒绝规则。
+- 建立用户权限冲突测试，证明 `visualContract` 不会恢复用户修改过的主体、文字、颜色、服装、道具和场景。
+- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、身份一对一绑定、内容组分配、媒介、画风、构图、关系和服装裁决。
 - 建立正式投影测试，对两份最新正式样例的全部 110 类归一化叶子路径执行分类；未分类数必须保持为 0。
 - 建立字段白名单测试，正式 JSON 只允许当前合同字段；旧流程 metadata、临时路径、Data URL、生产术语和 `coverUrl` 必须失败。
-- 建立 Schema 测试，正式 JSON 通过冻结的当前 Schema；`image.extract` 保持必填且简短，placeholder 全部可解析。
+- 建立 Schema 测试，正式 JSON 通过冻结的 runtimeSemantics v2 Schema；`image.extract` 与 `promptEnhancement` 均被拒绝，placeholder 全部可解析。
 - 建立四层验证测试，分别产出 schema、semantic、visual contract 和 gallery contract 证据；任何一层失败都不能汇总为 PASS。
 - 建立 OSS 测试，证明只上传 Approved Template Image，`cover === referenceImage`，失败恢复复用 receipt，危险对象键在调用存储前被拒绝。
 - 建立 sidecar 隔离测试，删除 sidecar 不改变正式 JSON 的运行语义，正式 JSON 也不包含 artifact metadata。

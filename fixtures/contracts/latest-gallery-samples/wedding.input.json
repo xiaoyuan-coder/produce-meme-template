@@ -1,10 +1,14 @@
 {
-  "key": "wedding-couple-pet-parade",
-  "status": "DRAFT",
-  "title": "带着猫咪一起拍婚纱照",
-  "description": "婚礼合照把三只宠物也带进画面",
+  "key": "pop-art-ring-celebration-couple",
+  "title": "新郎举起戒指大喊YEAH",
+  "description": "举起婚戒的动作配上YEAH对白",
+  "cover": "https://assets.memebuy.cn/gallery/templates/d64aa816-aed5-4a9e-992b-dcec110f837b.png",
+  "referenceImage": "https://assets.memebuy.cn/gallery/templates/d64aa816-aed5-4a9e-992b-dcec110f837b.png",
   "imageSize": "1024x1024",
-  "promptTemplate": "白底婚礼涂鸦里，{{ boy_subject | \"男生\" }}穿黑色礼服站左侧并抱住一只宠物，{{ girl_subject | \"女生\" }}穿白色婚纱站右侧；{{ wedding_pets | \"两只猫和一只蓝色小鸟\" }}分别位于怀中、肩侧和脚边，黄色星星、铃兰与绿叶围绕两人。",
+  "imageN": 1,
+  "kind": "PROMPT",
+  "status": "DRAFT",
+  "promptTemplate": "复古波普漫画婚礼场景中，{{ boy_subject | \"男生\" }}站在前景，张嘴大笑并把戴戒指的左手夸张举到镜头前，再用右手指向戒指；{{ girl_subject | \"女生\" }}穿婚纱站在左后方。右上对白框逐字显示{{ celebration_text | \"YEAH!!!\" }}。",
   "inputSchema": [
     {
       "id": "boy_subject",
@@ -13,20 +17,18 @@
       "required": false,
       "resolutionStrategy": "image_over_text",
       "text": {
-        "placeholder": "描述男生",
         "allowCustom": true,
         "defaultValue": "男生",
         "suggestions": [
-          "深灰短狼尾、戴细框眼镜的男青年",
-          "沙金短狼尾、戴细框眼镜的男青年",
-          "墨棕短狼尾、戴细框眼镜的男青年"
+          "短发新郎男生",
+          "卷发男生",
+          "戴眼镜男生"
         ]
       },
       "image": {
         "enabled": true,
         "promptValue": "用户上传图中的男生",
-        "hint": "上传1张清晰主体图，按本模板候选图的视觉媒介与区域职责完整重建",
-        "extract": "提取男生的可辨识身份特征，并在候选图的媒介、造型与构图体系中完整重绘。",
+        "hint": "上传1张清晰主体图，用于替换“男生”的身份特征",
         "maxCount": 1,
         "minWidth": 256,
         "minHeight": 256,
@@ -45,20 +47,18 @@
       "required": false,
       "resolutionStrategy": "image_over_text",
       "text": {
-        "placeholder": "描述女生",
         "allowCustom": true,
         "defaultValue": "女生",
         "suggestions": [
-          "酒红丸子头、配珍珠发夹的新娘",
-          "银灰丸子头、配珍珠发夹的新娘",
-          "墨黑丸子头、配珍珠发夹的新娘"
+          "短发女生",
+          "卷发女生",
+          "戴眼镜女生"
         ]
       },
       "image": {
         "enabled": true,
         "promptValue": "用户上传图中的女生",
-        "hint": "上传1张清晰主体图，按本模板候选图的视觉媒介与区域职责完整重建",
-        "extract": "提取女生的可辨识身份特征，并在候选图的媒介、造型与构图体系中完整重绘。",
+        "hint": "上传1张清晰主体图，用于替换“女生”的身份特征",
         "maxCount": 1,
         "minWidth": 256,
         "minHeight": 256,
@@ -71,47 +71,121 @@
       }
     },
     {
-      "id": "wedding_pets",
+      "id": "celebration_text",
       "type": "prompt",
-      "label": "一起入镜的宠物",
-      "placeholder": "输入一起入镜的宠物",
+      "label": "对白框英文",
+      "placeholder": "输入对白框英文",
       "required": false,
       "suggestions": [
-        "一只猫和一只小狗",
-        "两只猫和一只兔子",
-        "三只不同花色的猫"
+        "WE DID IT!!!",
+        "I SAID YES!!!",
+        "JUST MARRIED!!!"
       ]
     }
   ],
-  "promptEnhancement": {
-    "stageKey": "gallery.prompt_rewrite",
-    "instruction": "媒介：白纸底上的幼稚透明水彩涂鸦，暖灰棕铅笔抖线、可控断线与薄水彩渗边，少量蜡笔颗粒与局部漏白，人物为大头短身的稚拙比例。卖点：婚礼双人肖像把用户指定的宠物一并纳入家庭合照，宠物与人物的亲密位置关系是这张图的独特价值。色彩：沿用候选图的低饱和主色与单级透明水彩阴影层级，保留大量纸白。",
-    "referenceField": "referenceImage",
-    "lockedConstraints": [
-      "沿用参考图的画幅、裁切、留白、镜头景别与元素位置比例",
-      "沿用参考图的媒介质感与材质表现",
-      "沿用参考图的主体造型比例、轮廓概括与艺术夸张方式",
-      "沿用参考图的前景背景层级、遮挡关系与阅读顺序"
+  "preprocessSteps": [],
+  "runtimeSemantics": {
+    "version": 1,
+    "targetInstances": [
+      {
+        "id": "foreground_groom",
+        "kind": "identity_subject",
+        "role": "前景举手展示婚戒的新郎",
+        "region": "画面中央至右侧前景，包含放大的左手和指向戒指的右手"
+      },
+      {
+        "id": "rear_bride",
+        "kind": "identity_subject",
+        "role": "左后方新娘",
+        "region": "前景新郎身后的画面左侧"
+      },
+      {
+        "id": "speech_bubble_text",
+        "kind": "content_element",
+        "role": "右上对白框中的庆祝英文",
+        "region": "画面右上方对白框"
+      },
+      {
+        "id": "fixed_pop_art_field",
+        "kind": "content_element",
+        "role": "粉色半调网点背景与对白框",
+        "region": "整张方形画布"
+      }
     ],
-    "preserve": [
-      "婚礼双人肖像把用户指定的宠物一并纳入家庭合照，宠物与人物的亲密位置关系是画面的独特价值"
-    ],
-    "output": {
-      "format": "json",
-      "promptField": "finalPrompt"
+    "inputBindings": {
+      "boy_subject": {
+        "operation": "replace_identity",
+        "targetIds": [
+          "foreground_groom"
+        ],
+        "bindingPolicy": "one_to_one",
+        "renderingMode": "illustration_redraw",
+        "allowedSourceGrouping": [
+          "single_subject"
+        ],
+        "groupToSinglePolicy": "reject"
+      },
+      "girl_subject": {
+        "operation": "replace_identity",
+        "targetIds": [
+          "rear_bride"
+        ],
+        "bindingPolicy": "one_to_one",
+        "renderingMode": "illustration_redraw",
+        "allowedSourceGrouping": [
+          "single_subject"
+        ],
+        "groupToSinglePolicy": "reject"
+      },
+      "celebration_text": {
+        "operation": "replace_content",
+        "targetIds": [
+          "speech_bubble_text"
+        ],
+        "distributionPolicy": "replace_as_unit"
+      }
+    },
+    "visualContract": {
+      "medium": "复古印刷波普漫画，以粗重黑色墨线、封闭平涂色块、规则半调网点、轻微套色偏移和纸面印刷颗粒呈现",
+      "styleTraits": [
+        "人物面部以粗黑眉眼、少量鼻口线和大块肤色概括，表情夸张且保持印刷漫画的低细节密度",
+        "头发、脸、手、婚礼服装和对白框共享同一粗黑轮廓与半调网点语法",
+        "新郎外套内部使用深青蓝半调点阵，新娘婚纱使用奶白平涂与少量黑线褶皱",
+        "对白框为黑色闭合边缘、白色内部和粗黑手写漫画字形"
+      ],
+      "composition": [
+        "沿用参考图的方形画幅和紧凑婚礼海报裁切，新郎为中央前景主视觉，新娘位于左后方",
+        "新郎左手使用强烈近大远小透视并占据左上前景，右手从右侧指向戒指",
+        "对白框固定在右上方，粉色半调圆点由人物背后向四周扩散"
+      ],
+      "relations": [
+        "男生与女生上传身份分别一对一接管新郎和新娘角色位，每个角色位仅出现一个对应人物",
+        "戒指牢固戴在新郎举起的左手手指上，右手食指明确指向戒指，左手遮挡部分头部并保持前景焦点",
+        "新郎张嘴大笑并面向镜头，新娘在其身后微笑面向镜头，前后遮挡层级沿用参考图",
+        "新郎礼服、领结与新娘婚纱、头纱和珍珠配饰沿用参考图角色位，上传图只提供人物身份线索",
+        "对白框只承载当前 celebration_text 的原文字符，位置、框形和阅读顺序保持不变"
+      ],
+      "colorAndLight": [
+        "沿用粉白半调背景、深青蓝礼服、奶白婚纱、黑色墨线和高对比平面印刷色层"
+      ]
     }
   },
   "metadata": {
+    "tags": [
+      "婚戒庆祝",
+      "波普婚礼",
+      "新婚漫画"
+    ],
     "semanticContext": {
-      "visualHook": "婚礼双人肖像把三只宠物也纳入家庭合照，宠物数量和位置是画面的独特价值。",
+      "visualHook": "新郎张嘴大笑、举起婚戒手并用另一只手指向戒指，共同构成夸张庆祝动作。",
       "subjectNamingMode": "natural_visible_role",
       "candidateScope": [
         "男生",
         "女生"
       ],
       "contentDomains": [
-        "宠物婚礼",
-        "全家合照"
+        "婚戒庆祝",
+        "波普婚礼"
       ],
       "audienceContexts": [
         "想做双人纪念图的用户"
@@ -120,121 +194,16 @@
         "定制关系纪念画"
       ]
     },
-    "runtimeRequirements": {
-      "subjectInputVersion": 2,
-      "supportsMultipleSubjectImages": true,
-      "imageSlotAddressing": "input_id"
-    },
-    "templateSource": {
-      "authority": {
-        "composition_authority": "high",
-        "style_authority": "high",
-        "identity_authority": "none"
-      }
-    },
-    "tags": [
-      "宠物婚礼",
-      "全家合照",
-      "水彩婚纱照"
-    ],
-    "inputSemantics": {
-      "boy_subject": {
-        "semanticType": "subject_identity",
-        "slotRole": "identity_reference",
-        "componentId": "boy_subject",
-        "property": "identity",
-        "operation": "replace_identity",
-        "renderingMode": "illustration_redraw",
-        "defaultStateLabel": "使用默认男生",
-        "textInputLabel": "或描述男生",
-        "uploadLabel": "上传男生图片",
-        "suggestionAxis": "保持画面左侧的构图职责，替换为具体的男生身份",
-        "candidateScope": [
-          "男生",
-          "棕色自然卷、戴圆框眼镜的男青年"
-        ],
-        "suggestionRationales": {
-          "深灰短狼尾、戴细框眼镜的男青年": "保持画面左侧的动作、位置和情侣关系，形成清晰可辨的男生身份变化。",
-          "沙金短狼尾、戴细框眼镜的男青年": "保持画面左侧的动作、位置和情侣关系，形成清晰可辨的男生身份变化。",
-          "墨棕短狼尾、戴细框眼镜的男青年": "保持画面左侧的动作、位置和情侣关系，形成清晰可辨的男生身份变化。"
-        },
-        "defaultValue": "男生"
-      },
-      "girl_subject": {
-        "semanticType": "subject_identity",
-        "slotRole": "identity_reference",
-        "componentId": "girl_subject",
-        "property": "identity",
-        "operation": "replace_identity",
-        "renderingMode": "illustration_redraw",
-        "defaultStateLabel": "使用默认女生",
-        "textInputLabel": "或描述女生",
-        "uploadLabel": "上传女生图片",
-        "suggestionAxis": "保持画面右侧的构图职责，替换为具体的女生身份",
-        "candidateScope": [
-          "女生",
-          "戴头纱的新娘"
-        ],
-        "suggestionRationales": {
-          "酒红丸子头、配珍珠发夹的新娘": "保持画面右侧的动作、位置和情侣关系，形成清晰可辨的女生身份变化。",
-          "银灰丸子头、配珍珠发夹的新娘": "保持画面右侧的动作、位置和情侣关系，形成清晰可辨的女生身份变化。",
-          "墨黑丸子头、配珍珠发夹的新娘": "保持画面右侧的动作、位置和情侣关系，形成清晰可辨的女生身份变化。"
-        },
-        "defaultValue": "女生"
-      },
-      "wedding_pets": {
-        "semanticType": "semantic_content",
-        "slotRole": "semantic_replacement",
-        "componentId": "wedding_pets",
-        "property": "semantic_content",
-        "operation": "replace_content",
-        "suggestionAxis": "与来源画面一致的一起入镜的宠物变化",
-        "candidateScope": [
-          "一起入镜的宠物",
-          "画面内容定制"
-        ],
-        "suggestionRationales": {
-          "一只猫和一只小狗": "保持“一起入镜的宠物”在原画中的位置与作用，仅沿同一语义轴变化。",
-          "两只猫和一只兔子": "保持“一起入镜的宠物”在原画中的位置与作用，仅沿同一语义轴变化。",
-          "三只不同花色的猫": "保持“一起入镜的宠物”在原画中的位置与作用，仅沿同一语义轴变化。"
-        },
-        "defaultValue": "两只猫和一只蓝色小鸟"
-      }
-    },
-    "optimizationAudit": {
-      "round": 3,
-      "method": "candidate_pixel_fact_recompile",
-      "visualContract": {
-        "medium": "白纸底上的幼稚透明水彩婚礼涂鸦：暖灰棕铅笔抖线、薄水彩漏白和少量蜡笔颗粒",
-        "form": "两位人物为2至3头身的大头短身稚拙比例，左男右女；男生怀抱宠物，小鸟停肩侧，另一只宠物立在脚边",
-        "edge": "暖棕抖线、可控断线与透明水彩渗边，人物和宠物轮廓松散；禁止精致婚礼绘本线、写实五官和成套仪式背景",
-        "colorAndShading": "低饱和黑白礼服、暖黄星星、淡绿铃兰花叶和柔和肤色，最多一级透明水彩阴影，保留纸白",
-        "surface": "白纸纤维、水彩薄层、铅笔颗粒和局部漏白贯穿人物、宠物、铃兰与星星",
-        "composition": "白底中央两人靠近站立；一只宠物被男生抱在胸前，其他宠物分别固定在肩侧和脚边；黄色星星、铃兰与绿叶零散围绕；不生成成套仪式背景或新增婚礼场景"
-      },
-      "instanceBinding": "inputId=boy_subject只绑定男生对应的唯一实例区域，按候选图可见次数出现，不与其他输入交换、融合或遗漏；inputId=girl_subject只绑定女生对应的唯一实例区域，按候选图可见次数出现，不与其他输入交换、融合或遗漏",
-      "outfitPolicy": "template_fixed",
-      "derivedBinding": "本条没有额外身份派生实例；固定装饰、容器和背景不得复刻模板默认主体，也不得误生成第二个身份",
-      "derivedBindingBasis": "no_identity_derivative_in_candidate_contract",
-      "wearableContact": "头纱从女生发后落下并被肩线遮挡，礼服领结贴合衣领；怀中宠物压在男生礼服前层，小鸟脚爪贴住肩部",
-      "imageOperations": {
-        "boy_subject": {
-          "type": "identity_replace",
-          "target": "男生对应的唯一实例区域",
-          "apply": "按 inputId 独立读取身份/物种、脸型、肤色或毛色花纹、发型、五官和必要身份配饰；服装严格服从本条 outfitPolicy",
-          "clear": "清除该区域模板默认脸、发型、五官、身份配饰、旧主体边缘和未声明派生实例；不继承上传背景、镜头、动作和摄影光线",
-          "keep": "候选图固定实例区域、数量、形态、动作轴、裁切、接触、遮挡及六维视觉事实"
-        },
-        "girl_subject": {
-          "type": "identity_replace",
-          "target": "女生对应的唯一实例区域",
-          "apply": "按 inputId 独立读取身份/物种、脸型、肤色或毛色花纹、发型、五官和必要身份配饰；服装严格服从本条 outfitPolicy",
-          "clear": "清除该区域模板默认脸、发型、五官、身份配饰、旧主体边缘和未声明派生实例；不继承上传背景、镜头、动作和摄影光线",
-          "keep": "候选图固定实例区域、数量、形态、动作轴、裁切、接触、遮挡及六维视觉事实"
-        }
-      }
+    "contractAudit": {
+      "contract": "agent-template-json-runtime-contract-v2",
+      "migratedAt": "2026-08-18",
+      "source": "/Users/xiaoyuan/Desktop/归档/生产数据v3/情侣晒照的N种方式-2026-08-18.json",
+      "changes": [
+        "移除 subject.image.extract",
+        "移除手写 promptEnhancement",
+        "新增 runtimeSemantics 作为运行语义唯一权威",
+        "保留每个输入槽的三条 suggestions"
+      ]
     }
-  },
-  "cover": "https://assets.memebuy.cn/gallery/templates/0a4d6028-4cae-4e25-adaf-65ed0686a4f4.png",
-  "referenceImage": "https://assets.memebuy.cn/gallery/templates/0a4d6028-4cae-4e25-adaf-65ed0686a4f4.png"
+  }
 }

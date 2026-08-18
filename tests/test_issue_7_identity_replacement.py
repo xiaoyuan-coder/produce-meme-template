@@ -253,10 +253,14 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                 "evidence": "单身份在画内含重复派生实例，仍只需一份身份上传素材",
             }
         )
-        analysis["promptEnhancement"] = {
-            "instruction": "媒介：保持画面的统一摄影或插画质感。卖点：中央主角、剪影与边框形成层次。色彩：可随用户调整前景与环境光。",
-            "lockedConstraints": ["保持画幅、主体占比与重复实例的层级", "保持前后遮挡和接触边界"],
-            "preserve": ["保持主角与派生实例的统一叙事职责"],
+        analysis["runtimeSemantics"] = {
+            "visualContract": {
+                "medium": "保持确认模板图的统一摄影或插画质感",
+                "styleTraits": ["保持轮廓方式与细节密度"],
+                "composition": ["保持画幅、主体占比与重复实例的层级"],
+                "relations": ["保持前后遮挡、接触边界与派生实例的统一职责"],
+                "colorAndLight": ["保持明暗层级并服从开放输入"],
+            }
         }
         analysis["tags"] = ["人物", "光影", "多重实例"]
         if scenario["omitSubject"]:

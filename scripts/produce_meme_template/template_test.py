@@ -23,18 +23,11 @@ from .artifacts import (
 from .release_management import runtime_production_pin
 from .validation import is_valid_https_url
 from .workflow import formal_template_contract_valid, image_bytes_match_output_format
+from .workflow_core import GALLERY_SCHEMA_PATH
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RULES_PATH = REPO_ROOT / "contracts" / "machine-rules.json"
-GALLERY_SCHEMA_PATH = (
-    REPO_ROOT
-    / "contracts"
-    / "upstream"
-    / "gallery-template"
-    / "current-cover-contract"
-    / "gallery-template.schema.json"
-)
 PLACEHOLDER = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
 
 
@@ -307,6 +300,59 @@ def _case_prompt(
     ), {
         fields["slotValues"]: normalized
     }
+
+
+def _compile_actual_prompt(
+    resolved_prompt: str,
+    runtime_semantics: dict[str, Any],
+    rules: dict[str, Any],
+) -> str:
+    """Compile the author prompt and structured runtime contract for a real model call."""
+    runtime_contract = rules["runtimeSemanticsContract"]
+    runtime_fields = runtime_contract["fields"]
+    targets = runtime_semantics[runtime_fields["targetInstances"]]
+    bindings = runtime_semantics[runtime_fields["inputBindings"]]
+    visual = runtime_semantics[runtime_fields["visualContract"]]
+    target_by_id = {target["id"]: target for target in targets}
+
+    target_text = "；".join(
+        f"{target['role']}位于{target['region']}"
+        for target in targets
+    )
+    binding_texts: list[str] = []
+    for input_id, binding in bindings.items():
+        target_roles = "、".join(
+            target_by_id[target_id]["role"]
+            for target_id in binding["targetIds"]
+        )
+        operation = binding["operation"]
+        if operation == runtime_contract["operations"]["replaceIdentity"]:
+            binding_texts.append(
+                f"输入 {input_id} 一对一接管{target_roles}，"
+                "只提供身份线索并按模板媒介完整重绘"
+            )
+        else:
+            binding_texts.append(
+                f"输入 {input_id} 接管{target_roles}，"
+                f"分布策略为 {binding['distributionPolicy']}"
+            )
+
+    sections = [
+        resolved_prompt,
+        f"媒介：{visual['medium']}。",
+        f"画风特征：{'；'.join(visual['styleTraits'])}。",
+        f"构图：{'；'.join(visual['composition'])}。",
+        f"关系：{'；'.join(visual['relations'])}。",
+    ]
+    if visual["colorAndLight"]:
+        sections.append(f"色彩与光线：{'；'.join(visual['colorAndLight'])}。")
+    sections.extend(
+        [
+            f"目标实例：{target_text}。",
+            f"输入接管：{'；'.join(binding_texts)}。",
+        ]
+    )
+    return "\n".join(sections)
 
 
 def _normalized_request(
@@ -807,6 +853,9 @@ def _case_generation_request(
     return {
         request_fields["requestIdentity"]: request_id,
         request_fields["prompt"]: resolved_prompt,
+        request_fields["runtimeSemantics"]: copy.deepcopy(
+            template["runtimeSemantics"]
+        ),
         request_fields["imageCount"]: test_contract["defaultImageCount"],
         request_fields["primaryOutputIndex"]: test_contract[
             "defaultPrimaryOutputIndex"
@@ -852,6 +901,7 @@ def _case_execution_facts(
     package = {
         "requestId": request_id,
         "prompt": resolved_prompt,
+        "runtimeSemantics": copy.deepcopy(template["runtimeSemantics"]),
         "templateJsonSha256": template_sha,
         "referenceImageSha256": reference_sha,
         "output": {
@@ -1860,10 +1910,19 @@ def run_template_test(
             message="指定的正式模板 JSON 未通过静态合同。",
         )
     try:
-        prompts = [
-            _case_prompt(template, case, contract)
-            for case in normalized_request[request_fields["cases"]]
-        ]
+        prompts = []
+        for case in normalized_request[request_fields["cases"]]:
+            resolved_prompt, user_input = _case_prompt(template, case, contract)
+            prompts.append(
+                (
+                    _compile_actual_prompt(
+                        resolved_prompt,
+                        template["runtimeSemantics"],
+                        rules,
+                    ),
+                    user_input,
+                )
+            )
         if any(
             len(prompt) > contract["maximumPromptLength"]
             for prompt, _user_input in prompts

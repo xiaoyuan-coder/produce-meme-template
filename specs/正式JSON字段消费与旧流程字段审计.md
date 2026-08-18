@@ -1,5 +1,7 @@
 # 正式 JSON 字段消费与旧流程字段审计
 
+> 历史 v1 审计记录。当前作者合同已由 ADR 0022 切换为 `runtime-semantics-v2-contract`；本文中 `promptEnhancement` 与 `image.extract` 结论只用于存量迁移对照。
+
 ## 1. 结论
 
 两份最新样例混合了正式运行字段、平台展示字段和旧生产审计字段。新 Skill 应在 P8 执行正式投影，只把正式合同与产品展示真正需要的字段写入 `gallery-template.json`；候选分析、规则解释、版本能力和视觉审计移入 sidecar。

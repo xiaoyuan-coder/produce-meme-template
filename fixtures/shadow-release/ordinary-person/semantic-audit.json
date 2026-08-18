@@ -1,16 +1,16 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.16.2",
-  "contentSha256": "90405b486acc70339554f9c8ed63369575755ddae582c42718374c14e8972564",
+  "schemaVersion": "0.17.0",
+  "contentSha256": "c78915ba071f7318479f1d48040a9c7c5fe92233d58e2a6e25e45f3beece794e",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,
     "titleSurvivesMaximumDifference": true,
     "slotSuggestionsSameAxisAndGranularity": true,
-    "instructionScopeValid": true,
-    "hiddenLayersResponsibilitiesSeparated": true,
     "identityNeutralDefaultsValid": true,
-    "visibleTextClassificationValid": true
+    "visibleTextClassificationValid": true,
+    "runtimeSemanticsScopeValid": true,
+    "runtimeSemanticsResponsibilitiesSeparated": true
   },
   "evidence": {
     "promptResolutionCases": [
@@ -40,21 +40,6 @@
       "portrait_frame",
       "studio_tone"
     ],
-    "instructionScopeReview": {
-      "allowedSections": [
-        "媒介",
-        "模板卖点",
-        "可选色彩"
-      ],
-      "outOfScopeContentDetected": false,
-      "evidence": "仅描述黑白肖像媒介、头肩构图卖点和可编辑布光"
-    },
-    "hiddenLayerResponsibilityReview": {
-      "lockedConstraintsRole": "呈现维度",
-      "preserveRole": "语义锚点",
-      "overlapDetected": false,
-      "evidence": "逐项比较后未发现职责重复或整图复述"
-    },
     "identityNeutralityReview": {
       "applicable": true,
       "identitySpecificDefaultDetected": false,
@@ -95,7 +80,22 @@
       "fixedRegionLeakIds": [],
       "allVisibleTextClassified": true,
       "evidence": "独立复核全部可见文字区域的角色、价值类别与处理决定"
+    },
+    "runtimeSemanticsScopeReview": {
+      "requiredFields": [
+        "version",
+        "targetInstances",
+        "inputBindings",
+        "visualContract"
+      ],
+      "outOfScopeContentDetected": false,
+      "evidence": "仅描述黑白肖像媒介、头肩构图卖点和可编辑布光"
+    },
+    "runtimeSemanticsResponsibilityReview": {
+      "targetBindingSeparationValid": true,
+      "visualContractOpenContentSafe": true,
+      "evidence": "逐项比较后未发现职责重复或整图复述"
     }
   },
-  "observedContentSha256": "90405b486acc70339554f9c8ed63369575755ddae582c42718374c14e8972564"
+  "observedContentSha256": "c78915ba071f7318479f1d48040a9c7c5fe92233d58e2a6e25e45f3beece794e"
 }

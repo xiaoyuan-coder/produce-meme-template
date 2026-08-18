@@ -3,6 +3,63 @@ from __future__ import annotations
 from typing import Any
 
 
+def rebuild_runtime_targets(
+    analysis: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
+    """Keep transformed test analyses explicit about target role and region."""
+    multi = rules["multiInstanceContract"]
+    graph_fields = multi["graphFields"]
+    component_fields = multi["componentFields"]
+    graph = analysis[multi["approvedFields"]["componentGraph"]]
+    components = graph[graph_fields["components"]]
+    slot_by_id = {slot["id"]: slot for slot in analysis["slotCandidates"]}
+    subject_type = rules["slotCompilationContract"]["slotTypes"][
+        "primarySubjectUpload"
+    ]
+    target_kinds = rules["runtimeSemanticsContract"]["targetKinds"]
+    dependent_roles = {
+        multi["componentRoles"]["reflection"],
+        multi["componentRoles"]["shadow"],
+    }
+    targets = []
+    for slot_id, slot in slot_by_id.items():
+        controlled = [
+            component
+            for component in components
+            if component[component_fields["control"]] == slot_id
+        ]
+        is_subject = slot["type"] == subject_type
+        if is_subject:
+            controlled = [
+                component
+                for component in controlled
+                if component[component_fields["role"]] not in dependent_roles
+            ]
+            identity_units = {
+                component[component_fields["identityUnit"]]
+                for component in controlled
+            }
+            if len(identity_units) == 1:
+                controlled = controlled[:1]
+        kind = (
+            target_kinds["identitySubject"]
+            if is_subject
+            else target_kinds["contentElement"]
+        )
+        for component in controlled:
+            component_id = component[component_fields["identity"]]
+            targets.append(
+                {
+                    "id": component_id,
+                    "kind": kind,
+                    "role": f"{slot['label']}的测试可见实例",
+                    "region": f"测试画面中由 {slot_id} 控制的 {component_id} 空间区域",
+                }
+            )
+    analysis.setdefault("runtimeSemantics", {})["targetInstances"] = targets
+    return analysis
+
+
 def rebuild_source_component_graph_for_named_closure(
     analysis: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
@@ -777,4 +834,4 @@ def rebuild_approved_component_graph(
             }
         )
     analysis[contract["approvedFields"]["operationBindings"]] = approved_bindings
-    return analysis
+    return rebuild_runtime_targets(analysis, rules)

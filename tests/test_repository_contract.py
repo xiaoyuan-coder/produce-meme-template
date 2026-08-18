@@ -219,8 +219,41 @@ class RepositoryContractTest(unittest.TestCase):
         )
         self.assertEqual("gallery-template", metadata["contractId"])
         self.assertEqual(
-            "current-cover-contract", metadata["contractVersion"]
+            load(ROOT / "release.json")["supportedContracts"]["galleryTemplate"],
+            metadata["contractVersion"],
         )
+
+    def test_gallery_consumers_resolve_the_schema_from_the_machine_contract(self) -> None:
+        from scripts.produce_meme_template.template_test import (
+            GALLERY_SCHEMA_PATH as TEMPLATE_TEST_SCHEMA_PATH,
+        )
+        from scripts.produce_meme_template.workflow_core import (
+            GALLERY_SCHEMA_PATH as WORKFLOW_SCHEMA_PATH,
+        )
+
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        expected = (
+            ROOT
+            / rules["releaseManagementContract"]["gallerySnapshotRelativePath"]
+        )
+        self.assertEqual(expected, WORKFLOW_SCHEMA_PATH)
+        self.assertEqual(expected, TEMPLATE_TEST_SCHEMA_PATH)
+
+    def test_runtime_semantics_field_names_have_one_machine_mapping(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        schema_path = (
+            ROOT
+            / rules["releaseManagementContract"]["gallerySnapshotRelativePath"]
+        )
+        schema = load(schema_path)
+        runtime_fields = set(
+            rules["runtimeSemanticsContract"]["fields"].values()
+        )
+        schema_fields = set(
+            schema["$defs"]["runtimeSemantics"]["properties"]
+        )
+
+        self.assertEqual(schema_fields, runtime_fields)
 
     def test_historical_experience_contract_has_one_complete_typed_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")

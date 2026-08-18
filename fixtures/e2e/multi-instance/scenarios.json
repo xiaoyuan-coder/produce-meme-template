@@ -67,10 +67,10 @@
       ["panel-c-before-d", "orderedBefore", "grid-panel-c", "grid-panel-d"]
     ],
     "approvedComponents": [
-      ["approved-person-a", "subject", "new-person-a", true, "person-asset-a", "pet_subject", "approved-panel-a"],
-      ["approved-person-b", "subject", "new-person-b", true, "person-asset-b", "pet_subject", "approved-panel-b"],
-      ["approved-person-c", "subject", "new-person-c", true, "person-asset-c", "pet_subject", "approved-panel-c"],
-      ["approved-person-d", "subject", "new-person-d", true, "person-asset-d", "pet_subject", "approved-panel-d"],
+      ["approved-person-a", "subject", "new-person-a", true, null, "pet_subject", "approved-panel-a"],
+      ["approved-person-b", "subject", "new-person-b", true, null, "pet_subject", "approved-panel-b"],
+      ["approved-person-c", "subject", "new-person-c", true, null, "pet_subject", "approved-panel-c"],
+      ["approved-person-d", "subject", "new-person-d", true, null, "pet_subject", "approved-panel-d"],
       ["approved-panel-a", "panel", null, false, null, "cushion_look", null],
       ["approved-panel-b", "panel", null, false, null, null, null],
       ["approved-panel-c", "panel", null, false, null, null, null],
@@ -84,7 +84,7 @@
     ],
     "approvedTargetComponents": ["approved-person-a", "approved-person-b", "approved-person-c", "approved-person-d"],
     "approvedStableComponents": ["approved-panel-a", "approved-panel-b", "approved-panel-c", "approved-panel-d"],
-    "expectedCounts": [4, 4, 4, 3]
+    "expectedCounts": [4, 4, 0, 3]
   },
   "repeatedPet": {
     "fixtureDirectory": "repeated-pet",

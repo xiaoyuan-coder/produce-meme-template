@@ -1,16 +1,16 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.16.2",
-  "contentSha256": "ae47d858a99da6b7db29cdcc788701e8002bc9fbea102f8aa510eadc7cea4860",
+  "schemaVersion": "0.17.0",
+  "contentSha256": "1571150b60d641be4a2f21904384a22ba7e6f88d4c66e397dff4b5475c7bddb1",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,
     "titleSurvivesMaximumDifference": true,
     "slotSuggestionsSameAxisAndGranularity": true,
-    "instructionScopeValid": true,
-    "hiddenLayersResponsibilitiesSeparated": true,
     "identityNeutralDefaultsValid": true,
-    "visibleTextClassificationValid": true
+    "visibleTextClassificationValid": true,
+    "runtimeSemanticsScopeValid": true,
+    "runtimeSemanticsResponsibilitiesSeparated": true
   },
   "evidence": {
     "promptResolutionCases": [
@@ -34,21 +34,6 @@
       "held_object",
       "indoor_mood"
     ],
-    "instructionScopeReview": {
-      "allowedSections": [
-        "媒介",
-        "模板卖点",
-        "可选色彩"
-      ],
-      "outOfScopeContentDetected": false,
-      "evidence": "仅描述室内生活方式摄影、手持接触卖点和可编辑光线"
-    },
-    "hiddenLayerResponsibilityReview": {
-      "lockedConstraintsRole": "呈现维度",
-      "preserveRole": "语义锚点",
-      "overlapDetected": false,
-      "evidence": "逐项比较后未发现职责重复或整图复述"
-    },
     "identityNeutralityReview": {
       "applicable": false,
       "identitySpecificDefaultDetected": false,
@@ -84,7 +69,22 @@
       "fixedRegionLeakIds": [],
       "allVisibleTextClassified": true,
       "evidence": "独立复核全部可见文字区域的角色、价值类别与处理决定"
+    },
+    "runtimeSemanticsScopeReview": {
+      "requiredFields": [
+        "version",
+        "targetInstances",
+        "inputBindings",
+        "visualContract"
+      ],
+      "outOfScopeContentDetected": false,
+      "evidence": "仅描述室内生活方式摄影、手持接触卖点和可编辑光线"
+    },
+    "runtimeSemanticsResponsibilityReview": {
+      "targetBindingSeparationValid": true,
+      "visualContractOpenContentSafe": true,
+      "evidence": "逐项比较后未发现职责重复或整图复述"
     }
   },
-  "observedContentSha256": "ae47d858a99da6b7db29cdcc788701e8002bc9fbea102f8aa510eadc7cea4860"
+  "observedContentSha256": "1571150b60d641be4a2f21904384a22ba7e6f88d4c66e397dff4b5475c7bddb1"
 }

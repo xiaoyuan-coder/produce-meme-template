@@ -43,10 +43,10 @@
 | D25 | 中性标题与最大差异输入测试 | 数据语义边界 | ADR 0018；用户文案 reference 与标题 fixtures | 复合覆盖 |
 | D26 | Prompt Template 包含结构化槽位和自由编辑内容 | 用户内容合同 | ADR 0006；Prompt compiler 与 fixtures | 复合覆盖 |
 | D27 | Prompt Template 拥有最终用户内容权限 | 用户内容合同 | ADR 0006；hidden conflict auditor | 复合覆盖 |
-| D28 | inputSchema 和 Prompt Enhancement 从中间模型编译 | 机器合同 | 模板 JSON 编译 reference、正式 Schema 与 compiler | 规则落点已指定 |
-| D29 | lockedConstraints 与 preserve 分工并执行冲突审计 | 可变编译规则 | 模板 JSON 编译 reference 与 conflict fixtures | 规则落点已指定 |
+| D28 | inputSchema 和 runtimeSemantics 从中间模型编译 | 机器合同 | ADR 0022；模板 JSON 编译 reference、v2 Schema 与 compiler | 复合覆盖 |
+| D29 | targetInstances、inputBindings 与 visualContract 分工并执行开放内容冲突审计 | 可变编译规则 | ADR 0022；模板 JSON 编译 reference 与 conflict fixtures | 复合覆盖 |
 | D30 | 正式 JSON 使用字段白名单 | 数据合同 | ADR 0010；正式投影 compiler | 复合覆盖 |
-| D31 | `image.extract` 只承担简短 Schema 留档 | 数据合同适配 | ADR 0009、0010；正式 Schema 与 fixture | 复合覆盖 |
+| D31 | v2 删除 `image.extract` 和手写 `promptEnhancement` | 数据合同适配 | ADR 0022；v2 Schema 与 fixture | 复合覆盖 |
 | D32 | 旧生产 metadata 进入 sidecar | 数据边界 | ADR 0010；正式投影 compiler 与 sidecar Schema | 复合覆盖 |
 | D33 | 使用 `cover`，拒绝 `coverUrl` 双写 | 上游合同 | ADR 0008；ADR 0007 已取代 | ADR 已覆盖 |
 | D34 | 只上传确认模板图并将同一 URL 双字段回填 | 外部副作用与合同 | ADR 0008、0013；OSS finalizer contract | 复合覆盖 |

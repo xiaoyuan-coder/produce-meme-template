@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+from tests.fixture_contracts import rebuild_runtime_targets
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -247,6 +248,20 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         analysis["neutralDescription"] = self.scenario["neutralDescription"]
         subject_slot = analysis["slotCandidates"][0]
         scene_replacement = self.scenario["operationRole"] == "sceneReplace"
+        ordered_content_group = self.scenario["operationRole"] == "orderedSet"
+        if ordered_content_group:
+            subject_slot["type"] = RULES["slotCompilationContract"]["slotTypes"]["freePrompt"]
+            subject_slot["semanticRole"] = RULES["slotCompilationContract"]["semanticRoles"]["sceneContent"]
+            analysis["subjectSlotOmissionEvidence"] = {
+                "reviewed": True,
+                "valueGates": {
+                    "userMotivation": True,
+                    "visuallyVisible": True,
+                    "modelControllable": True,
+                    "mechanismPreserved": False,
+                },
+                "reason": "v2 将四个独立身份位作为有序内容组编辑，不合并为单主体上传。",
+            }
         replacement_slot = analysis["slotCandidates"][2] if scene_replacement else subject_slot
         replacement_slot["defaultValue"] = self.scenario["replacementValue"]
         replacement_slot["suggestions"] = self.scenario["replacementSuggestions"]
@@ -323,7 +338,7 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         )
         if self.approved_mutator:
             self.approved_mutator(analysis)
-        return analysis
+        return rebuild_runtime_targets(analysis, RULES)
 
     def audit_semantics(self, content: dict) -> dict:
         audit = super().audit_semantics(content)
@@ -406,10 +421,16 @@ class Issue9MultiInstanceOperationsTest(unittest.TestCase):
                 self.assertEqual(expected[3], counts[COUNT_FIELDS["controls"]])
                 if name == "multiPersonGrid":
                     formal = json.loads(result.gallery_template.read_text())
-                    subject_input = next(
+                    group_input = next(
                         item for item in formal["inputSchema"] if item["id"] == "pet_subject"
                     )
-                    self.assertEqual(4, subject_input["image"]["maxCount"])
+                    self.assertEqual("prompt", group_input["type"])
+                    self.assertEqual(
+                        "preserve_target_group",
+                        formal["runtimeSemantics"]["inputBindings"]["pet_subject"][
+                            "distributionPolicy"
+                        ],
+                    )
 
         def collapse_counts(analysis: dict) -> None:
             analysis["assetUnitAnalysis"][COUNT_FIELDS["visibleSubjects"]] = 1

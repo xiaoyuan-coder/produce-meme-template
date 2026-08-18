@@ -1,43 +1,15 @@
 {
-  "key": "layered-heart-anime-duo",
+  "key": "mutual-cheek-hold-couple-portrait",
+  "title": "两个人互相捧着脸",
+  "description": "两个人互相捧脸，肩膀紧紧贴着",
+  "cover": "https://assets.memebuy.cn/gallery/templates/efea6319-7078-45e0-b989-b8ce7809b3eb.png",
+  "referenceImage": "https://assets.memebuy.cn/gallery/templates/efea6319-7078-45e0-b989-b8ce7809b3eb.png",
+  "imageSize": "1152x896",
+  "imageN": 1,
+  "kind": "PROMPT",
   "status": "DRAFT",
-  "title": "双人住进分层爱心画框",
-  "description": "主肖像住进大爱心，另一人靠在左上",
-  "imageSize": "1024x1024",
-  "promptTemplate": "分层爱心画面中，{{ boy_subject | \"中央主体\" }}嵌入中央大爱心形成主肖像，{{ girl_subject | \"左上主体\" }}缩小后从外框左上方靠近，外围点缀{{ layered_hearts | \"右侧三颗粉色果冻爱心\" }}。",
+  "promptTemplate": "横向近距离双人肖像中，{{ girl_subject | \"女生\" }}位于左侧并微笑望向镜头，{{ boy_subject | \"男生\" }}位于右侧闭眼微笑；两个人肩部与脸颊贴近，女生右手捧住男生左侧脸颊，男生左手捧住女生右侧脸颊。",
   "inputSchema": [
-    {
-      "id": "boy_subject",
-      "type": "subject",
-      "label": "男生",
-      "required": false,
-      "resolutionStrategy": "image_over_text",
-      "text": {
-        "placeholder": "描述男生",
-        "allowCustom": true,
-        "defaultValue": "中央主体",
-        "suggestions": [
-          "眼镜男生",
-          "卷发男生",
-          "长发男生"
-        ]
-      },
-      "image": {
-        "enabled": true,
-        "promptValue": "用户上传图中的男生",
-        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
-        "extract": "提取男生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
-        "maxCount": 1,
-        "minWidth": 256,
-        "minHeight": 256,
-        "private": true,
-        "sourceOptions": [
-          "upload",
-          "recent_upload",
-          "asset_library"
-        ]
-      }
-    },
     {
       "id": "girl_subject",
       "type": "subject",
@@ -45,20 +17,18 @@
       "required": false,
       "resolutionStrategy": "image_over_text",
       "text": {
-        "placeholder": "描述女生",
         "allowCustom": true,
-        "defaultValue": "左上主体",
+        "defaultValue": "女生",
         "suggestions": [
-          "眼镜女生",
-          "卷发女生",
-          "短发女生"
+          "长发女孩女生",
+          "短发女生",
+          "卷发女生"
         ]
       },
       "image": {
         "enabled": true,
         "promptValue": "用户上传图中的女生",
-        "hint": "上传1张清晰主体图，按模板参考图的视觉媒介与区域职责完整重建",
-        "extract": "提取女生的可辨识身份特征，并在模板参考图的媒介、造型与构图体系中完整重绘。",
+        "hint": "上传1张清晰主体图，用于替换“女生”的身份特征",
         "maxCount": 1,
         "minWidth": 256,
         "minHeight": 256,
@@ -71,43 +41,114 @@
       }
     },
     {
-      "id": "layered_hearts",
-      "type": "prompt",
-      "label": "立体爱心",
-      "placeholder": "输入立体爱心",
+      "id": "boy_subject",
+      "type": "subject",
+      "label": "男生",
       "required": false,
-      "suggestions": [
-        "蓝紫渐变果冻爱心",
-        "红色玻璃感爱心",
-        "粉黄星光爱心"
-      ]
+      "resolutionStrategy": "image_over_text",
+      "text": {
+        "allowCustom": true,
+        "defaultValue": "男生",
+        "suggestions": [
+          "男生",
+          "短发男生",
+          "卷发男生"
+        ]
+      },
+      "image": {
+        "enabled": true,
+        "promptValue": "用户上传图中的男生",
+        "hint": "上传1张清晰主体图，用于替换“男生”的身份特征",
+        "maxCount": 1,
+        "minWidth": 256,
+        "minHeight": 256,
+        "private": true,
+        "sourceOptions": [
+          "upload",
+          "recent_upload",
+          "asset_library"
+        ]
+      }
     }
   ],
-  "promptEnhancement": {
-    "stageKey": "gallery.prompt_rewrite",
-    "instruction": "媒介：高饱和动漫线稿，干净闭合描边与赛璐璐平涂，立体果冻质感的圆润高光与柔软阴影，人物为大头短身比例。卖点：大爱心当容器把一人框成中央大头肖像，另一人缩小成小全身从画框外靠过来，一大一小形成层级反差。色彩：沿用模板参考图的金蓝粉配色与高光阴影层级。",
-    "referenceField": "referenceImage",
-    "lockedConstraints": [
-      "沿用参考图的画幅、裁切、留白、镜头景别与元素位置比例",
-      "沿用参考图的媒介质感与材质表现",
-      "沿用参考图的主体造型比例、轮廓概括与艺术夸张方式",
-      "沿用参考图的前景背景层级、遮挡关系与阅读顺序"
+  "preprocessSteps": [],
+  "runtimeSemantics": {
+    "version": 1,
+    "targetInstances": [
+      {
+        "id": "left_girl_portrait",
+        "kind": "identity_subject",
+        "role": "左侧近景女生",
+        "region": "画面左半部的头肩与上半身区域"
+      },
+      {
+        "id": "right_boy_portrait",
+        "kind": "identity_subject",
+        "role": "右侧近景男生",
+        "region": "画面右半部的头肩与上半身区域"
+      },
+      {
+        "id": "fixed_pink_grid",
+        "kind": "content_element",
+        "role": "粉红格纹背景、白色闪光和爱心装饰",
+        "region": "人物后方及画面四周"
+      }
     ],
-    "preserve": [
-      "大爱心容器中的中央大头肖像与左上小全身人物形成一大一小的层级反差"
-    ],
-    "output": {
-      "format": "json",
-      "promptField": "finalPrompt"
+    "inputBindings": {
+      "girl_subject": {
+        "operation": "replace_identity",
+        "targetIds": [
+          "left_girl_portrait"
+        ],
+        "bindingPolicy": "one_to_one",
+        "renderingMode": "illustration_redraw",
+        "allowedSourceGrouping": [
+          "single_subject"
+        ],
+        "groupToSinglePolicy": "reject"
+      },
+      "boy_subject": {
+        "operation": "replace_identity",
+        "targetIds": [
+          "right_boy_portrait"
+        ],
+        "bindingPolicy": "one_to_one",
+        "renderingMode": "illustration_redraw",
+        "allowedSourceGrouping": [
+          "single_subject"
+        ],
+        "groupToSinglePolicy": "reject"
+      }
+    },
+    "visualContract": {
+      "medium": "明显卡通化的精细数码人物插画，以干净深褐闭合线稿、平滑哑光色块、少量两级柔和渐层和整齐白色贴纸外轮廓呈现",
+      "styleTraits": [
+        "脸部采用拉长的漫画轮廓、杏仁形眼睛、简化鼻口和暖色腮红，五官保持插画化概括",
+        "头发以连续的图形化大色块、成束发片和少量高光线表现，线条密度与身体一致",
+        "皮肤、头发、手部与服装共享同一闭合描边、色块层级和哑光数码质感",
+        "人物外沿保留粗细均匀的白色贴纸边，背景使用规整粉红网格与扁平闪光图形"
+      ],
+      "composition": [
+        "沿用参考图的横向画幅、腰部以上裁切、紧密双人近景和四周白色留边",
+        "女生占画面左侧，男生占画面右侧，男生略高，两颗头相互靠拢并位于画面上半部",
+        "粉红网格矩形固定在人物后方，人物与白色贴纸外轮廓位于其前方"
+      ],
+      "relations": [
+        "两个上传身份分别一对一接管左右人物位，每个位置仅出现一个对应人物",
+        "女生右手完整贴合并承托男生左侧脸颊，男生左手完整贴合并承托女生右侧脸颊，手掌、手指与脸部保持清楚的接触和遮挡",
+        "两人肩部贴近；女生微笑望向镜头，男生闭眼微笑，形成对称亲密互动",
+        "服装类别、领口轮廓与大色块沿用参考图角色位，上传图只提供人物身份线索"
+      ],
+      "colorAndLight": [
+        "沿用珊瑚粉网格背景、暖棕肤发色、黑灰服装和低反差暖光，人物阴影保持柔和且层级简洁"
+      ]
     }
   },
   "metadata": {
     "tags": [
-      "赛璐璐手绘",
-      "爱心",
-      "双人"
+      "互相捧脸",
+      "情侣近景",
+      "粉色贴纸"
     ]
-  },
-  "cover": "https://assets.memebuy.cn/gallery/templates/02bf2632-64d1-4e39-bdc7-5f97faf85a0d.png",
-  "referenceImage": "https://assets.memebuy.cn/gallery/templates/02bf2632-64d1-4e39-bdc7-5f97faf85a0d.png"
+  }
 }
