@@ -45,6 +45,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - E01–E39 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
 - 六类真实影子样本、未见图前向测试、发布 readiness 报告和首个稳定版本冻结读取 [真实影子批次与稳定版发布准备合同](references/release-readiness.md)。
 - 创建、迁移、审查或独立测试 Gallery Template JSON，以及 P3–P8 的槽位、Prompt Template、runtimeSemantics 和正式投影，完整读取 [正式模板编译合同](references/gallery-template-compiler.md)。
+- P3–P6 判断模板身份、编辑权限、subject 身份特征继承范围，或编写标题、槽位全部属性、Prompt Template、target/binding 与逐图画风约束时，完整读取 [模板身份、编辑权限与正式字段编写规范](references/template-authoring.md)。
 - P3–P6 遇到可见文字、文字密集海报或文字槽时读取 [可见文字区域与文字槽合同](references/visible-text-contract.md)。
 - 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json`。
 

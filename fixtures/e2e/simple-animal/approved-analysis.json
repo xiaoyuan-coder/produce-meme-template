@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "一只短腿小动物蜷卧在暖黄色软垫上",
     "两只前爪搭住垫边",
@@ -130,6 +130,13 @@
     }
   ],
   "neutralTitle": "软垫上的困倦瞬间",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题只描述软垫承托与困倦情绪，替换动物、软垫外观和氛围后仍自然成立"
+  },
   "neutralDescription": "主体蜷卧在软垫上，侧面光线强化安静又疲惫的神态",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}蜷卧在{{ cushion_look | \"暖黄色软垫\" }}上，前爪搭住垫边，{{ room_mood | \"午后窗光\" }}从侧面照入，背景保留安静的客厅和轻微景深。",
   "freeEditableContent": [
@@ -172,6 +179,11 @@
         "垂耳兔",
         "小羊"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
+        "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
+        "reason": "蜷卧和搭爪动作构成模板核心玩法"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -252,19 +264,17 @@
       {"id": "approved-room", "kind": "content_element", "role": "室内背景与侧面光线", "region": "主体后方及画面四周"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "柔和低饱和的写实数码插画，短毛与织物保留细腻颗粒",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "短腿主体采用圆润体块和柔软短毛刻画，承托物呈蓬松织物质感"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "横幅近景，主体蜷卧在画面中央偏下，承托物位于胸腹下方，室内环境退居后景"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "两只前爪搭住承托物边缘，胸腹压住表面，主体阴影和反光轮廓同步"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }

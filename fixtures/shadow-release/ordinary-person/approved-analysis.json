@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "一位短发青年以头肩肖像位于画面中央",
     "人物正面看向镜头并露出轻微笑容",
@@ -75,6 +75,13 @@
     }
   ],
   "neutralTitle": "旧相纸里的微笑肖像",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题保留旧相纸媒介、微笑和肖像用途，替换人物身份后仍成立"
+  },
   "neutralDescription": "人物以头肩构图正面微笑，灰阶布光、深色背景与老相纸边缘共同保留年代感",
   "promptTemplate": "一位{{ portrait_subject | \"短发青年\" }}以头肩肖像位于画面中央，保留{{ portrait_frame | \"竖幅老相纸边框\" }}，使用{{ studio_tone | \"柔和灰阶布光\" }}与深色背景，人物正面看向镜头并轻微微笑。",
   "freeEditableContent": [
@@ -112,6 +119,11 @@
         "眼镜青年",
         "长发青年"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "肤色", "发型", "服装", "表情"],
+        "keepFromTemplate": ["正面居中的头肩肖像姿态"],
+        "reason": "正面头肩构图构成模板核心结构"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -235,19 +247,17 @@
       {"id": "fixture-component-2", "kind": "content_element", "role": "深色灰阶影棚背景", "region": "人物头肩后方的整个背景区域"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "老相纸质感的写实头肩肖像摄影，保留颗粒、暗角和柔和面部层次",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "头肩人物使用细腻相纸颗粒，深色背景与旧相纸边缘形成年代感"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "竖幅头肩构图，人物正面居中，头顶和双肩留有窄边，暗角围绕四边"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "头部、颈部与双肩保持同一人物身份，人物轮廓与深色背景清楚分离"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }

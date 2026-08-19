@@ -225,9 +225,28 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                     scenario["replacementValue"],
                     *scenario["subjectSuggestions"],
                 ],
+                "identityInheritanceDecision": {
+                    "inheritFromUpload": [
+                        "可辨认身份特征",
+                        "肤色",
+                        "发型",
+                        "服装",
+                        "表情",
+                        "动作",
+                    ],
+                    "keepFromTemplate": [],
+                    "reason": "当前身份路由 fixture 没有额外的核心玩法特征例外",
+                },
             }
         )
         analysis["neutralTitle"] = "多重光影里的主角时刻"
+        analysis["titleEvidence"] = {
+            "templateGrounded": True,
+            "usageMotivation": True,
+            "spokenNaturalness": True,
+            "slotPortability": True,
+            "evidence": "标题只保留当前画面的主角、多重派生实例和光影机制，替换人物后仍成立",
+        }
         analysis["neutralDescription"] = "中央人物与重复剪影形成层次，光影和边框保留戏剧感"
         analysis["promptTemplate"] = (
             f'一位{{{{ portrait_subject | "{scenario["subjectDefault"]}" }}}}站在画面中央，'
@@ -255,11 +274,11 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
         )
         analysis["runtimeSemantics"] = {
             "visualContract": {
-                "medium": "保持确认模板图的统一摄影或插画质感",
-                "styleTraits": ["保持轮廓方式与细节密度"],
-                "composition": ["保持画幅、主体占比与重复实例的层级"],
-                "relations": ["保持前后遮挡、接触边界与派生实例的统一职责"],
-                "colorAndLight": ["保持明暗层级并服从开放输入"],
+                "medium": "人物主题海报式数字合成，中央人物和派生实例边缘清晰",
+                "styleTraits": ["人物轮廓完整，重复、倒影和阴影实例具有一致的造型细节"],
+                "composition": ["主人物位于画面中央，重复实例依附主体形成清晰的前后层级"],
+                "relations": ["阴影、倒影和重复实例与中央人物共享同一造型并保留遮挡边界"],
+                "colorAndLight": [],
             }
         }
         analysis["tags"] = ["人物", "光影", "多重实例"]

@@ -245,6 +245,16 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
             "图片操作后非目标区域保持稳定",
         ]
         analysis["neutralTitle"] = self.scenario["neutralTitle"]
+        analysis["titleEvidence"] = {
+            "templateGrounded": True,
+            "usageMotivation": True,
+            "spokenNaturalness": True,
+            "slotPortability": True,
+            "evidence": (
+                f"标题只概括当前场景的可见机制："
+                f"{self.scenario['mechanismSetup']}；替换所有开放内容后仍成立"
+            ),
+        }
         analysis["neutralDescription"] = self.scenario["neutralDescription"]
         subject_slot = analysis["slotCandidates"][0]
         scene_replacement = self.scenario["operationRole"] == "sceneReplace"
@@ -252,6 +262,7 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         if ordered_content_group:
             subject_slot["type"] = RULES["slotCompilationContract"]["slotTypes"]["freePrompt"]
             subject_slot["semanticRole"] = RULES["slotCompilationContract"]["semanticRoles"]["sceneContent"]
+            subject_slot.pop("identityInheritanceDecision", None)
             analysis["subjectSlotOmissionEvidence"] = {
                 "reviewed": True,
                 "valueGates": {

@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "四组旅人分别位于左上、右上、左下、右下四格褪色照片",
     "每格人物组、照片边框和二乘二阅读顺序可逐项识别",
@@ -161,6 +161,13 @@
     }
   ],
   "neutralTitle": "四格旅行档案",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题锦括四格排列和旅行档案机制，不依赖任一开放人物或场景默认值"
+  },
   "neutralDescription": "四组旅人按二乘二面板顺序组成褪色档案拼贴，每个上传单元与实际控件计数一致。",
   "promptTemplate": "将{{ panel_subjects | \"四组旅人\" }}分别放入左上、右上、左下、右下四格照片，保留{{ panel_frame | \"窄边褪色相纸框\" }}与固定阅读顺序，并以{{ archive_tone | \"低饱和棕褐档案色\" }}统一画面。四格边界清楚，人物组不跨格，旧相纸颗粒与划痕连续。",
   "freeEditableContent": [
@@ -327,19 +334,17 @@
       {"id": "approved-grid-scene", "kind": "content_element", "role": "四格档案的整体场景色调", "region": "四个分格后方及画面四周"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "褪色相纸与档案纸组合的旅行照片拼贴，保留颗粒、折痕和纸边",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "四格照片共享低细节纪实摄影质感，每格相纸边缘清晰且磨损程度一致"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "正方形画布采用二乘二等分格，四组人物依次位于左上、右上、左下、右下"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "四个分格保持完整阅读链和独立人物边界，每格人物均位于各自相纸框内"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   },
   "subjectSlotOmissionEvidence": {

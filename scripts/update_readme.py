@@ -95,6 +95,7 @@ def render() -> str:
 
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
 - 高价值内容进入 `inputSchema`；可全文编辑且无需主动开槽的内容保留在 `promptTemplate`。
+- subject 图片默认继承用户上传图的清晰可见身份特征；只有核心玩法特征沿用模板值。
 - `runtimeSemantics` 负责目标定位、输入绑定和跨编辑保持的视觉事实。
 - 正式业务 JSON 与生产 sidecar 分离；下游只读取 `gallery-template.json`。
 - T1 是现成正式 JSON 的独立生图测试入口，不属于四个生产阶段。
@@ -150,7 +151,7 @@ python3 scripts/produce.py \\
 python3 scripts/release_tool.py --help
 ```
 
-完整的 Agent 路由读取 [`SKILL.md`](SKILL.md)。生产边界读取 [`references/vertical-slice-runtime.md`](references/vertical-slice-runtime.md)，换图与模板图验收读取 [`references/replacement-spec.md`](references/replacement-spec.md)，数据编译读取 [`references/template-data-compilation.md`](references/template-data-compilation.md)。
+完整的 Agent 路由读取 [`SKILL.md`](SKILL.md)。生产边界读取 [`references/vertical-slice-runtime.md`](references/vertical-slice-runtime.md)，换图与模板图验收读取 [`references/replacement-spec.md`](references/replacement-spec.md)，模板身份、槽位属性、标题、Prompt 和 runtimeSemantics 读取 [`references/template-authoring.md`](references/template-authoring.md)，数据编译读取 [`references/template-data-compilation.md`](references/template-data-compilation.md)。
 
 ## 环境与凭证
 

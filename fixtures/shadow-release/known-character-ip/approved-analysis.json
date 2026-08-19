@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "一只白色长耳充气兔角色站在展会大厅中央",
     "角色穿红色背心、蓝色领结并手持怀表",
@@ -83,6 +83,13 @@
     }
   ],
   "neutralTitle": "展会大厅里的奇趣角色",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题保留展会大厅和奇趣角色的可见机制，未锁定来源 IP 身份"
+  },
   "neutralDescription": "夸张充气角色站在会场中央，地面接触、展位结构与旁观人群共同保留现场感",
   "promptTemplate": "一个{{ character_subject | \"白兔充气角色\" }}全身站在画面中央的{{ convention_floor | \"灰色展厅地面\" }}上，保留{{ convention_mood | \"明亮会展顶灯\" }}、展位建筑与旁观人群，角色底部完整接触地面。",
   "freeEditableContent": [
@@ -120,6 +127,11 @@
         "小王子",
         "胡桃夹子王子"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "角色服装与必要配饰", "表情"],
+        "keepFromTemplate": ["完整站立并与地面稳定接触的动作"],
+        "reason": "站立落地关系构成模板核心结构"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -243,19 +255,17 @@
       {"id": "fixture-component-2", "kind": "content_element", "role": "建筑、展位与旁观人群构成的会场", "region": "主体后方及画面四周"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "展会现场写实摄影，充气材质保留柔和高光与表面褶皱",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "角色使用饱满充气体积、清晰轮廓和织物表面，背景人群细节较低"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "完整角色立于画面中央，脚底接触下方会场平面，展位和建筑退居后景"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "角色双脚稳定落地，手持道具贴合手部，服装附件与角色整体保持一致"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }

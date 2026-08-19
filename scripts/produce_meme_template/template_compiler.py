@@ -435,13 +435,84 @@ def _compile_editable_spec(
     analysis: dict[str, Any], rules: dict[str, Any], plan: dict[str, Any]
 ) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
+    title_contract = rules["titleAuthoringContract"]
+    title_gate_fields = set(title_contract["gateFields"].values())
+    title_evidence = analysis.get(title_contract["analysisField"])
+    title_evidence_valid = bool(
+        isinstance(title_evidence, dict)
+        and set(title_evidence)
+        == {*title_gate_fields, title_contract["explanationField"]}
+        and all(title_evidence.get(field) is True for field in title_gate_fields)
+        and isinstance(
+            title_evidence.get(title_contract["explanationField"]), str
+        )
+        and title_evidence[title_contract["explanationField"]].strip()
+    )
+    if not title_evidence_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "标题必须通过当前确认图的事实落地、使用动机、口语自然度和槽位可迁移性门禁。",
+            {},
+        )
     value_gate_roles = tuple(slot_contract["valueGateRoles"].values())
+    subject_optional_authoring_fields = tuple(
+        slot_contract["subjectInputOptionalAuthoringFields"].values()
+    )
     allowed_semantic_roles = {
         *slot_contract["semanticRoles"].values(),
         *slot_contract["personAttributeRoles"].values(),
     }
     subject_role = slot_contract["semanticRoles"]["primarySubject"]
     subject_upload_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    inheritance_contract = slot_contract["identityInheritanceDecision"]
+    inheritance_field = inheritance_contract["authoringField"]
+    inheritance_fields = inheritance_contract["fields"]
+
+    def identity_inheritance_is_valid(slot: dict[str, Any]) -> bool:
+        decision = slot.get(inheritance_field)
+        if slot.get("type") != subject_upload_type:
+            return decision is None
+        inherited = (
+            decision.get(inheritance_fields["inheritFromUpload"])
+            if isinstance(decision, dict)
+            else None
+        )
+        fixed = (
+            decision.get(inheritance_fields["keepFromTemplate"])
+            if isinstance(decision, dict)
+            else None
+        )
+        reason = (
+            decision.get(inheritance_fields["reason"])
+            if isinstance(decision, dict)
+            else None
+        )
+
+        def unique_clean_strings(value: Any, *, allow_empty: bool) -> bool:
+            return bool(
+                isinstance(value, list)
+                and (allow_empty or value)
+                and all(
+                    isinstance(item, str) and item and item == item.strip()
+                    for item in value
+                )
+                and len(value) == len(set(value))
+            )
+
+        return bool(
+            isinstance(decision, dict)
+            and set(decision) == set(inheritance_fields.values())
+            and unique_clean_strings(inherited, allow_empty=False)
+            and inheritance_contract["requiredInheritedTrait"] in inherited
+            and unique_clean_strings(fixed, allow_empty=True)
+            and set(inherited).isdisjoint(fixed)
+            and isinstance(reason, str)
+            and reason.strip()
+            and reason == reason.strip()
+        )
+
     slot_candidates = analysis.get("slotCandidates")
     slot_candidates_valid = bool(
         isinstance(slot_candidates, list)
@@ -459,6 +530,19 @@ def _compile_editable_spec(
             and isinstance(slot.get("valueGates"), dict)
             and set(slot["valueGates"]) == set(value_gate_roles)
             and all(isinstance(slot["valueGates"][role], bool) for role in value_gate_roles)
+            and (
+                slot["type"] != subject_upload_type
+                or all(
+                    field not in slot
+                    or (
+                        isinstance(slot[field], str)
+                        and slot[field].strip()
+                        and len(slot[field]) <= 120
+                    )
+                    for field in subject_optional_authoring_fields
+                )
+            )
+            and identity_inheritance_is_valid(slot)
             for slot in slot_candidates
         )
         and len({slot["id"] for slot in slot_candidates}) == len(slot_candidates)
@@ -468,7 +552,7 @@ def _compile_editable_spec(
             rules,
             "blocked",
             "contractFailure",
-            "槽位候选必须提供合法默认值、推荐池和四道具名价值门禁。",
+            "槽位候选必须提供合法默认值、推荐池和四道具名价值门禁；subject 还必须裁决上传继承范围与模板固定例外。",
             {},
         )
     slots = [
@@ -1280,6 +1364,7 @@ def _compile_editable_spec(
         "schemaVersion": rules["schemaVersion"],
         "visualFactSourceSha256": analysis["visualFactSourceSha256"],
         "title": analysis["neutralTitle"],
+        title_contract["analysisField"]: copy.deepcopy(title_evidence),
         "description": analysis["neutralDescription"],
         "slots": slots,
         "slotSuggestionPools": {slot["id"]: slot["suggestions"] for slot in slots},
@@ -1314,7 +1399,10 @@ def _compile_editable_spec(
 
 
 def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
-    slot_types = rules["slotCompilationContract"]["slotTypes"]
+    slot_contract = rules["slotCompilationContract"]
+    slot_types = slot_contract["slotTypes"]
+    subject_fields = slot_contract["subjectInputOptionalAuthoringFields"]
+    subject_defaults = slot_contract["subjectInputDefaults"]
     multi_contract = rules["multiInstanceContract"]
     if slot["type"] == slot_types["primarySubjectUpload"]:
         image_max_count = slot[multi_contract["subjectImageMaxCountField"]]
@@ -1322,22 +1410,27 @@ def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any
             "id": slot["id"],
             "type": slot_types["primarySubjectUpload"],
             "label": slot["label"],
-            "required": False,
-            "resolutionStrategy": "image_over_text",
+            "required": subject_defaults["required"],
+            "resolutionStrategy": subject_defaults["resolutionStrategy"],
             "text": {
-                "allowCustom": True,
+                "allowCustom": subject_defaults["allowCustomText"],
                 "defaultValue": slot["defaultValue"],
                 "suggestions": slot["suggestions"],
             },
             "image": {
-                "enabled": True,
-                "promptValue": "用户上传的主体素材",
-                "hint": "上传1张清晰主体图，用于替换该位置的身份特征",
+                "enabled": subject_defaults["imageEnabled"],
+                "promptValue": slot.get(
+                    subject_fields["imagePromptValue"],
+                    subject_defaults["imagePromptValue"],
+                ),
+                "hint": slot.get(
+                    subject_fields["imageHint"], subject_defaults["imageHint"]
+                ),
                 "maxCount": image_max_count,
-                "minWidth": 256,
-                "minHeight": 256,
-                "private": True,
-                "sourceOptions": ["upload", "recent_upload", "asset_library"],
+                "minWidth": subject_defaults["imageMinimumWidth"],
+                "minHeight": subject_defaults["imageMinimumHeight"],
+                "private": subject_defaults["imagePrivate"],
+                "sourceOptions": subject_defaults["imageSourceOptions"],
             },
         }
     return {
@@ -1398,15 +1491,50 @@ def _runtime_visual_contract(
             for field in list_fields
         )
     )
-    if not valid:
+    forbidden_reference_fragments = rules["runtimeSemanticsContract"][
+        "visualGrounding"
+    ]["forbiddenReferenceOnlyFragments"]
+    generic_references = sorted(
+        fragment
+        for fragment in forbidden_reference_fragments
+        if any(fragment in value for value in _deep_strings(visual))
+    ) if isinstance(visual, dict) else []
+    if not valid or generic_references:
         raise _stop(
             rules,
             "blocked",
             "contractFailure",
-            "runtimeSemantics.visualContract 必须完整声明媒介、风格、构图、关系和色光。",
-            {},
+            "runtimeSemantics.visualContract 必须逐图声明可观察的媒介、风格、构图、关系和色光，不能只回指确认模板图。",
+            {"genericReferenceFragments": generic_references},
         )
     return copy.deepcopy(visual)
+
+
+def _identity_inheritance_relations(
+    editable: dict[str, Any], rules: dict[str, Any]
+) -> list[str]:
+    slot_contract = rules["slotCompilationContract"]
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    contract = slot_contract["identityInheritanceDecision"]
+    authoring_field = contract["authoringField"]
+    fields = contract["fields"]
+    relations: list[str] = []
+    for slot in editable["slots"]:
+        if slot["type"] != subject_type:
+            continue
+        decision = slot[authoring_field]
+        inherited = "、".join(decision[fields["inheritFromUpload"]])
+        relations.append(
+            f"图片模式下，输入 {slot['id']} 的{inherited}读取用户上传图，并按模板媒介重绘"
+        )
+        fixed_values = decision[fields["keepFromTemplate"]]
+        if fixed_values:
+            fixed = "、".join(fixed_values)
+            relations.append(
+                f"输入 {slot['id']} 的{fixed}沿用模板角色位；"
+                f"{decision[fields['reason']]}"
+            )
+    return relations
 
 
 def _compile_runtime_semantics(
@@ -1579,11 +1707,16 @@ def _compile_runtime_semantics(
                 "unboundIdentityTargetIds": unbound_identity_targets,
             },
         )
+    visual_contract = _runtime_visual_contract(analysis, rules)
+    relations_field = runtime_contract["visualContractFields"]["relations"]
+    visual_contract[relations_field].extend(
+        _identity_inheritance_relations(editable, rules)
+    )
     return {
         runtime_fields["version"]: runtime_contract["version"],
         runtime_fields["targetInstances"]: copy.deepcopy(authored_targets),
         runtime_fields["inputBindings"]: bindings,
-        runtime_fields["visualContract"]: _runtime_visual_contract(analysis, rules),
+        runtime_fields["visualContract"]: visual_contract,
     }
 
 

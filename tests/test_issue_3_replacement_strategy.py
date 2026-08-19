@@ -280,7 +280,14 @@ def approved_scenario(
             else slot_contract["slotTypes"]["freePrompt"]
         )
         analysis["neutralTitle"] = title
-        analysis["neutralDescription"] = "画面保持原有构图关系，并提供三个清晰可控的编辑入口"
+        analysis["titleEvidence"] = {
+            "templateGrounded": True,
+            "usageMotivation": True,
+            "spokenNaturalness": True,
+            "slotPortability": True,
+            "evidence": f"标题“{title}”只概括当前场景的可见机制，三个开放轴替换后仍成立",
+        }
+        analysis["neutralDescription"] = "主要可编辑区域位于画面核心，外围留白与空间层级清晰"
         analysis["hasPrimarySubject"] = subject_role == "subject"
         first, second, third = analysis["slotCandidates"]
         first.update(
@@ -295,6 +302,8 @@ def approved_scenario(
                 "titleForbiddenTokens": [subject_default, *subject_suggestions],
             }
         )
+        if subject_role != "subject":
+            first.pop("identityInheritanceDecision", None)
         second.update(
             {
                 "id": "supporting_look",
@@ -331,11 +340,17 @@ def approved_scenario(
             )
         analysis["runtimeSemantics"]["visualContract"].update(
             {
-                "medium": "沿用确认模板图的统一媒介",
-                "styleTraits": ["保持轮廓方式与细节密度"],
-                "composition": ["保持画幅、主体尺度与空间层级"],
-                "relations": ["保持核心内容与环境的空间关系"],
-                "colorAndLight": ["保持明暗层级并服从开放输入"],
+                "medium": (
+                    "平面文字海报设计，主文字字形边缘清晰"
+                    if subject_role == "text"
+                    else "写实环境摄影，前景与背景层次清晰"
+                    if subject_role == "scene"
+                    else "写实主题摄影，主要目标轮廓与环境边界清晰"
+                ),
+                "styleTraits": ["轮廓边缘干净，表面纹理与画面细节密度保持统一"],
+                "composition": ["主要可编辑区域位于画面核心，固定边界与外围留白形成清晰层级"],
+                "relations": ["被替换区域只接管已声明目标，固定环境与其他目标不接受身份扩散"],
+                "colorAndLight": [],
             }
         )
         if subject_role == "text":

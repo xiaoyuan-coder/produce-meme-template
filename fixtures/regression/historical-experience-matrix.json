@@ -171,25 +171,29 @@
       "topic": "主体槽逐图高价值评估",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 3. 模板身份与编辑权限"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/semanticRoles"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_audited_subject_omission_can_keep_two_other_high_value_slots", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]}]
     },
     {
       "experienceId": "E20",
-      "topic": "人物派生槽独立评估",
+      "topic": "人物派生槽与身份特征继承",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
-      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/personAttributeRoles"},
-      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_person_attributes_require_independent_value_and_stability_assessments", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/identity-routes/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"}]
+      "authority": {"path": "references/template-authoring.md", "anchor": "### 5.1 身份特征继承裁决"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/identityInheritanceDecision"},
+      "evidence": [
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_person_attributes_require_independent_value_and_stability_assessments", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/identity-routes/scenarios.json"], "expectedGateLocator": "/resultStates/blocked"},
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_subject_identity_inheritance_scope_compiles_into_runtime_relations_only", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]},
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_subject_identity_inheritance_scope_is_required_and_disjoint", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"], "expectedGateLocator": "/resultStates/blocked"}
+      ]
     },
     {
       "experienceId": "E21",
       "topic": "二至五槽预算与单槽例外",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 3. 模板身份与编辑权限"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotBudget"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_exhaustive_single_slot_exception_is_allowed_and_preserved_as_evidence", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]}]
     },
@@ -216,7 +220,7 @@
       "topic": "默认值保持短而可读",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 4. 槽位公共属性"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/defaultValuePreference"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_long_production_style_default_value_is_rejected", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/errorCodes/contractFailure"}]
     },
@@ -225,7 +229,7 @@
       "topic": "推荐项同轴同颗粒度且去重",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 4. 槽位公共属性"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/slotSuggestions"},
       "evidence": [{"testId": "tests.test_issue_3_replacement_strategy.Issue3ReplacementStrategyTest.test_slot_suggestions_cannot_repeat_the_default_or_each_other", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
     },
@@ -234,7 +238,7 @@
       "topic": "中性标题通过最大差异输入",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 7. 标题规范"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/maximumDifference"},
       "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_title_must_survive_maximum_difference_subject_input", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
     },
@@ -243,7 +247,7 @@
       "topic": "完整 Prompt 与两种编辑归一",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 2. 高价值槽位与 Prompt Template"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 8. Prompt Template 编译规范"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/prompt"},
       "evidence": [{"testId": "tests.test_issue_14_template_json_test.Issue14TemplateJsonTest.test_slot_and_free_edit_normalize_to_the_actual_generation_prompt", "polarity": "good-case", "fixturePaths": ["tests/test_issue_14_template_json_test.py"]}]
     },
@@ -252,7 +256,7 @@
       "topic": "用户字面权限不被隐藏层锁回",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. runtimeSemantics"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 8. Prompt Template 编译规范"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/runtimeSemanticsResponsibilities"},
       "evidence": [{"testId": "tests.test_issue_2_vertical_slice.Issue2VerticalSliceTest.test_hidden_constraints_cannot_lock_prompt_slot_or_free_content", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/errorCodes/contractFailure"}]
     },
@@ -270,7 +274,7 @@
       "topic": "visualContract 只保留视觉职责",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. runtimeSemantics"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 9. runtimeSemantics 编译规范"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/runtimeSemanticsContract/visualContractFields"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_instruction_scope_and_hidden_layer_responsibilities_are_enforced", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/resultStates/blocked"}]
     },
@@ -279,7 +283,7 @@
       "topic": "目标绑定与视觉合同职责分离",
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
-      "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 3. runtimeSemantics"},
+      "authority": {"path": "references/template-authoring.md", "anchor": "## 9. runtimeSemantics 编译规范"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/semanticAuditChecks/runtimeSemanticsResponsibilities"},
       "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_instruction_scope_and_hidden_layer_responsibilities_are_enforced", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/semantic-audit.json"], "expectedGateLocator": "/resultStates/blocked"}]
     },

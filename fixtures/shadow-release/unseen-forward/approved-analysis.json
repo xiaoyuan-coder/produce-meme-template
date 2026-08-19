@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "一只柯基犬坐在树根旁的地面上",
     "四肢稳定支撑身体",
@@ -130,6 +130,13 @@
     }
   ],
   "neutralTitle": "树根旁的安静瞬间",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题只使用当前图可见的树根、安静状态和瞬间性，替换主体、树根外观和林地光线后仍成立"
+  },
   "neutralDescription": "主体坐在树根旁的地面上，侧面光线强化平静专注的神态",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}坐在{{ ground_look | \"暖黄色地面\" }}上，四肢稳定支撑身体，{{ room_mood | \"柔和日光\" }}从侧面照入，背景保留户外林地和轻微景深。",
   "freeEditableContent": [
@@ -172,6 +179,11 @@
         "垂耳兔",
         "小羊"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
+        "keepFromTemplate": ["四肢落地并稳定支撑躯干的坐姿"],
+        "reason": "完整坐姿与地面接触构成模板核心结构"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -248,24 +260,22 @@
   "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd",
   "runtimeSemantics": {
     "targetInstances": [
-      {"id": "approved-animal-main", "kind": "identity_subject", "role": "软垫上蜷卧的中央主体", "region": "画面中央偏下的头部、躯干与前爪区域"},
-      {"id": "approved-ground", "kind": "content_element", "role": "承托主体的软垫", "region": "画面下半部、主体胸腹与前爪下方"},
-      {"id": "approved-room", "kind": "content_element", "role": "室内背景与侧面光线", "region": "主体后方及画面四周"}
+      {"id": "approved-animal-main", "kind": "identity_subject", "role": "树根旁坐立的中央动物主体", "region": "画面中央偏下的头部、躯干与四肢区域"},
+      {"id": "approved-ground", "kind": "content_element", "role": "承托主体四肢的林地地面", "region": "画面下半部、主体四肢与树根下方"},
+      {"id": "approved-room", "kind": "content_element", "role": "树根、林地背景与侧面日光", "region": "主体后方的树根及画面四周的户外林地"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "柔和自然光下的写实宠物摄影，毛发、树皮和土壤纹理清晰",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "主体使用真实短毛细节，树根与林地保留粗糙天然材质，远景轻微虚化"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "动物坐在画面中央偏下，树根位于侧后方，四肢完整落地，林地延伸到后景"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "四肢共同支撑躯干并接触地面，主体轮廓与树根保持前后分离"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "一只黄白柯基犬以近距离半身构图看向镜头",
     "大耳朵、白色鼻梁和黑色鼻头清楚可见",
@@ -83,10 +83,16 @@
     }
   ],
   "neutralTitle": "抬头看镜头的好奇瞬间",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题只使用可见的抬头、看镜头与好奇情绪，替换具体动物后仍成立"
+  },
   "neutralDescription": "动物以近距离半身构图抬头注视镜头，自然光、浅灰地面与红色斜线背景保留户外现场感",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}以近距离半身构图抬头看向镜头，身体下缘接触{{ ground_look | \"浅灰户外地面\" }}，{{ outdoor_mood | \"均匀自然日光\" }}照亮短毛，背景保留两条红色斜线和轻微景深。",
   "freeEditableContent": [
-    "抬头看向镜头",
     "背景保留两条红色斜线",
     "轻微景深"
   ],
@@ -125,6 +131,11 @@
         "垂耳兔",
         "小羊"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
+        "keepFromTemplate": ["抬头看向镜头的半身姿态"],
+        "reason": "抬头近景姿态构成模板核心玩法"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -206,19 +217,17 @@
       {"id": "approved-outdoor-background", "kind": "content_element", "role": "户外背景与自然光", "region": "主体后方及画面四周"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "自然光下的写实手机摄影，短毛与鼻部细节清晰",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "近距离镜头保留真实短毛、湿润鼻头和浅景深背景"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "竖向近景，动物头部与上半身居中，大耳接近画面上缘，承托面位于下方"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "双耳、鼻梁与鼻头保持同一面部结构，主体由下方承托面稳定支撑"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }

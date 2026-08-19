@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "updated_at": "2026-08-19",
-  "description": "在同一 Production Item 谱系中提供四个可恢复大阶段：换图执行 JSON、Fal API 模板图生成与确认、v2 模板数据包、OSS 上传回填后的最终 Gallery Template。",
+  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，并以逐图事实编译模板身份、槽位、上传身份特征继承范围、Prompt Template 与 runtimeSemantics。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -132,6 +132,7 @@
     "references/replacement-spec.md",
     "references/release-doctor-install.md",
     "references/shared-batch-policy.md",
+    "references/template-authoring.md",
     "references/template-image-gate.md",
     "references/template-json-test.md",
     "references/vertical-slice-runtime.md",

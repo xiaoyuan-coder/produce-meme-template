@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -759,6 +759,18 @@
       "composition": "composition",
       "relations": "relations",
       "colorAndLight": "colorAndLight"
+    },
+    "visualGrounding": {
+      "forbiddenReferenceOnlyFragments": [
+        "同上",
+        "保持原样",
+        "沿用确认模板图",
+        "保持确认模板图",
+        "保持原风格",
+        "维持原构图",
+        "与本批一致",
+        "高质量细节"
+      ]
     }
   },
   "semanticAuditChecks": {
@@ -814,6 +826,31 @@
       "visibleTextPrompt": "text",
       "freePrompt": "prompt"
     },
+    "subjectInputOptionalAuthoringFields": {
+      "imagePromptValue": "imagePromptValue",
+      "imageHint": "imageHint"
+    },
+    "identityInheritanceDecision": {
+      "authoringField": "identityInheritanceDecision",
+      "fields": {
+        "inheritFromUpload": "inheritFromUpload",
+        "keepFromTemplate": "keepFromTemplate",
+        "reason": "reason"
+      },
+      "requiredInheritedTrait": "可辨认身份特征"
+    },
+    "subjectInputDefaults": {
+      "required": false,
+      "resolutionStrategy": "image_over_text",
+      "allowCustomText": true,
+      "imageEnabled": true,
+      "imagePromptValue": "用户上传图中的主体",
+      "imageHint": "上传1张主体清晰的单主体图片",
+      "imageMinimumWidth": 256,
+      "imageMinimumHeight": 256,
+      "imagePrivate": true,
+      "imageSourceOptions": ["upload", "recent_upload", "asset_library"]
+    },
     "valueGateRoles": {
       "userDemand": "userMotivation",
       "visualVisibility": "visuallyVisible",
@@ -850,6 +887,16 @@
       "hardMaximum": 12,
       "exactVisibleTextMayExceed": true
     }
+  },
+  "titleAuthoringContract": {
+    "analysisField": "titleEvidence",
+    "gateFields": {
+      "templateGrounded": "templateGrounded",
+      "usageMotivation": "usageMotivation",
+      "spokenNaturalness": "spokenNaturalness",
+      "slotPortability": "slotPortability"
+    },
+    "explanationField": "evidence"
   },
   "visibleTextContract": {
     "analysisFields": {
@@ -1790,7 +1837,11 @@
       "E17": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
       "E18": [{"polarityRole":"goodCase","expectedGateLocator":null}],
       "E19": [{"polarityRole":"goodCase","expectedGateLocator":null}],
-      "E20": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E20": [
+        {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},
+        {"polarityRole":"goodCase","expectedGateLocator":null},
+        {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}
+      ],
       "E21": [{"polarityRole":"goodCase","expectedGateLocator":null}],
       "E22": [{"polarityRole":"goodCase","expectedGateLocator":null}],
       "E23": [{"polarityRole":"goodCase","expectedGateLocator":null}],
@@ -1830,19 +1881,19 @@
       "E16": "b9d784075717bc7a0aa8a4062181939cd4927b0e70722c8bf38df7dedb8e103a",
       "E17": "6ec1be99e823e4d935fbd5335305fbc2a2eeec68e08b1dde7b414fcdc29c9b69",
       "E18": "3af4ab187902031366a89787254cf361380eac4a6347b11853dfdb471f90b49a",
-      "E19": "c2cf89aa25ef91cdf392ad624531b8bdfeded0213f5fc30b3c1cdcca43f200b7",
-      "E20": "b682f85eead556cb03ac7baf7bad089f12e84be4d5a6ad971f5a5334567e6e89",
-      "E21": "c317ee858fafb72f998490c30a06e1eda9a172547229b2c37e9064f06dc2ab9c",
+      "E19": "e498c65c754bbbf4b778177970a166b68f8a5ab012e825930451a44dee50a8c5",
+      "E20": "5f7129a325e3ecfa453671b319e24aca85fe027b80abb5b0b65c995feb706461",
+      "E21": "e173e182fc5f2f466083f946a80f095ee9c8eef56967901d31609e5486d7b1e9",
       "E22": "3df4ba8238d4cef92384e4525b60078624205a712eea683478ccf7adcbad0c34",
       "E23": "180713208b6948fb8b3449cbd5bb394a6494ebc47a4f1990da3f5d116cdf5b5d",
-      "E24": "31f31bb30f4369bfb5f68fcb2c4c053876c9a6bd0d8a00df9f74c9a3981e9e26",
-      "E25": "0bfaa3185936b8803e7ba9b670704645fbd075b4c48cd93d77e30f0d081db884",
-      "E26": "46d6554dc490279902367a73124357f99f96fd8d4a5b8396a6ea1af38a9dfae2",
-      "E27": "372d7cafe621e0bb2a9672f3057b83213abe60195d46a806fa655eebf8964cf9",
-      "E28": "4ec8b85e454592148d93b13e8a21821671bfb45e3d6095b3f1dd05dca21cdfd9",
+      "E24": "34386f01a7055bfd409d537282acfe08076e50d150dca4e5a71b011087506f4b",
+      "E25": "278b7cdaf27e1ed853ca3a4d6916179b8fef37ea223cb1292994b4ba57a643bd",
+      "E26": "d1f0d2dda4000a7a9b8afcfab51007374e440005a1e9fdcf931fcaabbb7db23d",
+      "E27": "d7e3f49d8e64ecbe350c4e6c4043dbddcdaf8711db4d1b773f8bfc73e323415a",
+      "E28": "42488cbcd672365da89dc8f76190784ce718cdbe96a19c049f376a098da871c2",
       "E29": "ce51c3aaf48990e634dd8c9b0ea690ce98f16d1bc6936ac159554b810d285327",
-      "E30": "cabedca695261d19ff1a5a81bc8b99748fa2d91f9da6aa976a7dc1a9ae77efaa",
-      "E31": "5762d9c66ea82226117ede4958c24663e186815c44d318cda3cd8add62b7743a",
+      "E30": "4294771cc6ee29c0fb83dab67af4707dcff78e3fa58ce030b7de4c0f68bd1da4",
+      "E31": "80fdf42b6d3cf4c0bd5bfe64c612d43e03b937b96c2e087ef76c2f7a2bf14f93",
       "E32": "738ad6ae0d41823bd67df3a6b8b691527a1824c7ebe68d94709f53ee024c97f2",
       "E33": "026332c0bd23c864fb35f6863f65261cbe47d4120be8142e6ca72ea3804bab71",
       "E34": "b3f027e4d598ccf15a28f7396b6fa50d9d57436d4a1967ded37fabba983688db",

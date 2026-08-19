@@ -14,6 +14,7 @@ from tests.fixture_contracts import rebuild_approved_component_graph
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "fixtures" / "e2e" / "simple-animal"
+UNSEEN_FORWARD_FIXTURE = ROOT / "fixtures" / "shadow-release" / "unseen-forward"
 RULES = json.loads((ROOT / "contracts" / "machine-rules.json").read_text(encoding="utf-8"))
 FIXED_TIME = datetime.fromisoformat("2026-08-16T08:00:00+00:00")
 SLOT_CONTRACT = RULES["slotCompilationContract"]
@@ -21,6 +22,11 @@ VALUE_GATE_ROLES = SLOT_CONTRACT["valueGateRoles"]
 PERSON_KIND = SLOT_CONTRACT["subjectKinds"]["humanSubject"]
 NON_PERSON_KIND = SLOT_CONTRACT["subjectKinds"]["nonHumanSubject"]
 SUBJECT_ROLE = SLOT_CONTRACT["semanticRoles"]["primarySubject"]
+SUBJECT_TYPE = SLOT_CONTRACT["slotTypes"]["primarySubjectUpload"]
+SUBJECT_PROMPT_VALUE_FIELD, SUBJECT_HINT_FIELD = tuple(
+    SLOT_CONTRACT["subjectInputOptionalAuthoringFields"].values()
+)
+SUBJECT_DEFAULTS = SLOT_CONTRACT["subjectInputDefaults"]
 PERSON_ATTRIBUTE_ROLES = tuple(SLOT_CONTRACT["personAttributeRoles"].values())
 SINGLE_SLOT_REVIEW_AXES = tuple(SLOT_CONTRACT["singleSlotReviewAxes"].values())
 ASSET_COUNT_FIELDS = SLOT_CONTRACT["assetUnitCountFields"]
@@ -34,6 +40,9 @@ TEXT_ROLES = TEXT_CONTRACT["roles"]
 TEXT_ACTIONS = TEXT_CONTRACT["actions"]
 TEXT_VALUE_CLASSES = TEXT_CONTRACT["valueClasses"]
 TEXT_LANGUAGES = TEXT_CONTRACT["languageValues"]
+FORBIDDEN_VISUAL_REFERENCE_FRAGMENTS = RULES["runtimeSemanticsContract"][
+    "visualGrounding"
+]["forbiddenReferenceOnlyFragments"]
 
 
 def load_json(path: Path) -> dict:
@@ -239,6 +248,74 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["completed"], valid.state)
         editable = load_json(valid.output_dir / "editable-template-spec.json")
         self.assertEqual(set(PERSON_ATTRIBUTE_ROLES), set(editable["subjectAttributeAssessments"]))
+
+    def test_subject_identity_inheritance_scope_compiles_into_runtime_relations_only(self) -> None:
+        def decide_inheritance(analysis: dict) -> dict:
+            subject = next(
+                slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"] = {
+                "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
+                "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
+                "reason": "蜷卧和搭爪动作构成模板核心玩法",
+            }
+            return analysis
+
+        result = self.run_case("subject-identity-inheritance-scope", decide_inheritance)
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        formal = load_json(result.gallery_template)
+        editable_subject = next(
+            slot for slot in editable["slots"] if slot["type"] == SUBJECT_TYPE
+        )
+        formal_subject = next(
+            slot for slot in formal["inputSchema"] if slot["type"] == SUBJECT_TYPE
+        )
+        self.assertEqual(
+            {
+                "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
+                "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
+                "reason": "蜷卧和搭爪动作构成模板核心玩法",
+            },
+            editable_subject["identityInheritanceDecision"],
+        )
+        self.assertNotIn("identityInheritanceDecision", formal_subject)
+        self.assertIn(
+            "图片模式下，输入 pet_subject 的可辨认身份特征、毛色与花纹、表情读取用户上传图，并按模板媒介重绘",
+            formal["runtimeSemantics"]["visualContract"]["relations"],
+        )
+        self.assertIn(
+            "输入 pet_subject 的蜷卧姿态与前爪搭住软垫的动作沿用模板角色位；蜷卧和搭爪动作构成模板核心玩法",
+            formal["runtimeSemantics"]["visualContract"]["relations"],
+        )
+
+    def test_subject_identity_inheritance_scope_is_required_and_disjoint(self) -> None:
+        def remove_decision(analysis: dict) -> dict:
+            subject = next(
+                slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
+            )
+            subject.pop("identityInheritanceDecision")
+            return analysis
+
+        missing = self.run_case("subject-identity-inheritance-missing", remove_decision)
+        self.assertEqual(RULES["resultStates"]["blocked"], missing.state)
+        self.assertFalse((missing.output_dir / "editable-template-spec.json").exists())
+
+        def overlap_scope(analysis: dict) -> dict:
+            subject = next(
+                slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"] = {
+                "inheritFromUpload": ["可辨认身份特征", "服装"],
+                "keepFromTemplate": ["服装"],
+                "reason": "伪造重叠范围",
+            }
+            return analysis
+
+        overlap = self.run_case("subject-identity-inheritance-overlap", overlap_scope)
+        self.assertEqual(RULES["resultStates"]["blocked"], overlap.state)
+        self.assertFalse((overlap.output_dir / "editable-template-spec.json").exists())
 
     def test_subject_presence_and_kind_discriminators_are_required(self) -> None:
         for field in ("hasPrimarySubject", "subjectKind"):
@@ -501,6 +578,101 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
 
         duplicated = self.run_case("duplicated-hidden-responsibility", duplicated_hidden_responsibility)
         self.assertEqual(RULES["resultStates"]["blocked"], duplicated.state)
+
+    def test_subject_input_copy_accepts_optional_author_wording(self) -> None:
+        def custom_subject_copy(analysis: dict) -> dict:
+            subject = analysis["slotCandidates"][0]
+            subject[SUBJECT_PROMPT_VALUE_FIELD] = "用户上传图中的蜷卧小动物"
+            subject[SUBJECT_HINT_FIELD] = "上传1张单只小动物清晰照片，用于替换软垫上蜷卧的主体"
+            return analysis
+
+        result = self.run_case("custom-subject-input-copy", custom_subject_copy)
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        formal = load_json(result.gallery_template)
+        subject = next(item for item in formal["inputSchema"] if item["type"] == SUBJECT_TYPE)
+        self.assertEqual("用户上传图中的蜷卧小动物", subject["image"]["promptValue"])
+        self.assertEqual(
+            "上传1张单只小动物清晰照片，用于替换软垫上蜷卧的主体",
+            subject["image"]["hint"],
+        )
+        subject_text = next(
+            value
+            for value in subject.values()
+            if isinstance(value, dict) and "allowCustom" in value
+        )
+        self.assertNotIn("placeholder", subject_text)
+
+    def test_subject_input_uses_contract_defaults_when_optional_copy_is_absent(self) -> None:
+        def subject_without_optional_copy(analysis: dict) -> dict:
+            subject = analysis["slotCandidates"][0]
+            subject.pop(SUBJECT_PROMPT_VALUE_FIELD, None)
+            subject.pop(SUBJECT_HINT_FIELD, None)
+            return analysis
+
+        result = self.run_case(
+            "subject-input-with-contract-defaults", subject_without_optional_copy
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        formal = load_json(result.gallery_template)
+        subject = next(item for item in formal["inputSchema"] if item["type"] == SUBJECT_TYPE)
+        self.assertEqual(
+            SUBJECT_DEFAULTS["imagePromptValue"], subject["image"]["promptValue"]
+        )
+        self.assertEqual(SUBJECT_DEFAULTS["imageHint"], subject["image"]["hint"])
+
+    def test_visual_contract_rejects_generic_reference_only_style_language(self) -> None:
+        for index, forbidden_fragment in enumerate(FORBIDDEN_VISUAL_REFERENCE_FRAGMENTS):
+            with self.subTest(fragment=forbidden_fragment):
+                def generic_style_contract(analysis: dict) -> dict:
+                    analysis["runtimeSemantics"]["visualContract"]["medium"] = (
+                        forbidden_fragment
+                    )
+                    return analysis
+
+                result = self.run_case(
+                    f"generic-reference-only-style-{index}", generic_style_contract
+                )
+
+                self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+                self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+                self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_title_requires_all_current_image_authoring_gates(self) -> None:
+        def title_copied_without_grounding(analysis: dict) -> dict:
+            analysis["titleEvidence"]["templateGrounded"] = False
+            analysis["titleEvidence"]["evidence"] = "标题沿用上一张模板"
+            return analysis
+
+        result = self.run_case("title-without-current-image-grounding", title_copied_without_grounding)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_each_item_compiles_targets_and_style_from_its_own_approved_image(self) -> None:
+        request = load_json(UNSEEN_FORWARD_FIXTURE / "request.json")
+        request["sourceImage"] = str(
+            UNSEEN_FORWARD_FIXTURE / request["sourceImage"]
+        )
+
+        result = run_production(
+            request,
+            self.output_root,
+            DeterministicFixtureAdapters(UNSEEN_FORWARD_FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        formal = load_json(result.gallery_template)
+        current_item_semantics = json.dumps(
+            formal["runtimeSemantics"], ensure_ascii=False
+        )
+        self.assertIn("树根", current_item_semantics)
+        self.assertIn("林地", current_item_semantics)
+        for sibling_item_fact in ("软垫", "客厅", "蜷卧"):
+            self.assertNotIn(sibling_item_fact, current_item_semantics)
 
     def test_prompt_slots_require_nonempty_suggestion_pools(self) -> None:
         def empty_prompt_suggestions(analysis: dict) -> dict:

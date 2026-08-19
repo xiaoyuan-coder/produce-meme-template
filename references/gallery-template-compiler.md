@@ -1,12 +1,14 @@
 # 正式模板编译合同
 
+模板身份、编辑权限、标题、槽位全部属性、Prompt Template 与逐图 `runtimeSemantics` 的作者裁决统一读取 [模板身份、编辑权限与正式字段编写规范](template-authoring.md)。本文只定义这些作者事实进入确定性编译、四层验收和正式投影时的机器边界。
+
 ## 1. 视觉事实来源
 
 P3 以后只读取 Approved Template Image 的 SHA 绑定分析。Source Web Image 的身份、物种、文字和颜色作为 `forbiddenLegacyClaims` 参与泄漏检查，不参与标题、描述、槽位默认值、Prompt Template 或 `runtimeSemantics` 编译。
 
 ## 2. 高价值槽位与 Prompt Template
 
-槽位必须使用唯一、非空且符合冻结 Gallery Schema `inputId.pattern` 的 ID；placeholder 解析直接派生同一 Schema 模式。槽位同时通过用户动机、画面可见、模型可控和机制保持四道具名布尔门禁。常态预算读取 `contracts/machine-rules.json`，为 2–5 个且通常约 3 个。分析必须明确提供 `hasPrimarySubject` 布尔值和机器合同内的 `subjectKind`；人物判别必须与主体存在性一致。有明显主体时默认包含主体槽；省略时保存四道门禁逐项结果，至少一项失败并附理由。仅有一个高价值槽位时，必须穷尽复核主体、内容物、颜色、文字、服装、道具、场景和嵌套内容，保存完整且无重复的复核轴与例外理由。
+槽位必须使用唯一、非空且符合冻结 Gallery Schema `inputId.pattern` 的 ID；placeholder 解析直接派生同一 Schema 模式。作者侧四道价值门禁、槽位属性语义和单槽穷尽复核读取 `template-authoring.md`。subject 候选可选提供 `imagePromptValue/imageHint` 短文本，缺失时由机器合同回填通用单主体说明；`promptValue` 仅作为图片模式的中性 LLM 说明，`hint` 仅用于上传 UI，两者都不代替 target/binding。每个 subject 候选还必须提供 `identityInheritanceDecision`：默认继承上传图清晰可见的身份特征，只将参与模板核心玩法的特征列为模板固定例外。常态预算读取 `contracts/machine-rules.json`。分析必须明确提供 `hasPrimarySubject` 与机器合同内的 `subjectKind`，人物判别与主体存在性保持一致。
 
 人物的服装、造型、发型、姿势和颜色分别记录四道门禁、是否入槽和图像证据；入槽决定必须与门禁结论一致。每次 Approved Template Image 分析都必须提供 `componentGraph` 与 `assetUnitAnalysis`，分别计数可见主体、身份单元、上传素材和控件，不从其中一个数量推导其他数量；控件数最终必须与通过门禁的槽位数一致。组件图、容器和关系的详细规则读取 [多实例组件图与图片操作合同](multi-instance-image-operations.md)。
 
@@ -30,17 +32,19 @@ Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存
 
 ## 3. runtimeSemantics
 
-`runtimeSemantics.version` 固定为 `1`。Approved Template Image 分析必须逐个写出 `targetInstances` 的稳定 ID、可观察角色和明确空间区域；编译器保留这些作者事实，并与 Approved 组件图双向核对。subject 输入对应唯一 `identity_subject`，prompt 内容输入对应一个或一组 `content_element`；关键固定内容可以作为无输入绑定的 `content_element`。每个 input id 必须在 `inputBindings` 中出现且只能绑定类型匹配的目标。
+`runtimeSemantics.version` 固定为 `1`。Approved Template Image 分析必须逐个写出 `targetInstances` 的稳定 ID、可观察角色和明确空间区域；编译器保留这些作者事实，并与 Approved 组件图双向核对。subject 输入对应唯一 `identity_subject`，prompt 内容输入对应一个或一组 `content_element`；关键固定内容可以作为无输入绑定的 `content_element`。每个 input id 必须在 `inputBindings` 中出现且只能绑定类型匹配的目标。编译器保留 `identityInheritanceDecision` 在 `editable-template-spec.json`，并将上传继承范围与核心玩法例外确定性转为 `visualContract.relations`；该裁决不投影为新的正式字段。
 
 subject binding 固定使用 `replace_identity + one_to_one + illustration_redraw + single_subject + reject`，并只接受一张单主体图片。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。当前正式合同不声明合照成员选择、像素保留或未经客户端确认的多主体能力。
 
-`visualContract` 精确包含：
+`visualContract` 的作者语义与逐图画风标准读取 `template-authoring.md`，正式结构精确包含：
 
 - `medium`：一句正向、可观察的绘制或摄影媒介；
 - `styleTraits`：替换区与固定区共享的造型比例、线条、细节密度和材质语言；
 - `composition`：画幅、裁切、位置、比例、留白和阅读顺序；
 - `relations`：身份边界、接触、遮挡、承托、容器关系和逐模板服装裁决；
 - `colorAndLight`：只有色光属于模板卖点时填写，允许空数组。
+
+编译器拒绝只用“沿用确认模板图”或“保持确认模板图”回指图片的泛化约束；每个字段必须写当前图可观察的媒介、造型、构图或关系事实。
 
 每个高价值槽位继续提供 `hiddenConflictTokens` 和 `titleForbiddenTokens`。确定性门禁拒绝 visual contract 锁回槽位默认值、建议值或自由编辑内容；独立语义审计复核目标—绑定职责、开放内容权限、身份中性和最大差异标题。审计 SHA 同时绑定标题、Prompt、runtimeSemantics、自由内容和全部槽位默认值/推荐值；任何被审计内容变化都会让旧结论失效。
 

@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "一张竖幅复古海报以赭黄、酒红和褐色构成",
     "左上人物仰头并向画面中央伸出双手",
@@ -98,6 +98,13 @@
     }
   ],
   "neutralTitle": "旧海报里的四行宣言",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题描述旧海报媒介和四行主文字机制，替换主角、文案和色调后仍成立"
+  },
   "neutralDescription": "左上人物插画、下半部四行大字与两行法文副文字共同组成复古宣言海报，边框、旧纸纹理和红褐色块保留年代感",
   "promptTemplate": "让{{ poster_figure | \"复古仰头人物剪影\" }}位于左上并向画面中央伸出手臂，保留复古海报边框与旧纸纹理，在下半部以四行英文大字逐字写出{{ headline_text | \"TODAY\nREST\nTOMORROW\nCREATE\" }}，主文字下方保留两行法文副文字“EXPOSITION\nPeinture—Sculpture”，使用{{ poster_tone | \"赭黄与酒红旧纸色调\" }}，保持原有排版容器、字形层级和折痕磨损。",
   "freeEditableContent": [
@@ -200,6 +207,11 @@
         "雕塑家",
         "演说者"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "服装与外形细节", "表情"],
+        "keepFromTemplate": ["仰头并向画面中央伸出手臂的动作"],
+        "reason": "仰头伸手动作构成海报的核心阅读引导"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -340,19 +352,17 @@
       {"id": "approved-poster-background", "kind": "content_element", "role": "旧纸、酒红色块与磨损构成的海报底图", "region": "人物与文字后方的整张画面"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "旧纸上的二十世纪石版印刷海报，墨色块带套印偏差、折痕和磨损",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "人物与文字使用平面剪影和粗颗粒油墨，边框由多层几何色块构成"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "竖幅海报，人物位于左上并向中央伸手，四行大字占据下半部，副文字紧随其下"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "人物手臂指向中央阅读轴，主标题四行保持顺序，副文字保持在主标题下方"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }

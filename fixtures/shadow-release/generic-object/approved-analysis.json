@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.18.0",
+  "schemaVersion": "0.20.0",
   "visibleFacts": [
     "人物双手在画面中央握住一束白色、粉色和紫色小花",
     "手指精确覆盖花束左右边缘并保持原有握持姿态",
@@ -89,6 +89,13 @@
     }
   ],
   "neutralTitle": "手中物件的互动瞬间",
+  "titleEvidence": {
+    "templateGrounded": true,
+    "usageMotivation": true,
+    "spokenNaturalness": true,
+    "slotPortability": true,
+    "evidence": "标题保留手持与互动机制，对具体人物和手中物件保持中性"
+  },
   "neutralDescription": "手中目标可以替换，手指接触边界、遮挡层级与人物其他内容保持稳定。",
   "promptTemplate": "人物双手在画面中央握住{{ held_object | \"小束鲜花\" }}，手指保持原有接触和遮挡，{{ indoor_mood | \"柔和室内自然光\" }}照亮双手与物件，人物眼镜、面部、服装、戒指和浅灰背景保持稳定。",
   "freeEditableContent": [
@@ -125,6 +132,11 @@
         "小型相机",
         "礼物盒"
       ],
+      "identityInheritanceDecision": {
+        "inheritFromUpload": ["可辨认身份特征", "物件类别", "外形与表面标识"],
+        "keepFromTemplate": ["双手握持接触与遮挡关系"],
+        "reason": "双手握持关系构成模板核心玩法"
+      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -175,19 +187,17 @@
       {"id": "approved-contact-background", "kind": "content_element", "role": "室内环境与自然光", "region": "手部与主要物件后方的画面背景"}
     ],
     "visualContract": {
-      "medium": "沿用确认模板图中可见的统一媒介与材质表现",
+      "medium": "室内写实人物摄影，手指与物件边缘清晰",
       "styleTraits": [
-        "保持确认模板图的造型语言、轮廓方式与细节密度"
+        "人物面部、眼镜、服装和手部保持真实摄影质感，前景物件细节可辨"
       ],
       "composition": [
-        "保持确认模板图的画幅、主体尺度、空间层级与裁切关系"
+        "人物上半身居中，双手在画面中央围合主要物件，浅灰背景退居后方"
       ],
       "relations": [
-        "保持确认模板图中可见实例之间的接触、遮挡、顺序与归属关系"
+        "左右手指分别覆盖主要物件两侧并保持握持接触，戒指仍附着于手指"
       ],
-      "colorAndLight": [
-        "保持确认模板图的明暗层级，并服从用户开放输入"
-      ]
+      "colorAndLight": []
     }
   }
 }
