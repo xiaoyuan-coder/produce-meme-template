@@ -3,7 +3,7 @@
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
-    "lockSchemaVersion": "1.0.0",
+    "lockSchemaVersion": "1.1.0",
     "runtimeIgnoredDirectoryNames": [],
     "runtimeIgnoredSuffixes": [],
     "buildValidationRunnerRelativePath": "scripts/release_validation_runner.py",
@@ -47,6 +47,8 @@
       "galleryContractSha256": "galleryContractSha256",
       "gitCommit": "gitCommit",
       "reviewComparisonBaseGitCommit": "reviewComparisonBaseGitCommit",
+      "reviewComparisonBaseSkillVersion": "reviewComparisonBaseSkillVersion",
+      "releaseReadinessProfile": "releaseReadinessProfile",
       "builtAt": "builtAt",
       "files": "files",
       "contentDigest": "contentDigest",
@@ -134,6 +136,27 @@
       "versionsDirectory": "versions",
       "currentPointer": "current",
       "recordsDirectory": "install-records"
+    },
+    "releaseReadinessProfiles": {
+      "development": "development",
+      "compatibleMinor": "compatible_minor",
+      "liveExternal": "live_external"
+    },
+    "compatibleCompletionFileName": "compatible-release-completion.json",
+    "compatibleCompletionArtifactType": "compatible-release-completion",
+    "compatibleCompletionFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "releaseReadinessProfile": "releaseReadinessProfile",
+      "releaseDigest": "releaseDigest",
+      "gitCommit": "gitCommit",
+      "comparisonBaseGitCommit": "comparisonBaseGitCommit",
+      "runtimePinSha256": "runtimePinSha256",
+      "installedRuntimePath": "installedRuntimePath",
+      "standardsReviewReceiptSha256": "standardsReviewReceiptSha256",
+      "specReviewReceiptSha256": "specReviewReceiptSha256",
+      "doctorPass": "doctorPass",
+      "externalExecutionRequired": "externalExecutionRequired"
     },
     "migrationArtifactType": "production-pin-migration",
     "migrationFilePattern": "production-pin-migration-r{revision}.json",

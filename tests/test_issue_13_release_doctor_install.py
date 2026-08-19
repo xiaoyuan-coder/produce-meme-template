@@ -20,7 +20,9 @@ from scripts.produce_meme_template.release_management import (
     install_release,
     promote_release,
     runtime_production_pin,
+    runtime_production_pin_sha256,
     stage_release,
+    verify_compatible_release_completion,
     write_pin_migration_report,
 )
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
@@ -36,6 +38,7 @@ RULES = json.loads(
 )
 RELEASE_CONTRACT = RULES["releaseManagementContract"]
 RELEASE_ERRORS = RELEASE_CONTRACT["errorCodes"]
+READINESS_PROFILES = RELEASE_CONTRACT["releaseReadinessProfiles"]
 LOCK_NAME = RELEASE_CONTRACT["lockFileName"]
 LOCK_FIELDS = RELEASE_CONTRACT["lockFields"]
 FILE_FIELDS = RELEASE_CONTRACT["fileFields"]
@@ -57,6 +60,14 @@ def prepare_versioned_source(
     release_path = source / "release.json"
     release = load_json(release_path)
     release["skillVersion"] = version
+    major, minor, patch = (int(part) for part in version.split(".")[:3])
+    release["releaseReadinessProfile"] = (
+        READINESS_PROFILES["development"]
+        if major == 0
+        else READINESS_PROFILES["liveExternal"]
+        if (minor, patch) == (0, 0)
+        else READINESS_PROFILES["compatibleMinor"]
+    )
     release_path.write_text(
         json.dumps(release, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -82,6 +93,23 @@ def prepare_stable_candidate_source(source: Path) -> None:
 
 def prepare_development_source(source: Path) -> None:
     prepare_versioned_source(source, DEVELOPMENT_VERSION)
+
+
+def prepare_compatible_minor_source(source: Path) -> None:
+    prepare_versioned_source(
+        source,
+        ".".join(str(part) for part in (1, 4, 0)),
+        description_suffix=" [compatible minor fixture]",
+    )
+    release_path = source / "release.json"
+    release = load_json(release_path)
+    release["releaseReadinessProfile"] = READINESS_PROFILES[
+        "compatibleMinor"
+    ]
+    release_path.write_text(
+        json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def production_artifact_record(
@@ -140,11 +168,44 @@ def commit_source(source: Path) -> str:
         cwd=source,
         check=True,
     )
-    subprocess.run(
-        ["git", "commit", "--allow-empty", "-qm", "review base"],
-        cwd=source,
-        check=True,
-    )
+    release_path = source / "release.json"
+    manifest_path = source / "skill-manifest.json"
+    if not release_path.is_file() or not manifest_path.is_file():
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-qm", "review base"],
+            cwd=source,
+            check=True,
+        )
+        subprocess.run(["git", "add", "-A"], cwd=source, check=True)
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-qm", "release fixture"],
+            cwd=source,
+            check=True,
+        )
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=source,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    target_release = release_path.read_bytes()
+    target_manifest = manifest_path.read_bytes()
+    version = load_json(release_path)["skillVersion"]
+    major, minor, patch = (int(part) for part in version.split(".")[:3])
+    if major == 0:
+        base_version = ".".join(str(part) for part in (major, max(0, minor - 1), patch))
+    elif (minor, patch) == (0, 0):
+        base_version = ".".join(str(part) for part in (max(0, major - 1), 99, 0))
+    elif minor > 0:
+        base_version = ".".join(str(part) for part in (major, max(0, minor - 1), patch))
+    else:
+        base_version = ".".join(str(part) for part in (major, minor, max(0, patch - 1)))
+    prepare_versioned_source(source, base_version)
+    subprocess.run(["git", "add", "-A"], cwd=source, check=True)
+    subprocess.run(["git", "commit", "-qm", "review base"], cwd=source, check=True)
+    release_path.write_bytes(target_release)
+    manifest_path.write_bytes(target_manifest)
     subprocess.run(["git", "add", "-A"], cwd=source, check=True)
     subprocess.run(
         ["git", "commit", "-qm", "release fixture"],
@@ -397,6 +458,123 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         self.assertFalse(
             (self.dist / "produce-meme-template" / STABLE_VERSION).exists()
         )
+
+    def test_compatible_minor_promotes_after_clean_reviews_and_fresh_install(
+        self,
+    ) -> None:
+        prepare_compatible_minor_source(self.source)
+        self.git_commit = commit_source(self.source)
+        comparison_base = review_base(self.source)
+        with mock.patch(
+            "scripts.produce_meme_template.release_management._run_release_validation",
+            return_value=(True, None),
+        ):
+            staged = stage_release(
+                self.source,
+                self.root / "candidates",
+                git_commit=self.git_commit,
+                comparison_base_git_commit=comparison_base,
+                built_at=BUILT_AT,
+            )
+        candidate = Path(staged["packageDir"])
+        workspace = (self.root / "compatible-readiness").resolve()
+        workspace.mkdir()
+        receipt_fields = RULES["releaseReadinessContract"]["reviewReceiptFields"]
+        receipt_contract = RULES["releaseReadinessContract"]
+        pin_sha256 = runtime_production_pin_sha256(candidate)
+        receipts = {}
+        for axis_role in ("standards", "spec"):
+            path = workspace / f"{axis_role}-review.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        receipt_fields["artifactType"]: receipt_contract[
+                            "reviewReceiptArtifactType"
+                        ],
+                        receipt_fields["schemaVersion"]: RULES["schemaVersion"],
+                        receipt_fields["axis"]: receipt_contract["reviewAxes"][
+                            axis_role
+                        ],
+                        receipt_fields["comparisonBaseGitCommit"]: comparison_base,
+                        receipt_fields["reviewedGitCommit"]: self.git_commit,
+                        receipt_fields["runtimePinSha256"]: pin_sha256,
+                        receipt_fields["clean"]: True,
+                        receipt_fields["findingCount"]: 0,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            receipts[axis_role] = path
+
+        qualification = verify_compatible_release_completion(
+            workspace,
+            candidate_package=candidate,
+            standards_review_receipt=receipts["standards"],
+            spec_review_receipt=receipts["spec"],
+        )
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(qualification),
+            stderr="",
+        )
+        with mock.patch(
+            "scripts.produce_meme_template.release_management.subprocess.run",
+            return_value=completed,
+        ) as verifier:
+            promoted = promote_release(
+                candidate,
+                self.dist,
+                readiness_root=workspace,
+                standards_review_receipt=receipts["standards"],
+                spec_review_receipt=receipts["spec"],
+            )
+
+        self.assertTrue(qualification["pass"], qualification)
+        self.assertTrue(promoted["pass"], promoted)
+        self.assertEqual(
+            READINESS_PROFILES["compatibleMinor"],
+            promoted["releaseReadinessProfile"],
+        )
+        self.assertTrue(Path(promoted["readinessCompletionPath"]).is_file())
+        self.assertTrue(
+            doctor(qualification["installedRuntimePath"])["pass"]
+        )
+        command = verifier.call_args.args[0]
+        self.assertIn("verify-compatible", command)
+
+    def test_major_release_cannot_declare_the_compatible_minor_profile(self) -> None:
+        prepare_versioned_source(
+            self.source,
+            ".".join(str(part) for part in (2, 0, 0)),
+        )
+        release_path = self.source / "release.json"
+        release = load_json(release_path)
+        release["releaseReadinessProfile"] = READINESS_PROFILES[
+            "compatibleMinor"
+        ]
+        release_path.write_text(
+            json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git_commit = commit_source(self.source)
+
+        result = stage_release(
+            self.source,
+            self.root / "candidates",
+            git_commit=self.git_commit,
+            comparison_base_git_commit=review_base(self.source),
+            built_at=BUILT_AT,
+        )
+
+        self.assertFalse(result["pass"])
+        self.assertEqual(
+            RELEASE_ERRORS["invalidReleaseMetadata"], result["errorCode"]
+        )
+        self.assertFalse((self.root / "candidates").exists())
 
     def test_verified_candidate_is_promoted_byte_for_byte(self) -> None:
         prepare_stable_candidate_source(self.source)

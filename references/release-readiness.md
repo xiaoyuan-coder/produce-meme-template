@@ -1,4 +1,6 @@
-# 真实影子批次与 1.0 发布准备合同
+# 真实影子批次与 live_external 发布准备合同
+
+本合同只适用于候选锁声明 `live_external` 的发布。`compatible_minor` 的确定性资格证据、全新安装和 doctor 规则读取 `release-doctor-install.md`。
 
 ## 1. 两层执行证据
 
@@ -37,11 +39,11 @@
 
 T1 输出与生产项目录互为同级隔离目录。重跑必须复用已绑定的生产、生成、上传与 T1 产物；禁止因重跑增加外部提交或上传副作用。
 
-## 5. 报告和 1.0 冻结
+## 5. 报告和外部风险候选冻结
 
 `release-readiness-report.json` 写在 runtime 之外，通过同目录临时文件、`fsync` 和排他硬链接原子发布。请求 ledger 在任何外部调用前冻结；完成 sidecar 绑定 request SHA、corpus SHA 和 report SHA。重跑遇到完成报告时先重放 ledger、完成 sidecar、逐场景 Production Manifest/谱系、正式 JSON 与 T1 报告，全部一致才直接复用，任一缺失或漂移均在 adapter 调用前返回不可变冲突。同一内容可幂等复用，已有不同内容视为不可变冲突。输出路径不得包含 `..`、符号链接或 runtime 内部路径。稳定候选的 `stage` 还要把 code review 比较点写入 release lock，并用 Git 确认它是被审 HEAD 的不同祖先。
 
-冻结 `1.0.0` 要求六类录制回放谱系、正式投影、T1、未见图前向测试、四场景 `live_external` 风险采样、历史经验回归、全量测试、候选包构建、安装 smoke 和 doctor 全部 PASS，同时没有未结案的 P1/P2 review finding。稳定版候选通过 `stage_release` 生成；公共 `promote_release` 只接受经 `verify_release_readiness_completion` 深度重放为有效的完成工作区，并把候选逐字节晋升到公开 dist。
+冻结 `1.0.0`、SemVer major 变化或主动声明外部风险的候选，要求六类录制回放谱系、正式投影、T1、未见图前向测试、四场景 `live_external` 风险采样、历史经验回归、全量测试、候选包构建、安装 smoke 和 doctor 全部 PASS，同时没有未结案的 P1/P2 review finding。稳定版候选通过 `stage_release` 生成；公共 `promote_release` 只接受经 `verify_release_readiness_completion` 深度重放为有效的完成工作区，并把候选逐字节晋升到公开 dist。
 
 最终 live 请求通过 `releaseGateEvidence` 绑定已验证发布包、期望 release digest、全新安装 runtime、由该安装副本产出的未见图 Production Item，以及 Standards/Spec 两轴 clean review receipt。请求同时冻结前向 Manifest 与两份 receipt 的 SHA。每份 receipt 分别记录 code review 的比较基线 `comparisonBaseGitCommit` 和实际被审提交 `reviewedGitCommit`；核心要求后者精确绑定安装 pin 中的 Git commit，并同时绑定同一安装 pin。核心在外部批次前后重新执行 package 与 installed runtime 的 doctor，对账两者 release digest、安装记录、完整 Production Manifest 谱系、安装 pin 和未见图来源 SHA。live readiness 直接复用并深度校验该安装副本的前向 Production Item，禁止再次提交同一未见图。该安装 pin 的 SHA 还必须与本次四个 live Production Items 及未见图项各自的 `production-pin.json` 摘要完全一致。布尔值或 adapter 自报的发布结论不参与 eligibility。
 

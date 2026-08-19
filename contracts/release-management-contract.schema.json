@@ -30,6 +30,10 @@
     "gallerySnapshotRelativePath",
     "gallerySnapshotMetadataRelativePath",
     "installLayout",
+    "releaseReadinessProfiles",
+    "compatibleCompletionFileName",
+    "compatibleCompletionArtifactType",
+    "compatibleCompletionFields",
     "migrationArtifactType",
     "migrationFilePattern",
     "migrationInvalidateFromPhaseIndex"
@@ -60,6 +64,10 @@
     "gallerySnapshotRelativePath": { "$ref": "#/$defs/relativePath" },
     "gallerySnapshotMetadataRelativePath": { "$ref": "#/$defs/relativePath" },
     "installLayout": { "$ref": "#/$defs/installLayout" },
+    "releaseReadinessProfiles": { "$ref": "#/$defs/releaseReadinessProfiles" },
+    "compatibleCompletionFileName": { "$ref": "#/$defs/relativePath" },
+    "compatibleCompletionArtifactType": { "$ref": "#/$defs/nonEmptyString" },
+    "compatibleCompletionFields": { "$ref": "#/$defs/compatibleCompletionFields" },
     "migrationArtifactType": { "$ref": "#/$defs/nonEmptyString" },
     "migrationFilePattern": { "type": "string", "pattern": "\\{revision\\}" },
     "migrationInvalidateFromPhaseIndex": { "type": "integer", "minimum": 0 }
@@ -87,8 +95,8 @@
     },
     "lockFields": {
       "$ref": "#/$defs/roleMap",
-      "required": ["artifactType", "lockSchemaVersion", "skillName", "skillVersion", "artifactSchemaVersion", "galleryContractVersion", "galleryContractSha256", "gitCommit", "reviewComparisonBaseGitCommit", "builtAt", "files", "contentDigest", "releaseDigest"],
-      "propertyNames": { "enum": ["artifactType", "lockSchemaVersion", "skillName", "skillVersion", "artifactSchemaVersion", "galleryContractVersion", "galleryContractSha256", "gitCommit", "reviewComparisonBaseGitCommit", "builtAt", "files", "contentDigest", "releaseDigest"] }
+      "required": ["artifactType", "lockSchemaVersion", "skillName", "skillVersion", "artifactSchemaVersion", "galleryContractVersion", "galleryContractSha256", "gitCommit", "reviewComparisonBaseGitCommit", "reviewComparisonBaseSkillVersion", "releaseReadinessProfile", "builtAt", "files", "contentDigest", "releaseDigest"],
+      "propertyNames": { "enum": ["artifactType", "lockSchemaVersion", "skillName", "skillVersion", "artifactSchemaVersion", "galleryContractVersion", "galleryContractSha256", "gitCommit", "reviewComparisonBaseGitCommit", "reviewComparisonBaseSkillVersion", "releaseReadinessProfile", "builtAt", "files", "contentDigest", "releaseDigest"] }
     },
     "fileFields": {
       "$ref": "#/$defs/roleMap",
@@ -129,6 +137,16 @@
       "$ref": "#/$defs/roleMap",
       "required": ["versionsDirectory", "currentPointer", "recordsDirectory"],
       "propertyNames": { "enum": ["versionsDirectory", "currentPointer", "recordsDirectory"] }
+    },
+    "releaseReadinessProfiles": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["development", "compatibleMinor", "liveExternal"],
+      "propertyNames": { "enum": ["development", "compatibleMinor", "liveExternal"] }
+    },
+    "compatibleCompletionFields": {
+      "$ref": "#/$defs/roleMap",
+      "required": ["artifactType", "schemaVersion", "releaseReadinessProfile", "releaseDigest", "gitCommit", "comparisonBaseGitCommit", "runtimePinSha256", "installedRuntimePath", "standardsReviewReceiptSha256", "specReviewReceiptSha256", "doctorPass", "externalExecutionRequired"],
+      "propertyNames": { "enum": ["artifactType", "schemaVersion", "releaseReadinessProfile", "releaseDigest", "gitCommit", "comparisonBaseGitCommit", "runtimePinSha256", "installedRuntimePath", "standardsReviewReceiptSha256", "specReviewReceiptSha256", "doctorPass", "externalExecutionRequired"] }
     },
     "roleMap": {
       "type": "object",

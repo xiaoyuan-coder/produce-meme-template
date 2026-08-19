@@ -26,6 +26,7 @@ from .release_management import (
     doctor,
     runtime_production_pin,
     runtime_production_pin_sha256,
+    verify_code_review_receipt,
 )
 from .workflow import (
     ProductionResult,
@@ -136,52 +137,6 @@ def _ordinary_directory_path(value: Any) -> Path | None:
         return path.resolve() if path.is_dir() else None
     except OSError:
         return None
-
-
-def verify_code_review_receipt(
-    value: Any,
-    *,
-    expected_sha256: Any,
-    expected_axis: str,
-    expected_comparison_base_git_commit: str,
-    expected_reviewed_git_commit: str,
-    expected_pin_sha256: str,
-    rules: dict[str, Any] | None = None,
-    contract: dict[str, Any] | None = None,
-) -> bool:
-    rules = rules or _rules()
-    contract = contract or rules["releaseReadinessContract"]
-    path = _ordinary_json_path(str(value) if isinstance(value, Path) else value)
-    receipt = _load_object(path) if path is not None else None
-    fields = contract["reviewReceiptFields"]
-    return bool(
-        receipt is not None
-        and isinstance(expected_sha256, str)
-        and len(expected_sha256) == 64
-        and path is not None
-        and _sha_file(path) == expected_sha256
-        and set(receipt) == set(fields.values())
-        and receipt.get(fields["artifactType"])
-        == contract["reviewReceiptArtifactType"]
-        and receipt.get(fields["schemaVersion"]) == rules["schemaVersion"]
-        and receipt.get(fields["axis"]) == expected_axis
-        and isinstance(expected_comparison_base_git_commit, str)
-        and re.fullmatch(
-            r"[0-9a-f]{40}", expected_comparison_base_git_commit
-        )
-        and receipt.get(fields["comparisonBaseGitCommit"])
-        == expected_comparison_base_git_commit
-        and receipt.get(fields["reviewedGitCommit"])
-        == expected_reviewed_git_commit
-        and isinstance(expected_reviewed_git_commit, str)
-        and re.fullmatch(r"[0-9a-f]{40}", expected_reviewed_git_commit)
-        and expected_comparison_base_git_commit
-        != expected_reviewed_git_commit
-        and receipt.get(fields["runtimePinSha256"])
-        == expected_pin_sha256
-        and receipt.get(fields["clean"]) is True
-        and receipt.get(fields["findingCount"]) == 0
-    )
 
 
 def _verified_release_gates(

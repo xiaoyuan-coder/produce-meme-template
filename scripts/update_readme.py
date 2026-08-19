@@ -77,6 +77,7 @@ def render() -> str:
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
 | Skill 版本 | `{release['skillVersion']}` | `release.json` |
+| 发布验收 Profile | `{release['releaseReadinessProfile']}` | `release.json` |
 | Artifact Schema | `{release['artifactSchemaVersion']}` | `release.json` |
 | Gallery Template 合同 | `{supported_contract}` | `release.json` |
 | 默认生产阶段 | `{stage_contract['defaultSelector']}`（完整生产） | `contracts/machine-rules.json` |
@@ -150,6 +151,8 @@ python3 scripts/produce.py \\
 ```bash
 python3 scripts/release_tool.py --help
 ```
+
+稳定版按候选锁中的发布验收 profile 推进。`compatible_minor` 完成 stage 全量验证、双轴 clean review、全新临时安装和 doctor 后晋升，不调用 Fal/OSS；首稳、major 和显式外部风险使用 `live_external`，继续执行未见图前向与四场景 live。
 
 完整的 Agent 路由读取 [`SKILL.md`](SKILL.md)。生产边界读取 [`references/vertical-slice-runtime.md`](references/vertical-slice-runtime.md)，换图与模板图验收读取 [`references/replacement-spec.md`](references/replacement-spec.md)，模板身份、槽位属性、标题、Prompt 和 runtimeSemantics 读取 [`references/template-authoring.md`](references/template-authoring.md)，数据编译读取 [`references/gallery-template-compiler.md`](references/gallery-template-compiler.md)。
 

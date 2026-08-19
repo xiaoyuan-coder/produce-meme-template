@@ -229,9 +229,10 @@ def _release_metadata(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]
         if isinstance(supported_contracts, dict)
         else None
     )
-    _release_contract_view(
+    release_contract = _release_contract_view(
         rules.get("releaseManagementContract"), contract_root=source_root
     )
+    readiness_profile = release.get("releaseReadinessProfile")
     if not (
         release.get("skillName") == "produce-meme-template"
         and isinstance(skill_version, str)
@@ -240,6 +241,8 @@ def _release_metadata(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]
         and SEMVER_PATTERN.fullmatch(artifact_version)
         and isinstance(gallery_version, str)
         and gallery_version.strip()
+        and readiness_profile
+        in set(release_contract["releaseReadinessProfiles"].values())
         and rules.get("schemaVersion") == artifact_version
         and manifest.get("version") == skill_version
     ):
@@ -254,6 +257,63 @@ def _release_metadata(source_root: Path) -> tuple[dict[str, Any], dict[str, Any]
     ):
         raise ValueError("skill manifest tracked_files must be a unique string list")
     return release, manifest, rules
+
+
+def _semver_core(value: str) -> tuple[int, int, int]:
+    return tuple(
+        int(part)
+        for part in re.split(r"[-+]", value, maxsplit=1)[0].split(".")
+    )  # type: ignore[return-value]
+
+
+def _git_release_version(source_root: Path, git_commit: str) -> str | None:
+    completed = subprocess.run(
+        ["git", "show", f"{git_commit}:release.json"],
+        cwd=source_root,
+        capture_output=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    try:
+        value = json.loads(completed.stdout.decode("utf-8"))
+        version = value.get("skillVersion") if isinstance(value, dict) else None
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return (
+        version
+        if isinstance(version, str) and SEMVER_PATTERN.fullmatch(version)
+        else None
+    )
+
+
+def _release_profile_valid(
+    *,
+    version: str,
+    profile: str,
+    comparison_base_version: str | None,
+    contract: dict[str, Any],
+) -> bool:
+    profiles = contract["releaseReadinessProfiles"]
+    current = _semver_core(version)
+    if current[0] == 0:
+        return profile == profiles["development"]
+    if comparison_base_version is None:
+        return False
+    base = _semver_core(comparison_base_version)
+    live_required = (
+        current[1:] == (0, 0)
+        or base[0] < 1
+        or current[0] > base[0]
+    )
+    if live_required:
+        return profile == profiles["liveExternal"]
+    return bool(
+        current[0] == base[0]
+        and current >= base
+        and profile
+        in {profiles["compatibleMinor"], profiles["liveExternal"]}
+    )
 
 
 def _git_snapshot(source_root: Path) -> dict[str, Any] | None:
@@ -464,6 +524,7 @@ def _build_release_package(
     stable_candidate = bool(
         candidate and int(release["skillVersion"].split(".", 1)[0]) >= 1
     )
+    comparison_base_skill_version: str | None = None
     if stable_candidate:
         valid_base_shape = bool(
             isinstance(comparison_base_git_commit, str)
@@ -495,6 +556,23 @@ def _build_release_package(
                     "of the reviewed Git commit"
                 ),
             }
+        comparison_base_skill_version = _git_release_version(
+            source, comparison_base_git_commit or ""
+        )
+    if not _release_profile_valid(
+        version=release["skillVersion"],
+        profile=release["releaseReadinessProfile"],
+        comparison_base_version=comparison_base_skill_version,
+        contract=release_contract,
+    ):
+        return {
+            "pass": False,
+            "errorCode": codes["invalidReleaseMetadata"],
+            "message": (
+                "release readiness profile is incompatible with the "
+                "version transition"
+            ),
+        }
     if git_snapshot["files"] != set(manifest["tracked_files"]):
         return {
             "pass": False,
@@ -567,6 +645,12 @@ def _build_release_package(
         lock_fields["reviewComparisonBaseGitCommit"]: (
             comparison_base_git_commit if stable_candidate else None
         ),
+        lock_fields["reviewComparisonBaseSkillVersion"]: (
+            comparison_base_skill_version if stable_candidate else None
+        ),
+        lock_fields["releaseReadinessProfile"]: release[
+            "releaseReadinessProfile"
+        ],
         lock_fields["builtAt"]: (built_at or datetime.now(timezone.utc))
         .astimezone(timezone.utc)
         .isoformat()
@@ -620,6 +704,9 @@ def _build_release_package(
         "skillVersion": lock[lock_fields["skillVersion"]],
         "artifactSchemaVersion": lock[lock_fields["artifactSchemaVersion"]],
         "galleryContractVersion": lock[lock_fields["galleryContractVersion"]],
+        "releaseReadinessProfile": lock[
+            lock_fields["releaseReadinessProfile"]
+        ],
     }
 
 
@@ -682,6 +769,7 @@ def _verify_release(
     codes = contract["errorCodes"]
     lock_fields = contract["lockFields"]
     file_fields = contract["fileFields"]
+    profiles = contract["releaseReadinessProfiles"]
     files = lock.get(lock_fields["files"])
     if not (
         set(lock) == set(lock_fields.values())
@@ -715,6 +803,30 @@ def _verify_release(
             )
             if int(lock[lock_fields["skillVersion"]].split(".", 1)[0]) >= 1
             else lock.get(lock_fields["reviewComparisonBaseGitCommit"]) is None
+        )
+        and (
+            (
+                isinstance(
+                    lock.get(lock_fields["reviewComparisonBaseSkillVersion"]),
+                    str,
+                )
+                and SEMVER_PATTERN.fullmatch(
+                    lock[lock_fields["reviewComparisonBaseSkillVersion"]]
+                )
+            )
+            if int(lock[lock_fields["skillVersion"]].split(".", 1)[0]) >= 1
+            else lock.get(lock_fields["reviewComparisonBaseSkillVersion"])
+            is None
+        )
+        and lock.get(lock_fields["releaseReadinessProfile"])
+        in set(profiles.values())
+        and _release_profile_valid(
+            version=lock[lock_fields["skillVersion"]],
+            profile=lock[lock_fields["releaseReadinessProfile"]],
+            comparison_base_version=lock.get(
+                lock_fields["reviewComparisonBaseSkillVersion"]
+            ),
+            contract=contract,
         )
         and isinstance(lock.get(lock_fields["builtAt"]), str)
         and lock[lock_fields["builtAt"]].strip()
@@ -769,6 +881,8 @@ def _verify_release(
             != lock.get(lock_fields["artifactSchemaVersion"])
             or release["supportedContracts"]["galleryTemplate"]
             != lock.get(lock_fields["galleryContractVersion"])
+            or release["releaseReadinessProfile"]
+            != lock.get(lock_fields["releaseReadinessProfile"])
         ):
             errors.append(codes["mixedVersion"])
         gallery_path = package_dir / contract["gallerySnapshotRelativePath"]
@@ -789,6 +903,8 @@ def promote_release(
     dist_root: str | Path,
     *,
     readiness_root: str | Path,
+    standards_review_receipt: str | Path | None = None,
+    spec_review_receipt: str | Path | None = None,
 ) -> dict[str, Any]:
     candidate = Path(candidate_package).resolve()
     dist = Path(dist_root).resolve()
@@ -806,7 +922,9 @@ def promote_release(
     codes = contract["errorCodes"]
     lock_fields = contract["lockFields"]
     file_fields = contract["fileFields"]
+    profiles = contract["releaseReadinessProfiles"]
     version = lock[lock_fields["skillVersion"]]
+    profile = lock[lock_fields["releaseReadinessProfile"]]
     if int(version.split(".", 1)[0]) < 1:
         return {
             "pass": False,
@@ -814,6 +932,7 @@ def promote_release(
             "message": "only stable releases use readiness promotion",
         }
     verifier_returncode: int | None = None
+    verifier_stderr: str | None = None
     try:
         if (
             candidate == dist
@@ -825,21 +944,43 @@ def promote_release(
                 "errorCode": codes["installPathConflict"],
                 "message": "candidate and public dist roots must not overlap",
             }
+        command = [
+            sys.executable,
+            "-I",
+            str(candidate / "scripts" / "release_tool.py"),
+        ]
+        if profile == profiles["compatibleMinor"]:
+            if standards_review_receipt is None or spec_review_receipt is None:
+                raise ValueError("compatible review receipts are required")
+            command.extend(
+                [
+                    "verify-compatible",
+                    "--workspace",
+                    str(Path(readiness_root).absolute()),
+                    "--candidate",
+                    str(candidate),
+                    "--standards-review-receipt",
+                    str(Path(standards_review_receipt).absolute()),
+                    "--spec-review-receipt",
+                    str(Path(spec_review_receipt).absolute()),
+                ]
+            )
+        else:
+            command.extend(
+                [
+                    "verify-readiness",
+                    "--readiness",
+                    str(Path(readiness_root).absolute()),
+                    "--candidate",
+                    str(candidate),
+                    "--expected-release-digest",
+                    lock[lock_fields["releaseDigest"]],
+                    "--expected-git-commit",
+                    lock[lock_fields["gitCommit"]],
+                ]
+            )
         completed = subprocess.run(
-            [
-                sys.executable,
-                "-I",
-                str(candidate / "scripts" / "release_tool.py"),
-                "verify-readiness",
-                "--readiness",
-                str(Path(readiness_root).absolute()),
-                "--candidate",
-                str(candidate),
-                "--expected-release-digest",
-                lock[lock_fields["releaseDigest"]],
-                "--expected-git-commit",
-                lock[lock_fields["gitCommit"]],
-            ],
+            command,
             cwd=candidate,
             capture_output=True,
             text=True,
@@ -847,6 +988,7 @@ def promote_release(
             timeout=contract["validationTimeoutSeconds"],
         )
         verifier_returncode = completed.returncode
+        verifier_stderr = completed.stderr[-2000:] if completed.stderr else None
         readiness = json.loads(completed.stdout)
         if not isinstance(readiness, dict):
             readiness = {"pass": False}
@@ -865,13 +1007,18 @@ def promote_release(
         and readiness.get("releaseDigest")
         == lock[lock_fields["releaseDigest"]]
         and readiness.get("gitCommit") == lock[lock_fields["gitCommit"]]
-        and isinstance(readiness.get("reportPath"), str)
         and isinstance(readiness.get("completionPath"), str)
+        and (
+            profile == profiles["compatibleMinor"]
+            or isinstance(readiness.get("reportPath"), str)
+        )
     ):
         return {
             "pass": False,
             "errorCode": codes["releaseReadinessRequired"],
-            "message": "stable promotion requires a valid live readiness completion",
+            "message": "stable promotion requires valid profile-specific readiness",
+            "qualification": readiness,
+            "verifierError": verifier_stderr,
         }
     package = dist / lock[lock_fields["skillName"]] / version
     if package.exists():
@@ -917,7 +1064,8 @@ def promote_release(
         "galleryContractVersion": lock[
             lock_fields["galleryContractVersion"]
         ],
-        "readinessReportPath": readiness["reportPath"],
+        "releaseReadinessProfile": profile,
+        "readinessReportPath": readiness.get("reportPath"),
         "readinessCompletionPath": readiness["completionPath"],
     }
 
@@ -1364,6 +1512,70 @@ def runtime_production_pin_sha256(runtime_root: str | Path) -> str:
     )
 
 
+def verify_code_review_receipt(
+    value: str | Path,
+    *,
+    expected_sha256: str,
+    expected_axis: str,
+    expected_comparison_base_git_commit: str,
+    expected_reviewed_git_commit: str,
+    expected_pin_sha256: str,
+    rules: dict[str, Any] | None = None,
+    contract: dict[str, Any] | None = None,
+) -> bool:
+    rules = rules or _load_object(
+        Path(__file__).resolve().parents[2] / MACHINE_RULES_RELATIVE
+    )
+    path = Path(value)
+    try:
+        resolved = path.resolve(strict=True)
+        current = Path(path.anchor)
+        has_symlink_component = False
+        for part in path.parts[1:]:
+            current = current / part
+            if current.is_symlink():
+                has_symlink_component = True
+                break
+        if (
+            not path.is_absolute()
+            or ".." in path.parts
+            or has_symlink_component
+            or not resolved.is_file()
+        ):
+            return False
+        receipt = _load_object(resolved)
+    except (OSError, ValueError, json.JSONDecodeError):
+        return False
+    contract = contract or rules["releaseReadinessContract"]
+    fields = contract["reviewReceiptFields"]
+    return bool(
+        isinstance(expected_sha256, str)
+        and re.fullmatch(r"[0-9a-f]{64}", expected_sha256)
+        and _sha_file(resolved) == expected_sha256
+        and set(receipt) == set(fields.values())
+        and receipt.get(fields["artifactType"])
+        == contract["reviewReceiptArtifactType"]
+        and receipt.get(fields["schemaVersion"]) == rules["schemaVersion"]
+        and receipt.get(fields["axis"]) == expected_axis
+        and receipt.get(fields["comparisonBaseGitCommit"])
+        == expected_comparison_base_git_commit
+        and receipt.get(fields["reviewedGitCommit"])
+        == expected_reviewed_git_commit
+        and isinstance(expected_comparison_base_git_commit, str)
+        and re.fullmatch(
+            r"[0-9a-f]{40}", expected_comparison_base_git_commit
+        )
+        and isinstance(expected_reviewed_git_commit, str)
+        and re.fullmatch(r"[0-9a-f]{40}", expected_reviewed_git_commit)
+        and expected_comparison_base_git_commit
+        != expected_reviewed_git_commit
+        and receipt.get(fields["runtimePinSha256"])
+        == expected_pin_sha256
+        and receipt.get(fields["clean"]) is True
+        and receipt.get(fields["findingCount"]) == 0
+    )
+
+
 def doctor(
     runtime_root: str | Path,
     *,
@@ -1431,6 +1643,147 @@ def doctor(
         diagnostic_fields["remediation"]: (
             None if not errors else "reinstall or resume with the pinned release"
         ),
+    }
+
+
+def verify_compatible_release_completion(
+    workspace_root: str | Path,
+    *,
+    candidate_package: str | Path,
+    standards_review_receipt: str | Path,
+    spec_review_receipt: str | Path,
+) -> dict[str, Any]:
+    candidate = Path(candidate_package).resolve()
+    workspace_value = Path(workspace_root)
+    workspace = workspace_value.resolve()
+    lock, errors = _verify_release(candidate)
+    bootstrap = _runtime_contract()
+    if lock is None or errors:
+        return {
+            "pass": False,
+            "errorCode": bootstrap["errorCodes"]["invalidReleaseLock"],
+        }
+    rules = _load_object(candidate / MACHINE_RULES_RELATIVE)
+    contract = _release_contract_view(
+        rules.get("releaseManagementContract"), contract_root=candidate
+    )
+    codes = contract["errorCodes"]
+    lock_fields = contract["lockFields"]
+    profiles = contract["releaseReadinessProfiles"]
+    profile = lock[lock_fields["releaseReadinessProfile"]]
+    if profile != profiles["compatibleMinor"]:
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": "candidate requires live external readiness",
+        }
+    try:
+        if (
+            workspace_value.is_symlink()
+            or candidate == workspace
+            or candidate.is_relative_to(workspace)
+            or workspace.is_relative_to(candidate)
+        ):
+            raise ValueError("workspace overlaps candidate")
+        workspace.mkdir(parents=True, exist_ok=True)
+    except (OSError, ValueError):
+        return {
+            "pass": False,
+            "errorCode": codes["installPathConflict"],
+        }
+    expected_digest = lock[lock_fields["releaseDigest"]]
+    installed = install_release(
+        candidate,
+        workspace / "install",
+        expected_release_digest=expected_digest,
+    )
+    if installed.get("pass") is not True:
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": "compatible release requires a fresh verified install",
+        }
+    installed_runtime = Path(installed["currentDir"])
+    diagnosis = doctor(installed_runtime)
+    if diagnosis.get("pass") is not True:
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": "compatible release install must pass doctor",
+        }
+    pin_sha256 = runtime_production_pin_sha256(installed_runtime)
+    readiness_contract = rules["releaseReadinessContract"]
+    receipt_paths = {
+        "standards": Path(standards_review_receipt),
+        "spec": Path(spec_review_receipt),
+    }
+    receipt_sha256 = {
+        role: _sha_file(path)
+        if path.is_absolute() and path.is_file() and not path.is_symlink()
+        else ""
+        for role, path in receipt_paths.items()
+    }
+    review_axes = readiness_contract["reviewAxes"]
+    comparison_base = lock[
+        lock_fields["reviewComparisonBaseGitCommit"]
+    ]
+    reviewed_commit = lock[lock_fields["gitCommit"]]
+    if not all(
+        verify_code_review_receipt(
+            receipt_paths[role],
+            expected_sha256=receipt_sha256[role],
+            expected_axis=review_axes[role],
+            expected_comparison_base_git_commit=comparison_base,
+            expected_reviewed_git_commit=reviewed_commit,
+            expected_pin_sha256=pin_sha256,
+            rules=rules,
+            contract=readiness_contract,
+        )
+        for role in ("standards", "spec")
+    ):
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": "compatible release requires two clean review receipts",
+        }
+    fields = contract["compatibleCompletionFields"]
+    completion = {
+        fields["artifactType"]: contract["compatibleCompletionArtifactType"],
+        fields["schemaVersion"]: rules["schemaVersion"],
+        fields["releaseReadinessProfile"]: profile,
+        fields["releaseDigest"]: expected_digest,
+        fields["gitCommit"]: reviewed_commit,
+        fields["comparisonBaseGitCommit"]: comparison_base,
+        fields["runtimePinSha256"]: pin_sha256,
+        fields["installedRuntimePath"]: str(installed_runtime.resolve()),
+        fields["standardsReviewReceiptSha256"]: receipt_sha256["standards"],
+        fields["specReviewReceiptSha256"]: receipt_sha256["spec"],
+        fields["doctorPass"]: True,
+        fields["externalExecutionRequired"]: False,
+    }
+    completion_path = workspace / contract["compatibleCompletionFileName"]
+    payload = _pretty_json_bytes(completion)
+    try:
+        if completion_path.exists():
+            if completion_path.is_symlink() or completion_path.read_bytes() != payload:
+                raise ValueError("immutable completion conflict")
+        else:
+            with completion_path.open("xb") as handle:
+                handle.write(payload)
+    except (OSError, ValueError):
+        return {
+            "pass": False,
+            "errorCode": codes["releaseReadinessRequired"],
+            "message": "compatible completion is immutable",
+        }
+    return {
+        "pass": True,
+        "errorCode": None,
+        "releaseReadinessProfile": profile,
+        "releaseDigest": expected_digest,
+        "gitCommit": reviewed_commit,
+        "completionPath": str(completion_path),
+        "installedRuntimePath": str(installed_runtime.resolve()),
     }
 
 

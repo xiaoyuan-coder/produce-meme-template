@@ -67,6 +67,14 @@ class RepositoryContractTest(unittest.TestCase):
 
         self.assertEqual(release["skillVersion"], manifest["version"])
         self.assertEqual(release["artifactSchemaVersion"], rules["schemaVersion"])
+        self.assertIn(
+            release["releaseReadinessProfile"],
+            set(
+                rules["releaseManagementContract"][
+                    "releaseReadinessProfiles"
+                ].values()
+            ),
+        )
         self.assertNotIn(
             release["skillVersion"],
             (ROOT / "SKILL.md").read_text(encoding="utf-8"),
@@ -483,12 +491,18 @@ class RepositoryContractTest(unittest.TestCase):
             contract["gallerySnapshotMetadataRelativePath"],
             contract["migrationArtifactType"],
             contract["migrationFilePattern"],
+            contract["compatibleCompletionFileName"],
+            contract["compatibleCompletionArtifactType"],
             *contract["errorCodes"].values(),
             *contract["installLayout"].values(),
+            *contract["releaseReadinessProfiles"].values(),
+            *contract["compatibleCompletionFields"].values(),
         }
         protected_values -= {
             *contract["errorCodes"],
             *contract["installLayout"],
+            *contract["releaseReadinessProfiles"],
+            *contract["compatibleCompletionFields"],
         }
         for path in (
             ROOT / "scripts" / "release_tool.py",

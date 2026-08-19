@@ -9,11 +9,12 @@
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
 | Skill 版本 | `1.4.0` | `release.json` |
+| 发布验收 Profile | `compatible_minor` | `release.json` |
 | Artifact Schema | `0.20.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
 | Manifest 更新时间 | `2026-08-19` | `skill-manifest.json` |
-| Manifest 跟踪文件 | `187` 个 | `skill-manifest.json` |
+| Manifest 跟踪文件 | `188` 个 | `skill-manifest.json` |
 
 ## 四阶段生产 SOP
 
@@ -85,6 +86,8 @@ python3 scripts/produce.py \
 ```bash
 python3 scripts/release_tool.py --help
 ```
+
+稳定版按候选锁中的发布验收 profile 推进。`compatible_minor` 完成 stage 全量验证、双轴 clean review、全新临时安装和 doctor 后晋升，不调用 Fal/OSS；首稳、major 和显式外部风险使用 `live_external`，继续执行未见图前向与四场景 live。
 
 完整的 Agent 路由读取 [`SKILL.md`](SKILL.md)。生产边界读取 [`references/vertical-slice-runtime.md`](references/vertical-slice-runtime.md)，换图与模板图验收读取 [`references/replacement-spec.md`](references/replacement-spec.md)，模板身份、槽位属性、标题、Prompt 和 runtimeSemantics 读取 [`references/template-authoring.md`](references/template-authoring.md)，数据编译读取 [`references/gallery-template-compiler.md`](references/gallery-template-compiler.md)。
 

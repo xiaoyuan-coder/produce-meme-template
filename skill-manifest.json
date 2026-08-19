@@ -2,7 +2,7 @@
   "name": "produce-meme-template",
   "version": "1.4.0",
   "updated_at": "2026-08-19",
-  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，并以逐图事实编译模板身份、槽位、上传身份特征继承范围、Prompt Template，以及可定位目标和严格视觉合同。",
+  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，以逐图事实编译正式模板，并按 development、compatible minor 或 live external 风险分级发布。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -39,6 +39,7 @@
     "docs/adr/0021-发布准备采用全量回放与live风险采样.md",
     "docs/adr/0022-正式JSON采用runtimeSemantics-v2合同.md",
     "docs/adr/0023-用四个可恢复大阶段聚合P0-P8.md",
+    "docs/adr/0024-稳定版按发布风险分级验收.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",

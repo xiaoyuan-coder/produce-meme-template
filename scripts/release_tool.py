@@ -20,6 +20,7 @@ from produce_meme_template.release_management import (
     promote_release,
     runtime_release_contract,
     stage_release,
+    verify_compatible_release_completion,
     write_pin_migration_report,
 )
 from produce_meme_template.release_readiness import (
@@ -65,6 +66,17 @@ def main() -> int:
     promote.add_argument("--candidate", required=True, type=Path)
     promote.add_argument("--dist", required=True, type=Path)
     promote.add_argument("--readiness", required=True, type=Path)
+    promote.add_argument("--standards-review-receipt", type=Path)
+    promote.add_argument("--spec-review-receipt", type=Path)
+
+    compatible = commands.add_parser(
+        "verify-compatible",
+        help="完成兼容 minor 的全新安装、doctor 与双轴 review 验证",
+    )
+    compatible.add_argument("--workspace", required=True, type=Path)
+    compatible.add_argument("--candidate", required=True, type=Path)
+    compatible.add_argument("--standards-review-receipt", required=True, type=Path)
+    compatible.add_argument("--spec-review-receipt", required=True, type=Path)
 
     verify = commands.add_parser(
         "verify-readiness",
@@ -120,6 +132,15 @@ def main() -> int:
                 args.candidate,
                 args.dist,
                 readiness_root=args.readiness,
+                standards_review_receipt=args.standards_review_receipt,
+                spec_review_receipt=args.spec_review_receipt,
+            )
+        elif args.command == "verify-compatible":
+            result = verify_compatible_release_completion(
+                args.workspace,
+                candidate_package=args.candidate,
+                standards_review_receipt=args.standards_review_receipt,
+                spec_review_receipt=args.spec_review_receipt,
             )
         elif args.command == "verify-readiness":
             result = verify_release_readiness_completion(
