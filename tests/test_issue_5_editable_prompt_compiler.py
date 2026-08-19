@@ -290,6 +290,37 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             formal["runtimeSemantics"]["visualContract"]["relations"],
         )
 
+    def test_subject_can_inherit_all_identity_traits_without_a_fixed_exception_reason(
+        self,
+    ) -> None:
+        def inherit_all(analysis: dict) -> dict:
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"] = {
+                "inheritFromUpload": [
+                    "可辨认身份特征",
+                    "毛色与花纹",
+                    "表情与动作",
+                ],
+                "keepFromTemplate": [],
+                "reason": "",
+            }
+            return analysis
+
+        result = self.run_case("subject-inherits-all-identity-traits", inherit_all)
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        formal = load_json(result.gallery_template)
+        relations = formal["runtimeSemantics"]["visualContract"]["relations"]
+        self.assertIn(
+            "图片模式下，输入 pet_subject 的可辨认身份特征、毛色与花纹、表情与动作读取用户上传图，并按模板媒介重绘",
+            relations,
+        )
+        self.assertFalse(any("沿用模板角色位" in value for value in relations))
+
     def test_subject_identity_inheritance_scope_is_required_and_disjoint(self) -> None:
         def remove_decision(analysis: dict) -> dict:
             subject = next(

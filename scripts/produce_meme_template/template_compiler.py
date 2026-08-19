@@ -511,8 +511,8 @@ def _compile_editable_spec(
             and unique_clean_strings(fixed, allow_empty=True)
             and set(inherited).isdisjoint(fixed)
             and isinstance(reason, str)
-            and reason.strip()
             and reason == reason.strip()
+            and (not fixed or bool(reason))
         )
 
     slot_candidates = analysis.get("slotCandidates")
