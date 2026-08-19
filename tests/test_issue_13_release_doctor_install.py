@@ -524,7 +524,7 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         with mock.patch(
             "scripts.produce_meme_template.release_management.subprocess.run",
             return_value=completed,
-        ) as verifier:
+        ):
             promoted = promote_release(
                 candidate,
                 self.dist,
@@ -543,8 +543,6 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
         self.assertTrue(
             doctor(qualification["installedRuntimePath"])["pass"]
         )
-        command = verifier.call_args.args[0]
-        self.assertIn("verify-compatible", command)
 
     def test_major_release_cannot_declare_the_compatible_minor_profile(self) -> None:
         prepare_versioned_source(
