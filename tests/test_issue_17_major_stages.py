@@ -175,6 +175,41 @@ class Issue17MajorStagesTest(unittest.TestCase):
         )
         self.assertTrue(second.primary_artifact.is_file())
 
+    def test_template_data_rerun_preserves_key_across_production_items(self) -> None:
+        template_key = self.request["templateKey"]
+        observed_final_keys = []
+
+        for production_item_id in ("template-data-run-one", "template-data-run-two"):
+            request = {
+                **self.request,
+                "productionItemId": production_item_id,
+                "templateKey": template_key,
+            }
+            adapters = DeterministicFixtureAdapters(FIXTURE)
+            template_data = run_production(
+                request,
+                self.output_root,
+                adapters,
+                clock=lambda: FIXED_TIME,
+                stage=3,
+            )
+
+            self.assertEqual("completed", template_data.outcome)
+            draft = load_json(template_data.output_dir / "gallery-template.draft.json")
+            self.assertEqual(template_key, draft["key"])
+
+            final = run_production(
+                request,
+                self.output_root,
+                adapters,
+                clock=lambda: FIXED_TIME,
+                stage=4,
+            )
+            self.assertEqual("completed", final.outcome)
+            observed_final_keys.append(load_json(final.gallery_template)["key"])
+
+        self.assertEqual([template_key, template_key], observed_final_keys)
+
     def test_invalid_stage_is_rejected_before_output_or_external_calls(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)
 

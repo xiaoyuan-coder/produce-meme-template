@@ -47,12 +47,24 @@ def stage_rows(rules: dict[str, Any]) -> str:
     return "\n".join(rows)
 
 
+def describe_key_pattern(pattern: str) -> str:
+    if pattern == "^[a-z][a-z0-9-]{1,59}$":
+        return "小写字母开头，只允许小写字母、数字和连字符，总长 2–60 位"
+    return "必须匹配当前 Gallery Template Schema 声明的正则"
+
+
 def render() -> str:
     release = load_json("release.json")
     manifest = load_json("skill-manifest.json")
     rules = load_json("contracts/machine-rules.json")
     stage_contract = rules["majorStageContract"]
     supported_contract = release["supportedContracts"]["galleryTemplate"]
+    gallery_schema = load_json(
+        "contracts/upstream/gallery-template/"
+        f"{supported_contract}/gallery-template.schema.json"
+    )
+    key_pattern = gallery_schema["properties"]["key"]["pattern"]
+    object_key_prefix = rules["objectStorageContract"]["objectKeyPrefix"]
 
     return f"""# produce-meme-template
 
@@ -86,6 +98,26 @@ def render() -> str:
 - `runtimeSemantics` 负责目标定位、输入绑定和跨编辑保持的视觉事实。
 - 正式业务 JSON 与生产 sidecar 分离；下游只读取 `gallery-template.json`。
 - T1 是现成正式 JSON 的独立生图测试入口，不属于四个生产阶段。
+
+## Key 与模板数据重跑
+
+`templateKey` 是生产请求必须显式提供的模板稳定标识，P5 draft 和 P8 正式 JSON 都将它原样投影为 `key`。Skill 不会根据标题、来源图片或新一轮分析重新命名模板。
+
+- 当前格式：`{key_pattern}`（{describe_key_pattern(key_pattern)}）。
+- 同一个 Production Item 恢复执行时，继续使用原 `templateKey`；请求改 key 会触发身份完整性阻断。
+- 需要重新编译模板数据并在下游替换旧记录时，创建新的 `productionItemId`，同时继续传入旧 `templateKey`。
+- 新旧模板图相同时，OSS 对象可以幂等复用；模板图变化时，对象路径中的图片 SHA 和最终 URL 会更新，正式模板 `key` 保持不变。
+- OSS 对象路径以 `{object_key_prefix}/<templateKey>/<approved-image-sha>.<ext>` 生成。Skill 交付稳定的 `key`，数据库按 key 执行 upsert 或替换由下游导入系统负责。
+
+重跑请求示例：
+
+```json
+{{
+  "productionItemId": "new-production-run-id",
+  "templateKey": "previous-template-key",
+  "sourceImage": "path/to/source-image.jpg"
+}}
+```
 
 ## 使用入口
 
