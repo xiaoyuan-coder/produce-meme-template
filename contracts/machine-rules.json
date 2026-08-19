@@ -299,6 +299,10 @@
   ],
   "majorStageContract": {
     "defaultSelector": "final",
+    "deliveryPhases": {
+      "upload": "P7",
+      "finalization": "P8"
+    },
     "aliases": {
       "1": "replacement",
       "replacement": "replacement",
@@ -739,9 +743,26 @@
       "identitySubject": "identity_subject",
       "contentElement": "content_element"
     },
+    "targetInstanceFields": {
+      "identity": "id",
+      "kind": "kind",
+      "role": "role",
+      "region": "region"
+    },
+    "targetGrounding": {
+      "minimumRoleCharacters": 5,
+      "minimumRegionCharacters": 5,
+      "forbiddenRoleValues": ["主体", "画面元素", "背景", "对应位置", "主体区域", "画面区域"],
+      "forbiddenRegionValues": ["主体", "画面元素", "背景", "对应位置", "主体区域", "画面区域"]
+    },
     "operations": {
       "replaceIdentity": "replace_identity",
       "replaceContent": "replace_content"
+    },
+    "inputBindingFields": {
+      "operation": "operation",
+      "targetIdentities": "targetIds",
+      "distributionPolicy": "distributionPolicy"
     },
     "subjectBinding": {
       "bindingPolicy": "one_to_one",
@@ -761,6 +782,8 @@
       "colorAndLight": "colorAndLight"
     },
     "visualGrounding": {
+      "minimumMediumCharacters": 10,
+      "minimumListItemCharacters": 8,
       "forbiddenReferenceOnlyFragments": [
         "同上",
         "保持原样",
@@ -769,7 +792,11 @@
         "保持原风格",
         "维持原构图",
         "与本批一致",
-        "高质量细节"
+        "高质量细节",
+        "高质量插画",
+        "精美细节",
+        "合理构图",
+        "自然关系"
       ]
     }
   },
@@ -837,7 +864,8 @@
         "keepFromTemplate": "keepFromTemplate",
         "reason": "reason"
       },
-      "requiredInheritedTrait": "可辨认身份特征"
+      "requiredInheritedTrait": "可辨认身份特征",
+      "minimumSpecificInheritedTraits": 1
     },
     "subjectInputDefaults": {
       "required": false,

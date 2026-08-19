@@ -506,6 +506,8 @@ def _compile_editable_spec(
             and set(decision) == set(inheritance_fields.values())
             and unique_clean_strings(inherited, allow_empty=False)
             and inheritance_contract["requiredInheritedTrait"] in inherited
+            and len(inherited) - 1
+            >= inheritance_contract["minimumSpecificInheritedTraits"]
             and unique_clean_strings(fixed, allow_empty=True)
             and set(inherited).isdisjoint(fixed)
             and isinstance(reason, str)
@@ -1450,26 +1452,6 @@ def _runtime_visual_contract(
     visual = runtime.get("visualContract") if isinstance(runtime, dict) else None
     if not isinstance(visual, dict):
         visual = analysis.get("visualContract")
-    if not isinstance(visual, dict):
-        legacy = analysis.get("promptEnhancement")
-        instruction = legacy.get("instruction") if isinstance(legacy, dict) else None
-        locked = legacy.get("lockedConstraints") if isinstance(legacy, dict) else None
-        preserve = legacy.get("preserve") if isinstance(legacy, dict) else None
-        if (
-            isinstance(instruction, str)
-            and instruction.strip()
-            and isinstance(locked, list)
-            and locked
-            and isinstance(preserve, list)
-            and preserve
-        ):
-            visual = {
-                "medium": instruction.strip(),
-                "styleTraits": copy.deepcopy(locked),
-                "composition": copy.deepcopy(locked),
-                "relations": copy.deepcopy(preserve),
-                "colorAndLight": [],
-            }
     fields = rules["runtimeSemanticsContract"]["visualContractFields"]
     expected = set(fields.values())
     list_fields = (
@@ -1478,22 +1460,28 @@ def _runtime_visual_contract(
         fields["relations"],
         fields["colorAndLight"],
     )
+    grounding = rules["runtimeSemanticsContract"]["visualGrounding"]
     valid = bool(
         isinstance(visual, dict)
         and set(visual) == expected
         and isinstance(visual.get(fields["medium"]), str)
         and visual[fields["medium"]].strip()
+        and len(visual[fields["medium"]].strip())
+        >= grounding["minimumMediumCharacters"]
         and all(
             isinstance(visual.get(field), list)
             and (field == fields["colorAndLight"] or visual[field])
-            and all(isinstance(value, str) and value.strip() for value in visual[field])
+            and all(
+                isinstance(value, str)
+                and value.strip()
+                and len(value.strip()) >= grounding["minimumListItemCharacters"]
+                for value in visual[field]
+            )
             and len(visual[field]) == len(set(visual[field]))
             for field in list_fields
         )
     )
-    forbidden_reference_fragments = rules["runtimeSemanticsContract"][
-        "visualGrounding"
-    ]["forbiddenReferenceOnlyFragments"]
+    forbidden_reference_fragments = grounding["forbiddenReferenceOnlyFragments"]
     generic_references = sorted(
         fragment
         for fragment in forbidden_reference_fragments
@@ -1542,6 +1530,9 @@ def _compile_runtime_semantics(
 ) -> dict[str, Any]:
     runtime_contract = rules["runtimeSemanticsContract"]
     runtime_fields = runtime_contract["fields"]
+    target_fields = runtime_contract["targetInstanceFields"]
+    target_grounding = runtime_contract["targetGrounding"]
+    binding_fields = runtime_contract["inputBindingFields"]
     multi_contract = rules["multiInstanceContract"]
     graph_fields = multi_contract["graphFields"]
     component_fields = multi_contract["componentFields"]
@@ -1558,17 +1549,25 @@ def _compile_runtime_semantics(
         and authored_targets
         and all(
             isinstance(target, dict)
-            and set(target) == {"id", "kind", "role", "region"}
-            and isinstance(target.get("id"), str)
-            and target["id"].strip()
-            and target.get("kind") in set(target_kinds.values())
-            and isinstance(target.get("role"), str)
-            and target["role"].strip()
-            and isinstance(target.get("region"), str)
-            and target["region"].strip()
+            and set(target) == set(target_fields.values())
+            and isinstance(target.get(target_fields["identity"]), str)
+            and target[target_fields["identity"]].strip()
+            and target.get(target_fields["kind"]) in set(target_kinds.values())
+            and isinstance(target.get(target_fields["role"]), str)
+            and len(target[target_fields["role"]].strip())
+            >= target_grounding["minimumRoleCharacters"]
+            and target[target_fields["role"]].strip()
+            not in set(target_grounding["forbiddenRoleValues"])
+            and isinstance(target.get(target_fields["region"]), str)
+            and len(target[target_fields["region"]].strip())
+            >= target_grounding["minimumRegionCharacters"]
+            and target[target_fields["region"]].strip()
+            not in set(target_grounding["forbiddenRegionValues"])
             for target in authored_targets
         )
-        and len({target["id"] for target in authored_targets})
+        and len(
+            {target[target_fields["identity"]] for target in authored_targets}
+        )
         == len(authored_targets)
     )
     if not authored_targets_valid:
@@ -1580,7 +1579,7 @@ def _compile_runtime_semantics(
             {},
         )
     authored_target_by_id = {
-        target["id"]: target for target in authored_targets
+        target[target_fields["identity"]]: target for target in authored_targets
     }
     graph_component_ids = {
         component[component_fields["identity"]]
@@ -1668,15 +1667,17 @@ def _compile_runtime_semantics(
             bound_target_kinds[target_id] = kind
         if is_subject:
             bindings[slot_id] = {
-                "operation": operations["replaceIdentity"],
-                "targetIds": target_ids,
+                binding_fields["operation"]: operations["replaceIdentity"],
+                binding_fields["targetIdentities"]: target_ids,
                 **copy.deepcopy(runtime_contract["subjectBinding"]),
             }
         else:
             bindings[slot_id] = {
-                "operation": operations["replaceContent"],
-                "targetIds": target_ids,
-                "distributionPolicy": runtime_contract["contentDistributionPolicies"][
+                binding_fields["operation"]: operations["replaceContent"],
+                binding_fields["targetIdentities"]: target_ids,
+                binding_fields["distributionPolicy"]: runtime_contract[
+                    "contentDistributionPolicies"
+                ][
                     "singleTarget" if len(target_ids) == 1 else "targetGroup"
                 ],
             }
@@ -1687,12 +1688,12 @@ def _compile_runtime_semantics(
         target_id
         for target_id, kind in bound_target_kinds.items()
         if target_id in authored_target_by_id
-        and authored_target_by_id[target_id]["kind"] != kind
+        and authored_target_by_id[target_id][target_fields["kind"]] != kind
     )
     unbound_identity_targets = sorted(
         target_id
         for target_id, target in authored_target_by_id.items()
-        if target["kind"] == target_kinds["identitySubject"]
+        if target[target_fields["kind"]] == target_kinds["identitySubject"]
         and target_id not in bound_target_kinds
     )
     if missing_authored_targets or mismatched_target_kinds or unbound_identity_targets:
@@ -2469,6 +2470,8 @@ def _runtime_semantics_contract_errors(
         errors.append("promptTemplate 必须且只能引用全部 inputSchema.id。")
 
     runtime_fields = contract["fields"]
+    target_fields = contract["targetInstanceFields"]
+    binding_fields = contract["inputBindingFields"]
     expected_runtime_fields = set(runtime_fields.values())
     if (
         set(runtime) != expected_runtime_fields
@@ -2481,9 +2484,10 @@ def _runtime_semantics_contract_errors(
         return [*errors, "targetInstances 和 inputBindings 必须完整。"]
 
     target_by_id = {
-        target.get("id"): target
+        target.get(target_fields["identity"]): target
         for target in targets
-        if isinstance(target, dict) and isinstance(target.get("id"), str)
+        if isinstance(target, dict)
+        and isinstance(target.get(target_fields["identity"]), str)
     }
     if len(target_by_id) != len(targets):
         errors.append("targetInstances.id 必须存在且唯一。")
@@ -2503,7 +2507,7 @@ def _runtime_semantics_contract_errors(
         binding = bindings.get(input_id)
         if not isinstance(binding, dict):
             continue
-        target_ids = binding.get("targetIds")
+        target_ids = binding.get(binding_fields["targetIdentities"])
         if (
             not isinstance(target_ids, list)
             or not target_ids
@@ -2514,13 +2518,15 @@ def _runtime_semantics_contract_errors(
             continue
         if item.get("type") == subject_type:
             expected = {
-                "operation": contract["operations"]["replaceIdentity"],
-                "targetIds": target_ids,
+                binding_fields["operation"]: contract["operations"]["replaceIdentity"],
+                binding_fields["targetIdentities"]: target_ids,
                 **contract["subjectBinding"],
             }
             if len(target_ids) != 1 or binding != expected:
                 errors.append(f"{input_id} 必须使用一对一身份绑定。")
-            elif target_by_id[target_ids[0]].get("kind") != contract["targetKinds"]["identitySubject"]:
+            elif target_by_id[target_ids[0]].get(
+                target_fields["kind"]
+            ) != contract["targetKinds"]["identitySubject"]:
                 errors.append(f"{input_id} 必须绑定 identity_subject。")
             identity_targets_owned.extend(target_ids)
         else:
@@ -2528,13 +2534,14 @@ def _runtime_semantics_contract_errors(
                 "singleTarget" if len(target_ids) == 1 else "targetGroup"
             ]
             if binding != {
-                "operation": contract["operations"]["replaceContent"],
-                "targetIds": target_ids,
-                "distributionPolicy": expected_policy,
+                binding_fields["operation"]: contract["operations"]["replaceContent"],
+                binding_fields["targetIdentities"]: target_ids,
+                binding_fields["distributionPolicy"]: expected_policy,
             }:
                 errors.append(f"{input_id} 的内容绑定与目标数量不一致。")
             elif any(
-                target_by_id[target_id].get("kind") != contract["targetKinds"]["contentElement"]
+                target_by_id[target_id].get(target_fields["kind"])
+                != contract["targetKinds"]["contentElement"]
                 for target_id in target_ids
             ):
                 errors.append(f"{input_id} 必须绑定 content_element。")

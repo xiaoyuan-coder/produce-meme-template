@@ -221,6 +221,43 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
         record = load_json(result.gallery_template)
         self.assertEqual(authored_targets, record["runtimeSemantics"]["targetInstances"])
 
+    def test_public_workflow_rejects_targets_without_unique_visual_locations(self) -> None:
+        generic_targets = [
+            {
+                "id": "approved-animal-main",
+                "kind": "identity_subject",
+                "role": "主体",
+                "region": "对应位置",
+            },
+            {
+                "id": "approved-cushion",
+                "kind": "content_element",
+                "role": "画面元素",
+                "region": "主体区域",
+            },
+            {
+                "id": "approved-room",
+                "kind": "content_element",
+                "role": "背景",
+                "region": "画面区域",
+            },
+        ]
+
+        def generic_runtime_targets(analysis: dict) -> dict:
+            analysis["runtimeSemantics"]["targetInstances"] = copy.deepcopy(
+                generic_targets
+            )
+            return analysis
+
+        result = self.run_case(
+            "generic-runtime-targets",
+            ApprovedAnalysisAdapters(generic_runtime_targets),
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
     def test_needs_review_is_conditional_and_preserves_draft_status(self) -> None:
         reason = "画内文字角色仍需人工复核"
 

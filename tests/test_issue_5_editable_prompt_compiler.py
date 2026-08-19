@@ -317,6 +317,25 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["blocked"], overlap.state)
         self.assertFalse((overlap.output_dir / "editable-template-spec.json").exists())
 
+        def generic_only_scope(analysis: dict) -> dict:
+            subject = next(
+                slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"] = {
+                "inheritFromUpload": ["可辨认身份特征"],
+                "keepFromTemplate": [],
+                "reason": "默认继承用户上传图",
+            }
+            return analysis
+
+        generic_only = self.run_case(
+            "subject-identity-inheritance-generic-only", generic_only_scope
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], generic_only.state)
+        self.assertFalse(
+            (generic_only.output_dir / "editable-template-spec.json").exists()
+        )
+
     def test_subject_presence_and_kind_discriminators_are_required(self) -> None:
         for field in ("hasPrimarySubject", "subjectKind"):
             with self.subTest(field=field):
@@ -638,6 +657,38 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 self.assertEqual(RULES["resultStates"]["blocked"], result.state)
                 self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
                 self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+        def vague_visual_contract(analysis: dict) -> dict:
+            analysis["runtimeSemantics"]["visualContract"] = {
+                "medium": "高质量插画",
+                "styleTraits": ["精美细节"],
+                "composition": ["合理构图"],
+                "relations": ["自然关系"],
+                "colorAndLight": [],
+            }
+            return analysis
+
+        vague = self.run_case("vague-visual-contract", vague_visual_contract)
+        self.assertEqual(RULES["resultStates"]["blocked"], vague.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], vague.error_code)
+        self.assertFalse((vague.output_dir / "gallery-template.json").exists())
+
+    def test_v1_prompt_enhancement_cannot_supply_v2_runtime_semantics(self) -> None:
+        def legacy_only(analysis: dict) -> dict:
+            analysis.pop("runtimeSemantics", None)
+            analysis.pop("visualContract", None)
+            analysis["promptEnhancement"] = {
+                "instruction": "高质量插画",
+                "lockedConstraints": ["精美细节"],
+                "preserve": ["自然关系"],
+            }
+            return analysis
+
+        result = self.run_case("legacy-prompt-enhancement-only", legacy_only)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
 
     def test_title_requires_all_current_image_authoring_gates(self) -> None:
         def title_copied_without_grounding(analysis: dict) -> dict:

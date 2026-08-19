@@ -34,6 +34,16 @@ class RepositoryContractTest(unittest.TestCase):
             completed.stdout + completed.stderr,
         )
 
+    def test_generated_readme_relative_links_exist(self) -> None:
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        relative_links = re.findall(r"\[[^]]+\]\(([^):#]+)(?:#[^)]+)?\)", readme)
+        missing = sorted(
+            link
+            for link in relative_links
+            if not (ROOT / link).is_file()
+        )
+        self.assertEqual([], missing)
+
     def test_skill_manifest_tracks_every_repository_file(self) -> None:
         manifest = load(ROOT / "skill-manifest.json")
         actual = set()
@@ -43,7 +53,7 @@ class RepositoryContractTest(unittest.TestCase):
             relative = path.relative_to(ROOT).as_posix()
             if relative.startswith(".git/") or "__pycache__/" in relative or relative.endswith(".pyc"):
                 continue
-            if relative in {".DS_Store", ".env", ".env.local"}:
+            if path.name == ".DS_Store" or relative in {".env", ".env.local"}:
                 continue
             if relative.startswith((".scratch/", "artifacts/", "dist/", ".venv/", ".pytest_cache/")):
                 continue

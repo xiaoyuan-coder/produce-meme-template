@@ -17,7 +17,9 @@ from .template_compiler import (
 )
 from .workflow_core import (
     ProductionResult,
+    WorkflowAdapters,
     WorkflowStop,
+    _adapter_snapshot_image_object_call,
     _advance,
     _atomic_write_new,
     _persist_manifest,
@@ -26,6 +28,15 @@ from .workflow_core import (
     _revision_image_artifacts,
     _stop,
 )
+
+
+def _final_stage_definition(rules: dict[str, Any]) -> dict[str, Any]:
+    contract = rules["majorStageContract"]
+    return next(
+        stage
+        for stage in contract["stages"]
+        if stage["selector"] == contract["defaultSelector"]
+    )
 
 
 def _delivery_image_context(
@@ -393,7 +404,16 @@ def _finalize_uploaded_item(
     manifest: dict[str, Any],
     rules: dict[str, Any],
     timestamp: str,
+    *,
+    resumed: bool = True,
 ) -> ProductionResult:
+    stage_contract = rules["majorStageContract"]
+    delivery_phases = stage_contract["deliveryPhases"]
+    final_stage = _final_stage_definition(rules)
+    final_phase = delivery_phases["finalization"]
+    formal_name = stage_contract["artifactNames"][
+        final_stage["primaryArtifactRole"]
+    ]
     try:
         draft = _load_json(output_dir / "gallery-template.draft.json")
         receipt = _load_json(output_dir / "asset-receipt.json")
@@ -447,20 +467,20 @@ def _finalize_uploaded_item(
         manifest,
         output_dir,
         "final-validation-report.json",
-        rules["productionPhases"][8]["phase"],
+        final_phase,
         ["gallery-template.draft.json", "asset-receipt.json"],
     )
     if not final_validation["pass"]:
         raise _stop(rules, "blocked", "contractFailure", "正式 JSON 最终合同验证未通过。", final_validation)
-    _atomic_write_new(output_dir / "gallery-template.json", _json_bytes(final_record))
+    _atomic_write_new(output_dir / formal_name, _json_bytes(final_record))
     _record_artifact(
         manifest,
         output_dir,
-        "gallery-template.json",
-        rules["productionPhases"][8]["phase"],
+        formal_name,
+        final_phase,
         ["gallery-template.draft.json", "asset-receipt.json", "final-validation-report.json"],
     )
-    _advance(manifest, rules, rules["productionPhases"][8]["phase"], timestamp)
+    _advance(manifest, rules, final_phase, timestamp)
     manifest["outcome"] = "completed"
     _persist_manifest(output_dir, manifest)
     return ProductionResult(
@@ -468,8 +488,98 @@ def _finalize_uploaded_item(
         manifest["productionItemId"],
         rules["resultStates"]["completed"],
         output_dir,
-        output_dir / "gallery-template.json",
-        resumed=True,
-        major_stage=rules["majorStageContract"]["stages"][3]["selector"],
-        primary_artifact=output_dir / "gallery-template.json",
+        output_dir / formal_name,
+        resumed=resumed,
+        major_stage=final_stage["selector"],
+        primary_artifact=output_dir / formal_name,
+    )
+
+
+def _run_finalization_stage(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+    adapters: WorkflowAdapters,
+    template_key: str,
+    timestamp: str,
+    *,
+    resumed: bool,
+) -> ProductionResult:
+    upload_phase = rules["majorStageContract"]["deliveryPhases"]["upload"]
+    delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
+    if delivery_errors:
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "上传前候选图与确认模板图谱系不一致。",
+            {"errors": delivery_errors},
+        )
+    object_key = _object_storage_key(
+        template_key,
+        delivery["approvedPath"],
+        delivery["approvedSha256"],
+        rules,
+    )
+    receipt_path = output_dir / "asset-receipt.json"
+    if receipt_path.exists():
+        receipt = _load_json(receipt_path)
+        if not _asset_receipt_valid(
+            receipt,
+            manifest,
+            delivery,
+            object_key,
+            rules,
+        ):
+            raise _stop(
+                rules,
+                "blocked",
+                "productionItemIntegrityFailure",
+                "已有 Asset Receipt 与当前确认模板图或对象键不一致。",
+                {"path": str(receipt_path)},
+            )
+    else:
+        upload_result = _adapter_snapshot_image_object_call(
+            rules,
+            "upload",
+            adapters.upload,
+            delivery["approvedPath"],
+            delivery["approvedSha256"],
+            object_key,
+        )
+        if not _upload_result_valid(
+            upload_result,
+            object_key,
+            delivery["approvedSha256"],
+            rules,
+        ):
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "上传结果未绑定确认模板图、远端对象或请求身份。",
+                {},
+            )
+        receipt = _build_asset_receipt(
+            manifest,
+            delivery,
+            upload_result,
+            rules,
+        )
+        _atomic_write_new(receipt_path, _json_bytes(receipt))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "asset-receipt.json",
+        upload_phase,
+        [delivery["approvedName"], "validation-report.json"],
+    )
+    _advance(manifest, rules, upload_phase, timestamp)
+    _persist_manifest(output_dir, manifest)
+    return _finalize_uploaded_item(
+        output_dir,
+        manifest,
+        rules,
+        timestamp,
+        resumed=resumed,
     )

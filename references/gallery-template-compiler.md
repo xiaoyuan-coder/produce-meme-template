@@ -44,7 +44,7 @@ subject binding 固定使用 `replace_identity + one_to_one + illustration_redra
 - `relations`：身份边界、接触、遮挡、承托、容器关系和逐模板服装裁决；
 - `colorAndLight`：只有色光属于模板卖点时填写，允许空数组。
 
-编译器拒绝只用“沿用确认模板图”或“保持确认模板图”回指图片的泛化约束；每个字段必须写当前图可观察的媒介、造型、构图或关系事实。
+编译器拒绝只用“沿用确认模板图”“高质量插画”“精美细节”“合理构图”或“自然关系”等泛化约束；每个字段必须达到机器合同的最小信息长度，并写出当前图可观察的媒介、造型、构图或关系事实。旧 v1 `promptEnhancement` 不参与新生产项的 v2 编译。
 
 每个高价值槽位继续提供 `hiddenConflictTokens` 和 `titleForbiddenTokens`。确定性门禁拒绝 visual contract 锁回槽位默认值、建议值或自由编辑内容；独立语义审计复核目标—绑定职责、开放内容权限、身份中性和最大差异标题。审计 SHA 同时绑定标题、Prompt、runtimeSemantics、自由内容和全部槽位默认值/推荐值；任何被审计内容变化都会让旧结论失效。
 
