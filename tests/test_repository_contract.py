@@ -4,6 +4,8 @@ import ast
 import json
 import hashlib
 import re
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -18,6 +20,20 @@ def load(path: Path):
 
 
 class RepositoryContractTest(unittest.TestCase):
+    def test_generated_readme_is_current(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, "scripts/update_readme.py", "--check"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            completed.stdout + completed.stderr,
+        )
+
     def test_skill_manifest_tracks_every_repository_file(self) -> None:
         manifest = load(ROOT / "skill-manifest.json")
         actual = set()
@@ -27,7 +43,7 @@ class RepositoryContractTest(unittest.TestCase):
             relative = path.relative_to(ROOT).as_posix()
             if relative.startswith(".git/") or "__pycache__/" in relative or relative.endswith(".pyc"):
                 continue
-            if relative in {".env", ".env.local"}:
+            if relative in {".DS_Store", ".env", ".env.local"}:
                 continue
             if relative.startswith((".scratch/", "artifacts/", "dist/", ".venv/", ".pytest_cache/")):
                 continue

@@ -21,6 +21,7 @@
 
 - `release.json` 是 Skill 行为版本的唯一人工事实源。
 - 行为、合同、脚本、输出或用户可见规则变化时同步更新版本、manifest 和测试。
+- `README.md` 面向人类维护者，由 `scripts/update_readme.py` 从仓库事实源生成；相关事实变化后重新生成并运行 `python3 scripts/update_readme.py --check`。
 - 测试优先通过公共工作流观察状态、产物、错误和外部副作用；内部调用顺序不作为行为合同。
 - 未经用户明确要求，不执行 commit、Tag、push 或发布。
 
