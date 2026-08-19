@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "1.1.0",
-  "updated_at": "2026-08-18",
-  "description": "从 Approved Template Image 编译 Gallery Template v2：输出作者定位的 runtimeSemantics 目标、输入绑定与视觉合同，T1 将它与用户 Prompt 编译成真实生图请求，同时保留换图、OSS 终结与不可变发布门禁。",
+  "version": "1.2.0",
+  "updated_at": "2026-08-19",
+  "description": "在同一 Production Item 谱系中提供四个可恢复大阶段：换图执行 JSON、Fal API 模板图生成与确认、v2 模板数据包、OSS 上传回填后的最终 Gallery Template。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -37,6 +37,7 @@
     "docs/adr/0020-分离三类版本并使用不可变发布包.md",
     "docs/adr/0021-发布准备采用全量回放与live风险采样.md",
     "docs/adr/0022-正式JSON采用runtimeSemantics-v2合同.md",
+    "docs/adr/0023-用四个可恢复大阶段聚合P0-P8.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",
@@ -185,6 +186,7 @@
     "tests/test_issue_14_template_json_test.py",
     "tests/test_issue_15_historical_experience_regression.py",
     "tests/test_issue_16_shadow_release_readiness.py",
+    "tests/test_issue_17_major_stages.py",
     "tests/test_repository_contract.py"
   ]
 }

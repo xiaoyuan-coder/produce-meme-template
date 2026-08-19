@@ -90,8 +90,11 @@ class ProductionResult:
     error_code: str | None = None
     message: str | None = None
     resumed: bool = False
+    major_stage: str | None = None
+    primary_artifact: Path | None = None
 
     def as_dict(self) -> dict[str, Any]:
+        stage_fields = MACHINE_RULES["majorStageContract"]["resultFields"]
         return {
             "outcome": self.outcome,
             "productionItemId": self.production_item_id,
@@ -101,6 +104,10 @@ class ProductionResult:
             "errorCode": self.error_code,
             "message": self.message,
             "resumed": self.resumed,
+            stage_fields["majorStage"]: self.major_stage,
+            stage_fields["primaryArtifact"]: (
+                str(self.primary_artifact) if self.primary_artifact else None
+            ),
         }
 
 

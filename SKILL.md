@@ -1,6 +1,6 @@
 ---
 name: produce-meme-template
-description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按指定或自主策略完成换图，再分析确认模板图、设计高价值槽位和 Prompt Template、编译 runtimeSemantics 目标绑定与视觉合同、校验正式合同、上传 OSS 并回填 cover/referenceImage；也用于批量独立生产，以及用户明确指定现成 JSON 后单独执行模板生图测试。
+description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 JSON。用于输出换图执行 JSON、调用 Fal API 生成并确认模板图、编译待 OSS 的模板数据包、上传 OSS 并回填最终模板数据；也用于批量独立生产，以及用户明确指定现成 JSON 后单独执行模板生图测试。
 ---
 
 # Meme 模板生产
@@ -14,8 +14,8 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 公共入口
 
-- Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters)`。
-- 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir>`。
+- Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters, stage=<1|2|3|4>)`；省略 `stage` 时执行完整第四阶段。
+- 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir> --stage <1|2|3|4>`。
 - 发布候选、readiness 晋升、安装、诊断与显式 pin 迁移：`python3 scripts/release_tool.py <build|stage|promote|install|doctor|migrate-pin> ...`。
 - 历史经验回归：`python3 scripts/experience_regression.py --runtime <runtime> --output <outside-runtime.json>`。
 - 影子批次与 1.0 准备：`scripts.produce_meme_template.run_release_readiness(request, output_root, adapters)`。
@@ -23,7 +23,11 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 
 ## 调用边界
 
-- **正式生产**：从来源网图进入 P0–P8，以完成 OSS URL 回填并通过正式投影的 `gallery-template.json` 结束。
+- **第一阶段**：执行 P0–P1，输出 `replacement-package.json`；其中绑定 `source-analysis.json`、`replacement-plan.json` 和可供第二阶段冻结任务的 `generation-package.json`，不提交生图 API。
+- **第二阶段**：执行 P2，必须通过生成 adapter 调用图片 API。真实生产使用 `FalQueueWorkflowAdapters` 提交、轮询并下载候选图；候选图通过视觉门禁后才输出 Approved Template Image。
+- **第三阶段**：执行 P3–P6，输出状态为 `awaiting_oss_finalization` 的 `template-data-package.json`；其中绑定正式 draft、runtimeSemantics、语义审计和四层验证，不上传 OSS、不冒充最终正式 JSON。
+- **第四阶段**：执行 P7–P8，上传当前 Approved Template Image，回填同一 OSS URL，输出最终 `gallery-template.json`。
+- **完整生产**：省略阶段参数或指定第四阶段，依次执行四个大阶段。四次分段调用和一次完整调用使用同一个 Production Item、revision、pin 与产物谱系。
 - **批量提交**：把多张来源网图拆成相互独立的 Production Item；仅在用户显式提供共享批次策略时建立跨图约束。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
 
@@ -35,7 +39,7 @@ description: 从来源网图生产可交付的 Meme 模板 JSON。用于先按�
 - P2 的视觉硬门禁、证据绑定、自主确认和不可变重做读取 [模板图确认与恢复合同](references/template-image-gate.md)。
 - P2 的生成数量、冻结任务、request ID WAL、失败分类和队列恢复读取 [生成执行与 WAL 恢复合同](references/generation-execution-and-recovery.md)。
 - P7–P8 的 Approved Image 上传、远端对象对账、Asset Receipt 恢复和双 URL 回填读取 [OSS 幂等终结合同](references/oss-finalization.md)。
-- P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
+- 四个用户大阶段、P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - 三线版本、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
 - T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
 - E01–E39 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。

@@ -2,7 +2,7 @@
 
 ## 1. 请求与任务冻结
 
-每次 P2 默认请求一张图。调用方可在 `generationOptions` 中显式设置生成数量和主输出索引，数量上限、字段名与默认值只读取 `contracts/machine-rules.json` 的 `generationExecutionContract`。规范化生成选项的摘要进入 Production Item 身份，同一生产项不能在恢复时静默改变输出数量或主输出。
+第一阶段确定性编译并保存 Generation Package，不创建供应商任务。第二阶段进入 P2 后默认通过图片生成 API 请求一张图。调用方可在 `generationOptions` 中显式设置生成数量和主输出索引，数量上限、字段名与默认值只读取 `contracts/machine-rules.json` 的 `generationExecutionContract`。规范化生成选项的摘要进入 Production Item 身份，同一生产项不能在恢复时静默改变输出数量或主输出。
 
 工作流在调用供应商前创建不可变 `generation-task[-rN].json`。任务同时绑定：
 
@@ -46,6 +46,6 @@ WAL 只保存恢复必需的机器事实：task ID 与 task SHA、revision、供
 
 ## 5. 真实 FAL 适配器
 
-`FalQueueWorkflowAdapters` 使用 `fal-client` 的持久队列接口执行 `openai/gpt-image-2/edit`，并将分析、视觉审核、语义审计和上传转发给注入的 delegate。运行环境通过 `FAL_KEY` 提供凭据，调用方负责组合真实下游 adapters 并承担 API 成本。
+`FalQueueWorkflowAdapters` 是第二阶段的真实图片生成适配器，使用 `fal-client` 的持久队列接口执行 `openai/gpt-image-2/edit`，并将分析、视觉审核、语义审计和上传转发给注入的 delegate。第二阶段必须完成 Fal submit、status、result、图片下载和视觉门禁，供应商成功返回的图片仍只是 Generated Candidate Image；全部门禁通过后才登记 Approved Template Image。运行环境通过 `FAL_KEY` 提供凭据，调用方负责组合真实下游 adapters 并承担 API 成本。
 
 默认测试不访问付费服务。公共工作流集成测试使用真实 FAL adapter 实现和可控传输，验证 submit/status/result/download、任务形状、WAL 持久化与敏感内容不落盘。付费影子运行需由用户显式授权。

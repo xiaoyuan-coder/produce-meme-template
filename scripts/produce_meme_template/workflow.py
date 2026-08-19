@@ -41,6 +41,7 @@ def _run_batch_item(
     prepared_source_analysis: dict[str, Any] | None = None,
     shared_policy_resolution: dict[str, Any] | None = None,
     preparation_stop: WorkflowStop | None = None,
+    target_stage: int = 4,
 ) -> ProductionResult:
     try:
         return _run_single_production(
@@ -51,6 +52,7 @@ def _run_batch_item(
             prepared_source_analysis=prepared_source_analysis,
             shared_policy_resolution=shared_policy_resolution,
             preparation_stop=preparation_stop,
+            target_stage=target_stage,
         )
     except (KeyError, OSError, TypeError, ValueError):
         rules = _load_json(RULES_PATH)
@@ -70,10 +72,30 @@ def run_production(
     adapters: WorkflowAdapters,
     *,
     clock: Callable[[], datetime] | None = None,
+    stage: int | str = 4,
 ) -> ProductionResult | BatchProductionResult:
-    """Run one Production Item or split a batch into independent P0-P8 items."""
+    """Run one Production Item or batch through the requested resumable major stage."""
 
     rules = _load_json(RULES_PATH)
+    stage_contract = rules["majorStageContract"]
+    normalized_selector = stage_contract["aliases"].get(str(stage).strip().lower())
+    target_stage = next(
+        (
+            item["number"]
+            for item in stage_contract["stages"]
+            if item["selector"] == normalized_selector
+        ),
+        None,
+    )
+    if target_stage is None:
+        return ProductionResult(
+            "needs_input",
+            "invalid-production-item",
+            rules["resultStates"]["needs_input"],
+            Path(output_root).resolve(),
+            error_code=rules["errorCodes"]["invalidProductionRequest"],
+            message="大阶段必须是 1、2、3、4 或对应的 replacement、image、data、final。",
+        )
     if not isinstance(request, dict):
         return ProductionResult(
             "needs_input",
@@ -90,7 +112,11 @@ def run_production(
     shared_policy_field = request_fields["sharedPolicy"]
     if batch_field not in request and items_field not in request:
         return _run_single_production(
-            request, output_root, adapters, clock=clock
+            request,
+            output_root,
+            adapters,
+            clock=clock,
+            target_stage=target_stage,
         )
     batch_id = request.get(batch_field)
     raw_items = request.get(items_field)
@@ -129,7 +155,11 @@ def run_production(
     if shared_policy is None:
         results = tuple(
             _run_batch_item(
-                item, output_root, adapters, clock=clock
+                item,
+                output_root,
+                adapters,
+                clock=clock,
+                target_stage=target_stage,
             )
             for item in raw_items
         )
@@ -192,7 +222,11 @@ def run_production(
         if item_id not in scope:
             item_results.append(
                 _run_batch_item(
-                    item, output_root, adapters, clock=clock
+                    item,
+                    output_root,
+                    adapters,
+                    clock=clock,
+                    target_stage=target_stage,
                 )
             )
             continue
@@ -205,6 +239,7 @@ def run_production(
                     adapters,
                     clock=clock,
                     preparation_stop=preparation_failures[item_id],
+                    target_stage=target_stage,
                 )
             )
             continue
@@ -222,6 +257,7 @@ def run_production(
                         "共享批次策略没有为该生产项分配兼容值。",
                         {"productionItemId": item_id},
                     ),
+                    target_stage=target_stage,
                 )
             )
             continue
@@ -233,6 +269,7 @@ def run_production(
                 clock=clock,
                 prepared_source_analysis=analyses.get(item_id),
                 shared_policy_resolution=resolutions[item_id],
+                target_stage=target_stage,
             )
         )
     return BatchProductionResult(

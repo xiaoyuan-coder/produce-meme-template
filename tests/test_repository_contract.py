@@ -27,6 +27,8 @@ class RepositoryContractTest(unittest.TestCase):
             relative = path.relative_to(ROOT).as_posix()
             if relative.startswith(".git/") or "__pycache__/" in relative or relative.endswith(".pyc"):
                 continue
+            if relative in {".env", ".env.local"}:
+                continue
             if relative.startswith((".scratch/", "artifacts/", "dist/", ".venv/", ".pytest_cache/")):
                 continue
             actual.add(relative)

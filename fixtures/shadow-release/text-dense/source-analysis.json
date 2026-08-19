@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.17.0",
+  "schemaVersion": "0.18.0",
   "mechanism": {
     "setup": "一张竖幅复古艺术展海报以主标题和多行次要文字占据下半部",
     "turn": "左上人物剪影、红褐边框与手绘字形共同形成十九世纪海报感",

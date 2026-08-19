@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.17.0",
+  "schemaVersion": "0.18.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -297,6 +297,62 @@
     {"phase": "P7", "state": "ASSET_UPLOADED"},
     {"phase": "P8", "state": "FINALIZED"}
   ],
+  "majorStageContract": {
+    "defaultSelector": "final",
+    "aliases": {
+      "1": "replacement",
+      "replacement": "replacement",
+      "2": "template_image",
+      "image": "template_image",
+      "template_image": "template_image",
+      "3": "template_data",
+      "data": "template_data",
+      "template_data": "template_data",
+      "4": "final",
+      "full": "final",
+      "final": "final"
+    },
+    "stages": [
+      {
+        "number": 1,
+        "selector": "replacement",
+        "throughPhase": "P1",
+        "primaryArtifactRole": "replacementPackage"
+      },
+      {
+        "number": 2,
+        "selector": "template_image",
+        "throughPhase": "P2",
+        "primaryArtifactRole": "approvedTemplateImage"
+      },
+      {
+        "number": 3,
+        "selector": "template_data",
+        "throughPhase": "P6",
+        "primaryArtifactRole": "templateDataPackage"
+      },
+      {
+        "number": 4,
+        "selector": "final",
+        "throughPhase": "P8",
+        "primaryArtifactRole": "formalTemplate"
+      }
+    ],
+    "artifactNames": {
+      "replacementPackage": "replacement-package.json",
+      "templateDataPackage": "template-data-package.json",
+      "formalTemplate": "gallery-template.json"
+    },
+    "packageArtifactTypes": {
+      "replacementPackage": "replacement-stage-package",
+      "templateDataPackage": "template-data-stage-package"
+    },
+    "templateDataStatus": "awaiting_oss_finalization",
+    "resultFields": {
+      "majorStage": "majorStage",
+      "primaryArtifact": "primaryArtifact"
+    }
+  },
   "initialState": "STARTED",
   "resultStates": {
     "completed": "FINALIZED",

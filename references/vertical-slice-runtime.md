@@ -2,7 +2,18 @@
 
 ## 1. 公共工作流
 
-Issue #2–#12 只通过 `run_production(request, output_root, adapters)` 暴露正式生产接缝。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认不共享业务事实，显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+正式生产只通过 `run_production(request, output_root, adapters, stage=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认不共享业务事实，显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+
+四个用户大阶段只聚合 P0–P8，不创建平行状态机：
+
+| 大阶段 | 内部边界 | 主产物 | 外部副作用 |
+| --- | --- | --- | --- |
+| 第一阶段：换图执行 | P0–P1 | `replacement-package.json`，绑定 Replacement Plan 与 Generation Package | 不提交图片生成、不上传 OSS |
+| 第二阶段：模板图生成与确认 | P2 | 当前 revision 的 Approved Template Image | 调用图片生成 API；真实适配器为 Fal 队列 |
+| 第三阶段：模板数据编译 | P3–P6 | `template-data-package.json` | 不重复生图、不上传 OSS |
+| 第四阶段：OSS 最终化 | P7–P8 | `gallery-template.json` | 上传当前 Approved Template Image 并回填 URL |
+
+每次分段调用先重放 Production Item 身份、pin、revision、产物 SHA 和依赖摘要。请求到达已完成边界时幂等返回该阶段主产物；请求后续阶段时从当前边界继续。上游变化继续按原依赖图失效下游。第三阶段数据包明确标记 `awaiting_oss_finalization`，其中的 `gallery-template.draft.json` 只用于第四阶段正式投影。
 
 机器阶段、外部结果、错误码、类别和视觉维度统一读取 `contracts/machine-rules.json`。类别与策略来源使用“具名领域角色 → 机器值”映射，代码不依赖 JSON 成员顺序。代码、测试和 fixture 不再维护第二份枚举。
 
@@ -13,12 +24,12 @@ Issue #2–#12 只通过 `run_production(request, output_root, adapters)` 暴露
 | 阶段 | 状态 | 主要产物 |
 | --- | --- | --- |
 | P0 | `INGESTED` | source evidence、`source-analysis.json`、`production-pin.json` |
-| P1 | `REPLACEMENT_PLANNED` | `replacement-plan.json` |
-| P2 | `TEMPLATE_IMAGE_APPROVED` | `generation-package.json`、`generation-task.json`、`generation-wal.json`、Approved Template Image、`visual-review.json` |
+| P1 | `REPLACEMENT_PLANNED` | `replacement-plan.json`、`generation-package.json`、`replacement-package.json` |
+| P2 | `TEMPLATE_IMAGE_APPROVED` | `generation-task.json`、`generation-wal.json`、Generated Candidate Image、Approved Template Image、`visual-review.json` |
 | P3 | `TEMPLATE_ANALYZED` | `template-analysis.json` |
 | P4 | `EDITABLE_SPEC_COMPILED` | `editable-template-spec.json` |
 | P5 | `TEMPLATE_COMPILED` | `hidden-template-spec.json`、`gallery-template.draft.json` |
-| P6 | `STATIC_VALIDATED` | `semantic-audit.json`、`validation-report.json` |
+| P6 | `STATIC_VALIDATED` | `semantic-audit.json`、`validation-report.json`、`template-data-package.json` |
 | P7 | `ASSET_UPLOADED` | `asset-receipt.json` |
 | P8 | `FINALIZED` | `final-validation-report.json`、`gallery-template.json` |
 
@@ -38,6 +49,7 @@ Issue #2–#12 只通过 `run_production(request, output_root, adapters)` 暴露
 - 语义审计必须绑定标题、Prompt、隐藏层、自由内容和全部槽位值的规范摘要，并通过机器规则声明的完整审计项；推荐项的同轴、同颗粒度和可生成性属于该独立语义审计。adapter 只接收隔离的只读快照；返回后请求摘要或核心编译摘要发生变化时返回稳定外部失败，P4/P5 产物不能与 P8 投影分叉。
 - Generation Package 与审核绑定由工作流核心保留不可变快照；生成 adapter 接收隔离的 Generation Package，视觉审核 adapter 接收当前摘要与 `imageOperations` 隔离副本，按动态 operation ID 逐项返回证据。返回结果必须重新绑定核心持有的 request ID 与摘要；adapter 改写审核请求会使证据失效。
 - 生成数量默认为 1；显式选项与主输出索引经预检后进入 Production Item 身份。核心在 submit 前冻结 generation task 并落盘 prepared WAL，submit 后先持久化 provider request ID 再轮询。恢复、失败分类和完成态语义对账读取 `generation-execution-and-recovery.md`。
+- 第一阶段只冻结 Generation Package 并返回换图执行包；第二阶段才创建 generation task/WAL 并调用 `submit_generation` 与 `poll_generation`。因此第二阶段的 Approved Template Image 必须拥有供应商 request ID、输出摘要和视觉审核谱系。
 - 来源分析、生成、视觉审核、模板分析、语义审计和上传 adapter 都必须返回对象；非对象结果统一转为稳定外部失败。所有图片型 adapter 只接收字节一致的只读临时快照，核心 source、candidate 和 approved 路径不暴露。快照改写、删除、类型替换或调用前后核心摘要变化都会使当前证据绑定失效并停止后续副作用。
 - 生成结果先以 `generated-candidate-image` 保存；只有六维视觉合同和全部硬门禁通过后，才能登记为 Approved Template Image。
 - 硬失败停止在 P2，人工意见不能绕过门禁。

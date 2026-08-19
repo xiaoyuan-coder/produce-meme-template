@@ -84,6 +84,391 @@ from .workflow_core import (
 )
 
 
+def _major_stage_definition(rules: dict[str, Any], stage_number: int) -> dict[str, Any]:
+    return next(
+        stage
+        for stage in rules["majorStageContract"]["stages"]
+        if stage["number"] == stage_number
+    )
+
+
+def _stage_package(
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+    *,
+    artifact_type_role: str,
+    artifact_roles: dict[str, str],
+    status: str | None = None,
+) -> dict[str, Any]:
+    package = {
+        "artifactType": rules["majorStageContract"]["packageArtifactTypes"][
+            artifact_type_role
+        ],
+        "schemaVersion": rules["schemaVersion"],
+        "productionItemId": manifest["productionItemId"],
+        "templateKey": manifest["templateKey"],
+        "revision": manifest["revision"],
+        "artifacts": {
+            role: {
+                "path": name,
+                "sha256": manifest["artifacts"][name]["sha256"],
+            }
+            for role, name in artifact_roles.items()
+        },
+    }
+    if status is not None:
+        package["status"] = status
+    return package
+
+
+def _completed_stage_result(
+    manifest: dict[str, Any],
+    output_dir: Path,
+    rules: dict[str, Any],
+    stage_number: int,
+    primary_artifact: Path,
+    *,
+    resumed: bool,
+) -> ProductionResult:
+    stage = _major_stage_definition(rules, stage_number)
+    return ProductionResult(
+        "completed",
+        manifest["productionItemId"],
+        manifest["state"],
+        output_dir,
+        output_dir / "gallery-template.json" if stage_number == 4 else None,
+        resumed=resumed,
+        major_stage=stage["selector"],
+        primary_artifact=primary_artifact,
+    )
+
+
+def _run_finalization_stage(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+    adapters: WorkflowAdapters,
+    template_key: str,
+    timestamp: str,
+    *,
+    resumed: bool,
+) -> ProductionResult:
+    p7, p8 = (item["phase"] for item in rules["productionPhases"][7:9])
+    draft = _load_json(output_dir / "gallery-template.draft.json")
+    delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
+    if delivery_errors:
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "上传前候选图与确认模板图谱系不一致。",
+            {"errors": delivery_errors},
+        )
+    object_key = _object_storage_key(
+        template_key,
+        delivery["approvedPath"],
+        delivery["approvedSha256"],
+        rules,
+    )
+    receipt_path = output_dir / "asset-receipt.json"
+    if receipt_path.exists():
+        receipt = _load_json(receipt_path)
+        if not _asset_receipt_valid(receipt, manifest, delivery, object_key, rules):
+            raise _stop(
+                rules,
+                "blocked",
+                "productionItemIntegrityFailure",
+                "已有 Asset Receipt 与当前确认模板图或对象键不一致。",
+                {"path": str(receipt_path)},
+            )
+    else:
+        upload_result = _adapter_snapshot_image_object_call(
+            rules,
+            "upload",
+            adapters.upload,
+            delivery["approvedPath"],
+            delivery["approvedSha256"],
+            object_key,
+        )
+        if not _upload_result_valid(
+            upload_result, object_key, delivery["approvedSha256"], rules
+        ):
+            raise _stop(
+                rules,
+                "failed",
+                "externalFailure",
+                "上传结果未绑定确认模板图、远端对象或请求身份。",
+                {},
+            )
+        receipt = _build_asset_receipt(manifest, delivery, upload_result, rules)
+        _atomic_write_new(receipt_path, _json_bytes(receipt))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "asset-receipt.json",
+        p7,
+        [delivery["approvedName"], "validation-report.json"],
+    )
+    _advance(manifest, rules, p7, timestamp)
+    _persist_manifest(output_dir, manifest)
+
+    receipt_fields = rules["objectStorageContract"]["receiptFields"]
+    final_record = _formal_projection(draft, receipt[receipt_fields["url"]], rules)
+    final_validation = _validate_final(final_record, rules)
+    _atomic_write_new(
+        output_dir / "final-validation-report.json", _json_bytes(final_validation)
+    )
+    _record_artifact(
+        manifest,
+        output_dir,
+        "final-validation-report.json",
+        p8,
+        ["gallery-template.draft.json", "asset-receipt.json"],
+    )
+    if not final_validation["pass"]:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "正式 JSON 最终合同验证未通过。",
+            final_validation,
+        )
+    final_name = rules["majorStageContract"]["artifactNames"]["formalTemplate"]
+    _atomic_write_new(output_dir / final_name, _json_bytes(final_record))
+    _record_artifact(
+        manifest,
+        output_dir,
+        final_name,
+        p8,
+        [
+            "gallery-template.draft.json",
+            "asset-receipt.json",
+            "final-validation-report.json",
+        ],
+    )
+    _advance(manifest, rules, p8, timestamp)
+    manifest["outcome"] = "completed"
+    _persist_manifest(output_dir, manifest)
+    return _completed_stage_result(
+        manifest,
+        output_dir,
+        rules,
+        4,
+        output_dir / final_name,
+        resumed=resumed,
+    )
+
+
+def _run_template_data_stage(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+    adapters: WorkflowAdapters,
+    template_key: str,
+    source_analysis: dict[str, Any],
+    plan: dict[str, Any],
+    timestamp: str,
+    target_stage: int,
+    *,
+    resumed: bool,
+) -> ProductionResult:
+    p3, p4, p5, p6 = (item["phase"] for item in rules["productionPhases"][3:7])
+    revision = manifest["revision"]
+    review_name = _revisioned_name("visual-review.json", revision)
+    approved_names = _revision_image_artifacts(
+        manifest, "approved-template-image", revision
+    )
+    if len(approved_names) != 1:
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "第三阶段要求当前 revision 恰有一张 Approved Template Image。",
+            {"approvedArtifacts": approved_names},
+        )
+    approved_rel = approved_names[0]
+    approved_path = output_dir / approved_rel
+    approved_sha = _sha_file(approved_path)
+    analysis = _adapter_snapshot_image_object_call(
+        rules,
+        "analyze_approved",
+        adapters.analyze_approved,
+        approved_path,
+        approved_sha,
+    )
+    if analysis.get("visualFactSourceSha256") != approved_sha:
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "模板分析修改了确认模板图或未绑定视觉审核通过的图片摘要。",
+            {"approvedImageSha256": approved_sha},
+        )
+    _atomic_write_new(output_dir / "template-analysis.json", _json_bytes(analysis))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "template-analysis.json",
+        p3,
+        [approved_rel, review_name],
+    )
+    _advance(manifest, rules, p3, timestamp)
+    _persist_manifest(output_dir, manifest)
+
+    editable = _compile_editable_spec(analysis, rules, plan)
+    _atomic_write_new(
+        output_dir / "editable-template-spec.json", _json_bytes(editable)
+    )
+    _record_artifact(
+        manifest,
+        output_dir,
+        "editable-template-spec.json",
+        p4,
+        ["template-analysis.json"],
+    )
+    _advance(manifest, rules, p4, timestamp)
+    _persist_manifest(output_dir, manifest)
+
+    hidden = _compile_hidden_spec(analysis, editable, rules)
+    _atomic_write_new(output_dir / "hidden-template-spec.json", _json_bytes(hidden))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "hidden-template-spec.json",
+        p5,
+        ["template-analysis.json", "editable-template-spec.json"],
+    )
+    draft = _compile_draft(
+        template_key,
+        source_analysis.get("imageSize", "1024x1024"),
+        editable,
+        hidden,
+        rules,
+    )
+    _atomic_write_new(output_dir / "gallery-template.draft.json", _json_bytes(draft))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "gallery-template.draft.json",
+        p5,
+        ["editable-template-spec.json", "hidden-template-spec.json"],
+    )
+    _advance(manifest, rules, p5, timestamp)
+    _persist_manifest(output_dir, manifest)
+
+    semantic_audit_content = _semantic_audit_payload(draft, editable, rules)
+    compiled_content_sha = _sha_bytes(_canonical_bytes(semantic_audit_content))
+    semantic_audit_request = copy.deepcopy(semantic_audit_content)
+    audit_request_sha = _sha_bytes(_canonical_bytes(semantic_audit_request))
+    semantic_audit = _adapter_object_call(
+        rules,
+        "audit_semantics",
+        adapters.audit_semantics,
+        semantic_audit_request,
+    )
+    compiled_content_unchanged = (
+        _sha_bytes(
+            _canonical_bytes(_semantic_audit_payload(draft, editable, rules))
+        )
+        == compiled_content_sha
+    )
+    audit_request_unchanged = (
+        _sha_bytes(_canonical_bytes(semantic_audit_request)) == audit_request_sha
+    )
+    if not compiled_content_unchanged or not audit_request_unchanged:
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "语义审计 adapter 修改了只读编译快照。",
+            {
+                "compiledContentUnchanged": compiled_content_unchanged,
+                "auditRequestUnchanged": audit_request_unchanged,
+            },
+        )
+    _atomic_write_new(output_dir / "semantic-audit.json", _json_bytes(semantic_audit))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "semantic-audit.json",
+        p6,
+        ["gallery-template.draft.json", "editable-template-spec.json"],
+    )
+    review = _load_json(output_dir / review_name)
+    validation = _validation_report(
+        draft,
+        editable,
+        plan,
+        source_analysis,
+        review,
+        semantic_audit,
+        rules,
+    )
+    _atomic_write_new(output_dir / "validation-report.json", _json_bytes(validation))
+    _record_artifact(
+        manifest,
+        output_dir,
+        "validation-report.json",
+        p6,
+        ["gallery-template.draft.json", review_name, "semantic-audit.json"],
+    )
+    if not validation["pass"]:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "四层静态验收未通过。",
+            validation,
+        )
+    _advance(manifest, rules, p6, timestamp)
+    data_name = rules["majorStageContract"]["artifactNames"][
+        "templateDataPackage"
+    ]
+    data_roles = {
+        "approvedTemplateImage": approved_rel,
+        "templateAnalysis": "template-analysis.json",
+        "editableTemplateSpec": "editable-template-spec.json",
+        "runtimeSemanticsSpec": "hidden-template-spec.json",
+        "formalDraft": "gallery-template.draft.json",
+        "semanticAudit": "semantic-audit.json",
+        "validationReport": "validation-report.json",
+    }
+    data_package = _stage_package(
+        manifest,
+        rules,
+        artifact_type_role="templateDataPackage",
+        artifact_roles=data_roles,
+        status=rules["majorStageContract"]["templateDataStatus"],
+    )
+    _atomic_write_new(output_dir / data_name, _json_bytes(data_package))
+    _record_artifact(
+        manifest,
+        output_dir,
+        data_name,
+        p6,
+        list(data_roles.values()),
+    )
+    _persist_manifest(output_dir, manifest)
+    if target_stage == 3:
+        return _completed_stage_result(
+            manifest,
+            output_dir,
+            rules,
+            3,
+            output_dir / data_name,
+            resumed=resumed,
+        )
+    return _run_finalization_stage(
+        output_dir,
+        manifest,
+        rules,
+        adapters,
+        template_key,
+        timestamp,
+        resumed=resumed,
+    )
+
+
 def _run_single_production(
     request: dict[str, Any],
     output_root: str | Path,
@@ -93,8 +478,9 @@ def _run_single_production(
     prepared_source_analysis: dict[str, Any] | None = None,
     shared_policy_resolution: dict[str, Any] | None = None,
     preparation_stop: WorkflowStop | None = None,
+    target_stage: int = 4,
 ) -> ProductionResult:
-    """Run one independent Production Item through P0-P8."""
+    """Run one Production Item through the requested resumable major stage."""
 
     rules = _load_json(RULES_PATH)
     release = _load_json(RELEASE_PATH)
@@ -172,6 +558,9 @@ def _run_single_production(
     resume_visual = False
     resume_generation = False
     resume_prepared_generation = False
+    resume_from_stage_one = False
+    resume_template_data = False
+    resume_finalization = False
     reuse_succeeded_generation = False
     resumed = False
     source_analysis: dict[str, Any]
@@ -335,12 +724,28 @@ def _run_single_production(
                 message="已完成 Production Item 的身份或产物谱系校验失败：" + "；".join(identity_errors),
             )
         if existing.get("state") == rules["resultStates"]["completed"]:
-            return ProductionResult(
-                "completed",
-                item_id,
-                rules["resultStates"]["completed"],
+            if target_stage == 1:
+                completed_primary = output_dir / rules["majorStageContract"][
+                    "artifactNames"
+                ]["replacementPackage"]
+            elif target_stage == 2:
+                completed_primary = output_dir / _revision_image_artifacts(
+                    existing,
+                    "approved-template-image",
+                    existing["revision"],
+                )[0]
+            elif target_stage == 3:
+                completed_primary = output_dir / rules["majorStageContract"][
+                    "artifactNames"
+                ]["templateDataPackage"]
+            else:
+                completed_primary = output_dir / "gallery-template.json"
+            return _completed_stage_result(
+                existing,
                 output_dir,
-                output_dir / "gallery-template.json",
+                rules,
+                target_stage,
+                completed_primary,
                 resumed=True,
             )
         if identity_errors and any(error.endswith("mismatch") for error in identity_errors):
@@ -391,6 +796,29 @@ def _run_single_production(
                     error_code=rules["errorCodes"]["productionItemIntegrityFailure"],
                     message="P7 Production Item 的身份或产物谱系校验失败：" + "；".join(recovery_errors),
                 )
+            if target_stage <= 3:
+                if target_stage == 1:
+                    checkpoint_primary = output_dir / rules["majorStageContract"][
+                        "artifactNames"
+                    ]["replacementPackage"]
+                elif target_stage == 2:
+                    checkpoint_primary = output_dir / _revision_image_artifacts(
+                        existing,
+                        "approved-template-image",
+                        existing["revision"],
+                    )[0]
+                else:
+                    checkpoint_primary = output_dir / rules["majorStageContract"][
+                        "artifactNames"
+                    ]["templateDataPackage"]
+                return _completed_stage_result(
+                    existing,
+                    output_dir,
+                    rules,
+                    target_stage,
+                    checkpoint_primary,
+                    resumed=True,
+                )
             try:
                 return _finalize_uploaded_item(output_dir, existing, rules, timestamp)
             except WorkflowStop as stop:
@@ -411,11 +839,134 @@ def _run_single_production(
                     message=stop.message,
                     resumed=True,
                 )
+        checkpoint_by_phase = {
+            p1: 1,
+            p2: 2,
+            p6: 3,
+        }
+        checkpoint_stage = checkpoint_by_phase.get(existing.get("phase"))
+        expected_checkpoint_state = next(
+            (
+                phase["state"]
+                for phase in rules["productionPhases"]
+                if phase["phase"] == existing.get("phase")
+            ),
+            None,
+        )
+        if (
+            checkpoint_stage is not None
+            and existing.get("state") == expected_checkpoint_state
+            and existing.get("outcome") is None
+            and not existing.get("error")
+        ):
+            revision = existing.get("revision")
+            generation_package_name = _revisioned_name(
+                "generation-package.json", revision
+            )
+            replacement_name = rules["majorStageContract"]["artifactNames"][
+                "replacementPackage"
+            ]
+            data_name = rules["majorStageContract"]["artifactNames"][
+                "templateDataPackage"
+            ]
+            required_by_stage = {
+                1: (
+                    "production-pin.json",
+                    "source-analysis.json",
+                    "replacement-plan.json",
+                    generation_package_name,
+                    replacement_name,
+                ),
+                2: (
+                    "production-pin.json",
+                    "source-analysis.json",
+                    "replacement-plan.json",
+                    generation_package_name,
+                    replacement_name,
+                ),
+                3: (
+                    "production-pin.json",
+                    "source-analysis.json",
+                    "replacement-plan.json",
+                    generation_package_name,
+                    replacement_name,
+                    "gallery-template.draft.json",
+                    "validation-report.json",
+                    data_name,
+                ),
+            }
+            checkpoint_errors = _production_item_integrity_errors(
+                output_dir,
+                existing,
+                production_item_id=item_id,
+                template_key=template_key,
+                source_sha256=source_sha,
+                replacement_strategy_sha256=replacement_strategy_sha,
+                generation_options_sha256=generation_options_sha,
+                required_artifacts=required_by_stage[checkpoint_stage],
+            )
+            if checkpoint_stage >= 2:
+                checkpoint_errors.extend(_current_p2_artifact_errors(existing))
+                checkpoint_errors.extend(
+                    _current_generation_execution_errors(
+                        output_dir,
+                        existing,
+                        source_sha,
+                        generation_options,
+                        rules,
+                    )
+                )
+            if checkpoint_errors:
+                return ProductionResult(
+                    "blocked",
+                    item_id,
+                    rules["resultStates"]["blocked"],
+                    output_dir,
+                    error_code=rules["errorCodes"]["productionItemIntegrityFailure"],
+                    message="大阶段恢复前的 Production Item 谱系校验失败："
+                    + "；".join(checkpoint_errors),
+                    resumed=True,
+                )
+            manifest = existing
+            source_analysis = _load_json(output_dir / "source-analysis.json")
+            plan = _load_json(output_dir / "replacement-plan.json")
+            resumed = True
+            if target_stage <= checkpoint_stage:
+                if target_stage == 1:
+                    primary_artifact = output_dir / replacement_name
+                elif target_stage == 2:
+                    approved_names = _revision_image_artifacts(
+                        manifest, "approved-template-image", manifest["revision"]
+                    )
+                    primary_artifact = output_dir / approved_names[0]
+                else:
+                    primary_artifact = output_dir / data_name
+                return _completed_stage_result(
+                    manifest,
+                    output_dir,
+                    rules,
+                    target_stage,
+                    primary_artifact,
+                    resumed=True,
+                )
+            if checkpoint_stage == 1:
+                generation_package = _load_json(
+                    output_dir / generation_package_name
+                )
+                resume_from_stage_one = True
+            elif checkpoint_stage == 2:
+                resume_template_data = True
+            else:
+                resume_finalization = True
         existing_error_code = existing.get("error", {}).get("code")
         existing_revision = existing.get("revision")
-        if isinstance(existing_revision, int) and existing_error_code != rules["errorCodes"][
-            "visualHardFailure"
-        ]:
+        if (
+            isinstance(existing_revision, int)
+            and existing_error_code
+            != rules["errorCodes"]["visualHardFailure"]
+            and not resume_template_data
+            and not resume_finalization
+        ):
             generation_package_name = _revisioned_name(
                 "generation-package.json", existing_revision
             )
@@ -782,14 +1333,32 @@ def _run_single_production(
                 superseded_artifact=previous_package_name,
                 replacement_artifact=replacement_package_name,
                 replacement_sha256=_sha_bytes(_json_bytes(generation_package)),
-                invalidated_artifacts=_artifact_descendants(manifest, previous_package_name),
+                invalidated_artifacts=[
+                    name
+                    for name in _artifact_descendants(
+                        manifest, previous_package_name
+                    )
+                    if name
+                    != rules["majorStageContract"]["artifactNames"][
+                        "replacementPackage"
+                    ]
+                ],
                 invalidated_from_phase=p2,
                 timestamp=timestamp,
             )
             resume_visual = True
             resumed = True
             _persist_manifest(output_dir, manifest)
-    if not resume_visual and not resume_generation and not resume_prepared_generation:
+    if not any(
+        (
+            resume_visual,
+            resume_generation,
+            resume_prepared_generation,
+            resume_from_stage_one,
+            resume_template_data,
+            resume_finalization,
+        )
+    ):
         output_dir.mkdir(parents=True, exist_ok=True)
         manifest = {
             "artifactType": "production-manifest",
@@ -811,7 +1380,37 @@ def _run_single_production(
             ]["experienceIds"],
         }
     try:
-        if not resume_visual and not resume_generation and not resume_prepared_generation:
+        if resume_finalization:
+            return _run_finalization_stage(
+                output_dir,
+                manifest,
+                rules,
+                adapters,
+                template_key,
+                timestamp,
+                resumed=True,
+            )
+        if resume_template_data:
+            return _run_template_data_stage(
+                output_dir,
+                manifest,
+                rules,
+                adapters,
+                template_key,
+                source_analysis,
+                plan,
+                timestamp,
+                target_stage,
+                resumed=True,
+            )
+        if not any(
+            (
+                resume_visual,
+                resume_generation,
+                resume_prepared_generation,
+                resume_from_stage_one,
+            )
+        ):
             pin = _build_pin(rules, release)
             _atomic_write_new(output_dir / "production-pin.json", _json_bytes(pin))
             _record_artifact(manifest, output_dir, "production-pin.json", p0, [])
@@ -889,6 +1488,62 @@ def _run_single_production(
         wal_fields = execution_contract["walFields"]
         submission_fields = execution_contract["submissionFields"]
         poll_fields = execution_contract["pollResultFields"]
+        if (
+            not resume_visual
+            and not resume_generation
+            and not resume_prepared_generation
+            and not resume_from_stage_one
+        ):
+            generation_package["output"]["imageCount"] = generation_options[
+                execution_contract["requestOptionFields"]["imageCount"]
+            ]
+            generation_package_name = _revisioned_name(
+                "generation-package.json", manifest["revision"]
+            )
+            _atomic_write_new(
+                output_dir / generation_package_name, _json_bytes(generation_package)
+            )
+            _record_artifact(
+                manifest,
+                output_dir,
+                generation_package_name,
+                p1,
+                ["replacement-plan.json"],
+            )
+            replacement_name = rules["majorStageContract"]["artifactNames"][
+                "replacementPackage"
+            ]
+            replacement_roles = {
+                "sourceAnalysis": "source-analysis.json",
+                "replacementPlan": "replacement-plan.json",
+                "generationPackage": generation_package_name,
+            }
+            replacement_package = _stage_package(
+                manifest,
+                rules,
+                artifact_type_role="replacementPackage",
+                artifact_roles=replacement_roles,
+            )
+            _atomic_write_new(
+                output_dir / replacement_name, _json_bytes(replacement_package)
+            )
+            _record_artifact(
+                manifest,
+                output_dir,
+                replacement_name,
+                p1,
+                list(replacement_roles.values()),
+            )
+            _persist_manifest(output_dir, manifest)
+            if target_stage == 1:
+                return _completed_stage_result(
+                    manifest,
+                    output_dir,
+                    rules,
+                    1,
+                    output_dir / replacement_name,
+                    resumed=resumed,
+                )
         if not resume_generation:
             if not resume_prepared_generation:
                 generation_package["output"]["imageCount"] = generation_options[
@@ -897,16 +1552,18 @@ def _run_single_production(
                 generation_package_name = _revisioned_name(
                     "generation-package.json", manifest["revision"]
                 )
-                _atomic_write_new(
-                    output_dir / generation_package_name, _json_bytes(generation_package)
-                )
-                _record_artifact(
-                    manifest,
-                    output_dir,
-                    generation_package_name,
-                    p2,
-                    ["replacement-plan.json"],
-                )
+                if generation_package_name not in manifest["artifacts"]:
+                    _atomic_write_new(
+                        output_dir / generation_package_name,
+                        _json_bytes(generation_package),
+                    )
+                    _record_artifact(
+                        manifest,
+                        output_dir,
+                        generation_package_name,
+                        p2,
+                        ["replacement-plan.json"],
+                    )
                 generation_task_name = _revisioned_name(
                     "generation-task.json", manifest["revision"]
                 )
@@ -1309,188 +1966,25 @@ def _run_single_production(
         _record_artifact(manifest, output_dir, approved_rel, p2, [candidate_rel, review_name])
         _advance(manifest, rules, p2, timestamp)
         _persist_manifest(output_dir, manifest)
-
-        approved_sha = _sha_file(approved_path)
-        analysis = _adapter_snapshot_image_object_call(
-            rules,
-            "analyze_approved",
-            adapters.analyze_approved,
-            approved_path,
-            approved_sha,
-        )
-        if analysis.get("visualFactSourceSha256") != approved_sha:
-            raise _stop(
+        if target_stage == 2:
+            return _completed_stage_result(
+                manifest,
+                output_dir,
                 rules,
-                "failed",
-                "externalFailure",
-                "模板分析修改了确认模板图或未绑定视觉审核通过的图片摘要。",
-                {"approvedImageSha256": approved_sha},
+                2,
+                approved_path,
+                resumed=resumed,
             )
-        _atomic_write_new(output_dir / "template-analysis.json", _json_bytes(analysis))
-        _record_artifact(manifest, output_dir, "template-analysis.json", p3, [approved_rel, review_name])
-        _advance(manifest, rules, p3, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        editable = _compile_editable_spec(analysis, rules, plan)
-        _atomic_write_new(output_dir / "editable-template-spec.json", _json_bytes(editable))
-        _record_artifact(manifest, output_dir, "editable-template-spec.json", p4, ["template-analysis.json"])
-        _advance(manifest, rules, p4, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        hidden = _compile_hidden_spec(analysis, editable, rules)
-        _atomic_write_new(output_dir / "hidden-template-spec.json", _json_bytes(hidden))
-        _record_artifact(manifest, output_dir, "hidden-template-spec.json", p5, ["template-analysis.json", "editable-template-spec.json"])
-        draft = _compile_draft(
-            template_key,
-            source_analysis.get("imageSize", "1024x1024"),
-            editable,
-            hidden,
-            rules,
-        )
-        _atomic_write_new(output_dir / "gallery-template.draft.json", _json_bytes(draft))
-        _record_artifact(manifest, output_dir, "gallery-template.draft.json", p5, ["editable-template-spec.json", "hidden-template-spec.json"])
-        _advance(manifest, rules, p5, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        semantic_audit_content = _semantic_audit_payload(draft, editable, rules)
-        compiled_content_sha = _sha_bytes(_canonical_bytes(semantic_audit_content))
-        semantic_audit_request = copy.deepcopy(semantic_audit_content)
-        audit_request_sha = _sha_bytes(_canonical_bytes(semantic_audit_request))
-        semantic_audit = _adapter_object_call(
-            rules,
-            "audit_semantics",
-            adapters.audit_semantics,
-            semantic_audit_request,
-        )
-        compiled_content_unchanged = (
-            _sha_bytes(_canonical_bytes(_semantic_audit_payload(draft, editable, rules)))
-            == compiled_content_sha
-        )
-        audit_request_unchanged = (
-            _sha_bytes(_canonical_bytes(semantic_audit_request)) == audit_request_sha
-        )
-        if not compiled_content_unchanged or not audit_request_unchanged:
-            raise _stop(
-                rules,
-                "failed",
-                "externalFailure",
-                "语义审计 adapter 修改了只读编译快照。",
-                {
-                    "compiledContentUnchanged": compiled_content_unchanged,
-                    "auditRequestUnchanged": audit_request_unchanged,
-                },
-            )
-        _atomic_write_new(output_dir / "semantic-audit.json", _json_bytes(semantic_audit))
-        _record_artifact(
-            manifest,
+        return _run_template_data_stage(
             output_dir,
-            "semantic-audit.json",
-            p6,
-            ["gallery-template.draft.json", "editable-template-spec.json"],
-        )
-        validation = _validation_report(
-            draft,
-            editable,
-            plan,
+            manifest,
+            rules,
+            adapters,
+            template_key,
             source_analysis,
-            review,
-            semantic_audit,
-            rules,
-        )
-        _atomic_write_new(output_dir / "validation-report.json", _json_bytes(validation))
-        _record_artifact(
-            manifest,
-            output_dir,
-            "validation-report.json",
-            p6,
-            ["gallery-template.draft.json", review_name, "semantic-audit.json"],
-        )
-        if not validation["pass"]:
-            raise _stop(rules, "blocked", "contractFailure", "四层静态验收未通过。", validation)
-        _advance(manifest, rules, p6, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
-        if delivery_errors:
-            raise _stop(
-                rules,
-                "blocked",
-                "productionItemIntegrityFailure",
-                "上传前候选图与确认模板图谱系不一致。",
-                {"errors": delivery_errors},
-            )
-        object_key = _object_storage_key(
-            template_key,
-            delivery["approvedPath"],
-            delivery["approvedSha256"],
-            rules,
-        )
-        receipt_path = output_dir / "asset-receipt.json"
-        if receipt_path.exists():
-            receipt = _load_json(receipt_path)
-            if not _asset_receipt_valid(
-                receipt, manifest, delivery, object_key, rules
-            ):
-                raise _stop(
-                    rules,
-                    "blocked",
-                    "productionItemIntegrityFailure",
-                    "已有 Asset Receipt 与当前确认模板图或对象键不一致。",
-                    {"path": str(receipt_path)},
-                )
-        else:
-            upload_result = _adapter_snapshot_image_object_call(
-                rules,
-                "upload",
-                adapters.upload,
-                delivery["approvedPath"],
-                delivery["approvedSha256"],
-                object_key,
-            )
-            if not _upload_result_valid(
-                upload_result, object_key, delivery["approvedSha256"], rules
-            ):
-                raise _stop(
-                    rules,
-                    "failed",
-                    "externalFailure",
-                    "上传结果未绑定确认模板图、远端对象或请求身份。",
-                    {},
-                )
-            receipt = _build_asset_receipt(
-                manifest, delivery, upload_result, rules
-            )
-            _atomic_write_new(receipt_path, _json_bytes(receipt))
-        _record_artifact(
-            manifest,
-            output_dir,
-            "asset-receipt.json",
-            p7,
-            [delivery["approvedName"], "validation-report.json"],
-        )
-        _advance(manifest, rules, p7, timestamp)
-        _persist_manifest(output_dir, manifest)
-
-        receipt_fields = rules["objectStorageContract"]["receiptFields"]
-        final_record = _formal_projection(
-            draft, receipt[receipt_fields["url"]], rules
-        )
-        final_validation = _validate_final(final_record, rules)
-        _atomic_write_new(output_dir / "final-validation-report.json", _json_bytes(final_validation))
-        _record_artifact(manifest, output_dir, "final-validation-report.json", p8, ["gallery-template.draft.json", "asset-receipt.json"])
-        if not final_validation["pass"]:
-            raise _stop(rules, "blocked", "contractFailure", "正式 JSON 最终合同验证未通过。", final_validation)
-        _atomic_write_new(output_dir / "gallery-template.json", _json_bytes(final_record))
-        _record_artifact(manifest, output_dir, "gallery-template.json", p8, ["gallery-template.draft.json", "asset-receipt.json", "final-validation-report.json"])
-        _advance(manifest, rules, p8, timestamp)
-        manifest["outcome"] = "completed"
-        _persist_manifest(output_dir, manifest)
-        return ProductionResult(
-            "completed",
-            item_id,
-            rules["resultStates"]["completed"],
-            output_dir,
-            output_dir / "gallery-template.json",
+            plan,
+            timestamp,
+            target_stage,
             resumed=resumed,
         )
     except WorkflowStop as stop:

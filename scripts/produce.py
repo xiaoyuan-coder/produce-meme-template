@@ -73,10 +73,17 @@ def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments and arguments[0] == "t1":
         return _run_t1(arguments[1:])
-    parser = argparse.ArgumentParser(description="运行单图或批量 produce-meme-template P0-P8 工作流")
+    parser = argparse.ArgumentParser(
+        description="运行单图或批量 produce-meme-template 四阶段可恢复工作流"
+    )
     parser.add_argument("--request", required=True, type=Path, help="生产请求 JSON")
     parser.add_argument("--output", required=True, type=Path, help="Production Item 输出根目录")
     parser.add_argument("--deterministic-fixture", required=True, type=Path, help="确定性适配器 fixture 目录")
+    parser.add_argument(
+        "--stage",
+        default="4",
+        help="执行到第 1/2/3/4 阶段；也接受 replacement/image/data/final",
+    )
     args = parser.parse_args(arguments)
 
     request_path = args.request.resolve()
@@ -96,7 +103,13 @@ def main(argv: list[str] | None = None) -> int:
             item["sourceImage"] = str((request_path.parent / source).resolve())
     adapters = DeterministicFixtureAdapters(args.deterministic_fixture)
     clock = _fixture_clock(args.deterministic_fixture)
-    result = run_production(request, args.output, adapters, clock=clock)
+    result = run_production(
+        request,
+        args.output,
+        adapters,
+        clock=clock,
+        stage=args.stage,
+    )
     print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
     if isinstance(result, BatchProductionResult):
         return 0 if result.items and all(

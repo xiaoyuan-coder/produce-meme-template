@@ -504,7 +504,6 @@ class Issue10GenerationWalTest(unittest.TestCase):
                 manifest_path = first.output_dir / "production-manifest.json"
                 manifest = load_json(manifest_path)
                 for name in (
-                    "generation-package.json",
                     "generation-task.json",
                     "generation-wal.json",
                 ):

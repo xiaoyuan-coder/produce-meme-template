@@ -470,4 +470,6 @@ def _finalize_uploaded_item(
         output_dir,
         output_dir / "gallery-template.json",
         resumed=True,
+        major_stage=rules["majorStageContract"]["stages"][3]["selector"],
+        primary_artifact=output_dir / "gallery-template.json",
     )

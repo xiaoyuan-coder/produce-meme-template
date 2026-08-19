@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.17.0",
+  "schemaVersion": "0.18.0",
   "mechanism": {
     "setup": "一位人物以半身肖像占据画面中央",
     "turn": "正面微笑与老式黑白摄影质感形成鲜明识别点",

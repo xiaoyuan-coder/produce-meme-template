@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.17.0",
+  "schemaVersion": "0.18.0",
   "visibleFacts": [
     "人物双手在画面中央握住一束白色、粉色和紫色小花",
     "手指精确覆盖花束左右边缘并保持原有握持姿态",
