@@ -18,6 +18,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir> --stage <1|2|3|4>`。
 - 发布候选、readiness 晋升、安装、诊断与显式 pin 迁移：`python3 scripts/release_tool.py <build|stage|promote|install|doctor|migrate-pin> ...`。
 - 历史经验回归：`python3 scripts/experience_regression.py --runtime <runtime> --output <outside-runtime.json>`。
+- 正式记录拆分交付：`python3 scripts/export_gallery_templates.py --source <gallery-template.json> --output-dir <单模板JSON目录> --manifest <目录外交付清单.json>`；输出目录内只保留按 `key` 命名的正式 JSON。
 - 影子批次与 1.0 准备：`scripts.produce_meme_template.run_release_readiness(request, output_root, adapters)`。
 - 单项请求包含一个 `templateKey` 和一张 `sourceImage`；批量请求使用机器合同声明的信封字段包含多个同形单项请求。每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
 
@@ -30,6 +31,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - **完整生产**：省略阶段参数或指定第四阶段，依次执行四个大阶段。四次分段调用和一次完整调用使用同一个 Production Item、revision、pin 与产物谱系。
 - **批量提交**：把多张来源网图拆成相互独立的 Production Item；仅在用户显式提供共享批次策略时建立跨图约束。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
+- **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；生产 sidecar 留在 Production workspace，交付清单位于单模板数据目录之外，OSS 与正式记录内容不因拆分再次生成。
 
 ## 规则路由
 

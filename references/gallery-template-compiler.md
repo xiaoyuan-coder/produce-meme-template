@@ -61,3 +61,18 @@ P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pas
 `cover` 与 `referenceImage` 写入 Asset Receipt 中同一个 HTTPS URL。投影源若含未知顶层字段、未知 metadata、空 `needsReview` 或非 HTTPS URL，直接阻断；冻结 Schema 允许但业务白名单未开放的 metadata 同样不能静默进入正式记录。最终验证还拒绝 Data URL、文件 URL、临时/用户绝对路径、生成 request 字段和审计字段。
 
 `coverUrl`、`promptEnhancement`、`inputSchema[].image.extract`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在存量迁移输入或 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结研发已验证的 v2 正式样例及显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的 metadata sidecar，未分类数保持为 0。expected 执行白名单投影和中性文案纠偏，并继续通过冻结 Gallery Schema 与最终业务门禁。
+
+## 5. 正式记录拆分交付
+
+P8 的 Production workspace 继续保存每个生产项的正式 `gallery-template.json` 和生产 sidecar。用户指定长期正式数据目录，或要求单模板独立文件时，P8 完成后调用：
+
+```bash
+python3 scripts/export_gallery_templates.py \
+  --source <单条对象或正式记录数组.json> \
+  --output-dir <正式目录/单模板JSON> \
+  --manifest <正式目录/交付清单.json>
+```
+
+导出器对每条记录重新执行当前 Gallery Schema 与最终业务合同，要求 key 唯一且合法，并把每条对象单独写为 `<key>.json`。单模板目录不接受汇总数组、交付清单、生产 sidecar 或范围外文件。相同内容可幂等重跑；同名文件内容不同默认阻断，只有人工确认后显式使用 `--overwrite`。
+
+拆分导出只改变本地交付布局，不修改记录字段、模板图、OSS 对象或 URL。交付清单位于单模板目录之外，记录来源摘要、key 集合和每个文件摘要。新素材首次建档前还需按业务 key 规范确认语义 key；Schema 正则只校验字符合法性，不能替代存量查重和语义命名审核。

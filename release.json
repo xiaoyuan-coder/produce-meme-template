@@ -1,6 +1,6 @@
 {
   "skillName": "produce-meme-template",
-  "skillVersion": "1.4.0",
+  "skillVersion": "1.5.0",
   "releaseReadinessProfile": "compatible_minor",
   "artifactSchemaVersion": "0.20.0",
   "supportedContracts": {

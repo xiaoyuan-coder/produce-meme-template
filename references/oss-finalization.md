@@ -29,6 +29,8 @@ P8 只从已验证 receipt 读取同一个 URL，并同时写入 `cover` 与 `re
 
 正式生产完成只授权 OSS 对象写入和本地 JSON 终结，不包含数据库导入、管理台写入、发布、Tag 或上线。
 
+已完成模板只修改第三阶段数据、确认模板图摘要与 OSS 对象身份均未变化时，目标语义是“数据 revision 重新编译并复用原 Asset Receipt”。当前常规恢复可以在同一 Production Item、同一 revision 内复用 receipt；完成态之后的新数据 revision 仍缺少正式的 metadata-only refinalize seam。补齐前，禁止通过再次上传或改写对象键掩盖阶段谱系问题；临时复用必须逐项对账 template key、Approved Image SHA、对象键、公开 URL 和远端对象身份，并保留修订记录。
+
 ## 5. 验收
 
 确定性 OSS fixture 验证 receipt 复用、危险结果拒绝和双字段回填。`AliyunOssWorkflowAdapters` 通过受控 bucket transport 验证真实 SDK 的 object-exists、metadata、conditional PUT 和 request evidence 语义；默认测试不访问真实 bucket。连接真实测试 bucket 需要用户显式提供凭据并承担外部写入。

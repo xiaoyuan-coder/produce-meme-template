@@ -8,13 +8,13 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `1.4.0` | `release.json` |
+| Skill 版本 | `1.5.0` | `release.json` |
 | 发布验收 Profile | `compatible_minor` | `release.json` |
 | Artifact Schema | `0.20.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
-| Manifest 更新时间 | `2026-08-19` | `skill-manifest.json` |
-| Manifest 跟踪文件 | `188` 个 | `skill-manifest.json` |
+| Manifest 更新时间 | `2026-08-20` | `skill-manifest.json` |
+| Manifest 跟踪文件 | `190` 个 | `skill-manifest.json` |
 
 ## 四阶段生产 SOP
 
@@ -32,6 +32,8 @@
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
 - 高价值内容进入 `inputSchema`；可全文编辑且无需主动开槽的内容保留在 `promptTemplate`。
 - subject 图片默认继承用户上传图的清晰可见身份特征；只有核心玩法特征沿用模板值。
+- 纯色铺底默认留在 Prompt 或色光事实中；缺少独立高价值编辑动机时不建立槽位。
+- subject 可采用混合服装权限：上传图提供身份、配色和局部细节，模板只固定承担动作与构图机制的轮廓或体积。
 - `runtimeSemantics` 负责目标定位、输入绑定和跨编辑保持的视觉事实。
 - 正式业务 JSON 与生产 sidecar 分离；下游只读取 `gallery-template.json`。
 - T1 是现成正式 JSON 的独立生图测试入口，不属于四个生产阶段。
@@ -80,6 +82,17 @@ python3 scripts/produce.py \
   --output path/to/output \
   --stage 1
 ```
+
+正式记录拆分交付：
+
+```bash
+python3 scripts/export_gallery_templates.py \
+  --source path/to/gallery-template.json \
+  --output-dir path/to/单模板JSON \
+  --manifest path/to/交付清单.json
+```
+
+导出前会重新执行当前正式合同；单模板目录只保存 `<key>.json`，每个文件只包含一条正式记录。相同内容可幂等重跑，已有同名文件内容不同则默认阻断。
 
 发布、安装与诊断入口：
 

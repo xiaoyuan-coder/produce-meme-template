@@ -1,7 +1,7 @@
 {
   "name": "produce-meme-template",
-  "version": "1.4.0",
-  "updated_at": "2026-08-19",
+  "version": "1.5.0",
+  "updated_at": "2026-08-20",
   "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，以逐图事实编译正式模板，并按 development、compatible minor 或 live external 风险分级发布。",
   "tracked_files": [
     ".gitignore",
@@ -142,6 +142,7 @@
     "requirements.txt",
     "scripts/experience_evidence_runner.py",
     "scripts/experience_regression.py",
+    "scripts/export_gallery_templates.py",
     "scripts/produce.py",
     "scripts/release_tool.py",
     "scripts/release_validation_runner.py",
@@ -175,6 +176,7 @@
     "specs/版本治理与发布规范.md",
     "tests/__init__.py",
     "tests/fixture_contracts.py",
+    "tests/test_gallery_template_export.py",
     "tests/test_issue_2_vertical_slice.py",
     "tests/test_issue_3_replacement_strategy.py",
     "tests/test_issue_4_template_image_gate.py",
