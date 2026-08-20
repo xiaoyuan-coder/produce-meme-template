@@ -80,6 +80,44 @@ class RepositoryContractTest(unittest.TestCase):
             (ROOT / "SKILL.md").read_text(encoding="utf-8"),
         )
 
+    def test_slot_suggestion_review_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["slotSuggestionReviewContract"]
+
+        self.assertEqual(
+            {"slotReviewFields", "suggestionReviewFields"},
+            set(contract),
+        )
+        self.assertEqual(
+            {
+                "slotIdentity",
+                "defaultValue",
+                "axis",
+                "granularity",
+                "suggestionReviews",
+                "evidence",
+            },
+            set(contract["slotReviewFields"]),
+        )
+        self.assertEqual(
+            {
+                "value",
+                "sameAxis",
+                "sameGranularity",
+                "mechanismCompatible",
+                "evidence",
+            },
+            set(contract["suggestionReviewFields"]),
+        )
+        for mapping in contract.values():
+            self.assertTrue(
+                all(
+                    isinstance(value, str) and value
+                    for value in mapping.values()
+                )
+            )
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+
     def test_runtime_module_dependencies_are_acyclic(self) -> None:
         package = ROOT / "scripts" / "produce_meme_template"
         modules = {path.stem: path for path in package.glob("*.py")}

@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "b1e9e7a1ad1e88b464a2e197181f017b0feabbbdd4031a03f58a761f3df9af73",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "暖色夜灯"
     ],
     "slotSuggestionReviews": [
-      "pet_subject",
-      "cushion_look",
-      "room_mood"
+      {
+        "slotId": "pet_subject",
+        "defaultValue": "柯基犬",
+        "axis": "画面主体",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "柴犬",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "柴犬 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "垂耳兔",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "垂耳兔 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "小羊",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "小羊 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 pet_subject 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "cushion_look",
+        "defaultValue": "暖黄色软垫",
+        "axis": "软垫样式",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "奶油白绒垫",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "奶油白绒垫 与 暖黄色软垫 属于同一软垫样式编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "湖蓝针织垫",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "湖蓝针织垫 与 暖黄色软垫 属于同一软垫样式编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "浅粉格纹软垫",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "浅粉格纹软垫 与 暖黄色软垫 属于同一软垫样式编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 cushion_look 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "room_mood",
+        "defaultValue": "午后窗光",
+        "axis": "环境氛围",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "清晨薄雾光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "清晨薄雾光 与 午后窗光 属于同一环境氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "雨天柔光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "雨天柔光 与 午后窗光 属于同一环境氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "暖色夜灯",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "暖色夜灯 与 午后窗光 属于同一环境氛围编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 room_mood 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": false,

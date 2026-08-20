@@ -28,6 +28,8 @@ Prompt Template 是完整自然语言描述：
 
 P6 必须确认全部 `freeEditableContent` 原样进入 Prompt Template，并分别代入槽位默认值与每个推荐值。所有代入结果都要解除 placeholder、保留完整句式与自然标点；只有占位符拼接的片段不属于完整 Prompt。完整句式的自然度属于推理性判断，由独立语义审计 adapter 复核并输出结构化证据。adapter 只接收深拷贝审计快照；调用前后摘要必须一致，原地变异按外部 adapter 失败处理。
 
+`slotSuggestionReviews` 按当前槽位顺序保存逐槽对象。每个对象精确绑定 `slotId`、`defaultValue`、自由文本 `axis`、自由文本 `granularity`、槽级 `evidence` 和三条 `suggestionReviews`；每条推荐精确绑定当前 `value`，并要求 `sameAxis`、`sameGranularity`、`mechanismCompatible` 全部为 `true`，同时提供非空 `evidence`。验证器拒绝旧式 slot ID 列表、槽位缺失或重复、未知字段、未知槽位、当前值不一致、空证据和否定结论。确定性 adapter 与外部语义审计 adapter 共用 `contracts/machine-rules.json` 中的字段合同；正式 Gallery 记录形状保持不变。Artifact Schema `0.21.0` 起使用该证据结构，旧 pin 继续由对应已安装旧 runtime 解释。
+
 Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存于 `editable-template-spec.json`。两个集合独立编译，正式 JSON 只包含产品合同支持的槽位建议。
 
 ## 3. runtimeSemantics

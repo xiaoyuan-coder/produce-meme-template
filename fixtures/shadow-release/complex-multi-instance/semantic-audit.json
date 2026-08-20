@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "034f3090a10e520c1dfd39e265f4185886ad82ade26940611f0f80ef467e2a0e",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "暖灰褪色胶片"
     ],
     "slotSuggestionReviews": [
-      "panel_subjects",
-      "panel_frame",
-      "archive_tone"
+      {
+        "slotId": "panel_subjects",
+        "defaultValue": "四组旅人",
+        "axis": "四格人物组",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "四位球队成员",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "四位球队成员 与 四组旅人 属于同一四格人物组编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "四位旅行伙伴",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "四位旅行伙伴 与 四组旅人 属于同一四格人物组编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "四位舞台演员",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "四位舞台演员 与 四组旅人 属于同一四格人物组编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 panel_subjects 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "panel_frame",
+        "defaultValue": "窄边褪色相纸框",
+        "axis": "照片边框",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "白边拍立得相纸",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "白边拍立得相纸 与 窄边褪色相纸框 属于同一照片边框编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "深褐档案卡纸框",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "深褐档案卡纸框 与 窄边褪色相纸框 属于同一照片边框编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "磨损黑边胶片框",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "磨损黑边胶片框 与 窄边褪色相纸框 属于同一照片边框编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 panel_frame 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "archive_tone",
+        "defaultValue": "低饱和棕褐档案色",
+        "axis": "档案色调",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "暖灰褪色胶片",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "暖灰褪色胶片 与 低饱和棕褐档案色 属于同一档案色调编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "冷青旧报刊色",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "冷青旧报刊色 与 低饱和棕褐档案色 属于同一档案色调编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "深褐博物馆档案色",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "深褐博物馆档案色 与 低饱和棕褐档案色 属于同一档案色调编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 archive_tone 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": false,

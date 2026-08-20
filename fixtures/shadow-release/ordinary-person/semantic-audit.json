@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "90e8e34e538953b0c4b75596ca509cb76718b9206f995ad191d2cb3d3ee97254",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "高反差侧光"
     ],
     "slotSuggestionReviews": [
-      "portrait_subject",
-      "portrait_frame",
-      "studio_tone"
+      {
+        "slotId": "portrait_subject",
+        "defaultValue": "短发青年",
+        "axis": "画面人物",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "卷发青年",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "卷发青年 与 短发青年 属于同一画面人物编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "眼镜青年",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "眼镜青年 与 短发青年 属于同一画面人物编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "长发青年",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "长发青年 与 短发青年 属于同一画面人物编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 portrait_subject 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "portrait_frame",
+        "defaultValue": "竖幅老相纸边框",
+        "axis": "肖像边框",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "椭圆暗角相纸",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "椭圆暗角相纸 与 竖幅老相纸边框 属于同一肖像边框编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "无边框银盐相纸",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "无边框银盐相纸 与 竖幅老相纸边框 属于同一肖像边框编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "窄白边复古相纸",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "窄白边复古相纸 与 竖幅老相纸边框 属于同一肖像边框编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 portrait_frame 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "studio_tone",
+        "defaultValue": "柔和灰阶布光",
+        "axis": "灰阶布光",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "高反差侧光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "高反差侧光 与 柔和灰阶布光 属于同一灰阶布光编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "均匀正面柔光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "均匀正面柔光 与 柔和灰阶布光 属于同一灰阶布光编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "低调暗背景光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "低调暗背景光 与 柔和灰阶布光 属于同一灰阶布光编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 studio_tone 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": true,

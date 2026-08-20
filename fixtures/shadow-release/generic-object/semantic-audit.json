@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "5c6eb51a69b3324cf04635f2df10727d667ab68bed03c33555ec8d0ccb19695f",
   "checks": {
     "promptResolutionsNatural": true,
@@ -31,8 +31,66 @@
       "清晨窗边柔光"
     ],
     "slotSuggestionReviews": [
-      "held_object",
-      "indoor_mood"
+      {
+        "slotId": "held_object",
+        "defaultValue": "小束鲜花",
+        "axis": "手持物件",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "书本",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "书本 与 小束鲜花 属于同一手持物件编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "小型相机",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "小型相机 与 小束鲜花 属于同一手持物件编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "礼物盒",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "礼物盒 与 小束鲜花 属于同一手持物件编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 held_object 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "indoor_mood",
+        "defaultValue": "柔和室内自然光",
+        "axis": "环境氛围",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "清晨窗边柔光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "清晨窗边柔光 与 柔和室内自然光 属于同一环境氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "阴天漫射光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "阴天漫射光 与 柔和室内自然光 属于同一环境氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "暖色室内灯光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "暖色室内灯光 与 柔和室内自然光 属于同一环境氛围编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 indoor_mood 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": false,

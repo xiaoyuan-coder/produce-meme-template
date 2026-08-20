@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "6f4fcc2f5f635eb269df3f082cdc0a19ada9c93e1116e6660eabaf9bc64264cf",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "清晨薄雾光"
     ],
     "slotSuggestionReviews": [
-      "pet_subject",
-      "ground_look",
-      "room_mood"
+      {
+        "slotId": "pet_subject",
+        "defaultValue": "柯基犬",
+        "axis": "画面主体",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "柴犬",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "柴犬 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "垂耳兔",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "垂耳兔 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "小羊",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "小羊 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 pet_subject 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "ground_look",
+        "defaultValue": "暖黄色地面",
+        "axis": "地面样式",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "浅灰石地",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "浅灰石地 与 暖黄色地面 属于同一地面样式编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "青苔林地",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "青苔林地 与 暖黄色地面 属于同一地面样式编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "浅棕沙土",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "浅棕沙土 与 暖黄色地面 属于同一地面样式编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 ground_look 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "room_mood",
+        "defaultValue": "柔和日光",
+        "axis": "环境氛围",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "清晨薄雾光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "清晨薄雾光 与 柔和日光 属于同一环境氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "雨天柔光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "雨天柔光 与 柔和日光 属于同一环境氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "暖色夜灯",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "暖色夜灯 与 柔和日光 属于同一环境氛围编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 room_mood 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": false,

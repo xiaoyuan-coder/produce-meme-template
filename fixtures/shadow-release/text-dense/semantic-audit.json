@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "1e19491b7dcc5153a3e41d6ae932de903460c29bd8db78f51b82b3dfc4c64501",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "褪色米黄与暗红"
     ],
     "slotSuggestionReviews": [
-      "poster_figure",
-      "headline_text",
-      "poster_tone"
+      {
+        "slotId": "poster_figure",
+        "defaultValue": "复古仰头人物剪影",
+        "axis": "海报人物",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "仰头舞者剪影",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "仰头舞者剪影 与 复古仰头人物剪影 属于同一海报人物编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "伸手雕塑家剪影",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "伸手雕塑家剪影 与 复古仰头人物剪影 属于同一海报人物编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "侧身演说者剪影",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "侧身演说者剪影 与 复古仰头人物剪影 属于同一海报人物编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 poster_figure 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "headline_text",
+        "defaultValue": "TODAY\nREST\nTOMORROW\nCREATE",
+        "axis": "画面主文字",
+        "granularity": "完整主视觉文字块",
+        "suggestionReviews": [
+          {
+            "value": "PLAN\nBUILD\nLEARN\nREPEAT",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "PLAN\nBUILD\nLEARN\nREPEAT 与 TODAY\nREST\nTOMORROW\nCREATE 属于同一画面主文字编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "PAUSE\nBREATHE\nBEGIN\nAGAIN",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "PAUSE\nBREATHE\nBEGIN\nAGAIN 与 TODAY\nREST\nTOMORROW\nCREATE 属于同一画面主文字编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "DREAM\nMAKE\nSHARE\nGROW",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "DREAM\nMAKE\nSHARE\nGROW 与 TODAY\nREST\nTOMORROW\nCREATE 属于同一画面主文字编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 headline_text 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "poster_tone",
+        "defaultValue": "赭黄与酒红旧纸色调",
+        "axis": "旧纸色调",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "褪色米黄与暗红",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "褪色米黄与暗红 与 赭黄与酒红旧纸色调 属于同一旧纸色调编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "深褐与金黄石版色",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "深褐与金黄石版色 与 赭黄与酒红旧纸色调 属于同一旧纸色调编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "灰绿与砖红旧印刷色",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "灰绿与砖红旧印刷色 与 赭黄与酒红旧纸色调 属于同一旧纸色调编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 poster_tone 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": false,

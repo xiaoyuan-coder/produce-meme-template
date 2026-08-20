@@ -365,7 +365,44 @@ class DeterministicFixtureAdapters:
         result["evidence"][roles["maximumDifference"]["evidence"]] = [
             slot["suggestions"][0] for slot in slots
         ]
-        result["evidence"][roles["slotSuggestions"]["evidence"]] = [slot["id"] for slot in slots]
+        suggestion_contract = rules["slotSuggestionReviewContract"]
+        slot_review_fields = suggestion_contract["slotReviewFields"]
+        suggestion_review_fields = suggestion_contract["suggestionReviewFields"]
+        result["evidence"][roles["slotSuggestions"]["evidence"]] = [
+            {
+                slot_review_fields["slotIdentity"]: slot["id"],
+                slot_review_fields["defaultValue"]: slot["defaultValue"],
+                slot_review_fields["axis"]: slot["label"],
+                slot_review_fields["granularity"]: {
+                    rules["slotCompilationContract"]["slotTypes"][
+                        "primarySubjectUpload"
+                    ]: "单个主体身份",
+                    rules["slotCompilationContract"]["slotTypes"][
+                        "visibleTextPrompt"
+                    ]: "完整主视觉文字块",
+                    rules["slotCompilationContract"]["slotTypes"][
+                        "freePrompt"
+                    ]: "单个可编辑描述值",
+                }[slot["type"]],
+                slot_review_fields["suggestionReviews"]: [
+                    {
+                        suggestion_review_fields["value"]: suggestion,
+                        suggestion_review_fields["sameAxis"]: True,
+                        suggestion_review_fields["sameGranularity"]: True,
+                        suggestion_review_fields["mechanismCompatible"]: True,
+                        suggestion_review_fields["evidence"]: (
+                            f"{suggestion} 与 {slot['defaultValue']} 属于同一"
+                            f"{slot['label']}编辑轴并保持当前模板机制"
+                        ),
+                    }
+                    for suggestion in slot["suggestions"]
+                ],
+                slot_review_fields["evidence"]: (
+                    f"逐项比较 {slot['id']} 的默认值与全部推荐值"
+                ),
+            }
+            for slot in slots
+        ]
         text_contract = rules["visibleTextContract"]
         region_fields = text_contract["regionFields"]
         audit_fields = text_contract["semanticAuditFields"]

@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "mechanism": {
     "setup": "人物手指握住一个小物体并形成遮挡",
     "turn": "透明玻璃杯与双手、手指形成精确接触和遮挡",

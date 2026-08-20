@@ -1,6 +1,6 @@
 {
   "artifactType": "source-analysis",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "mechanism": {
     "setup": "一只水豚伏在树根旁的地面上",
     "turn": "圆润身形和平静侧脸在近景中很突出",

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -855,6 +855,23 @@
     "visibleTextClassification": {
       "check": "visibleTextClassificationValid",
       "evidence": "visibleTextClassificationReview"
+    }
+  },
+  "slotSuggestionReviewContract": {
+    "slotReviewFields": {
+      "slotIdentity": "slotId",
+      "defaultValue": "defaultValue",
+      "axis": "axis",
+      "granularity": "granularity",
+      "suggestionReviews": "suggestionReviews",
+      "evidence": "evidence"
+    },
+    "suggestionReviewFields": {
+      "value": "value",
+      "sameAxis": "sameAxis",
+      "sameGranularity": "sameGranularity",
+      "mechanismCompatible": "mechanismCompatible",
+      "evidence": "evidence"
     }
   },
   "slotBudget": {"minimum": 2, "normal": 3, "maximum": 5, "singleSlotRequiresEvidence": true},

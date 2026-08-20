@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "e971e35cfa95d743c51a7ca24665789454f0ce6bfc62d28047b3fc11c52febd1",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "清晨柔光"
     ],
     "slotSuggestionReviews": [
-      "pet_subject",
-      "ground_look",
-      "outdoor_mood"
+      {
+        "slotId": "pet_subject",
+        "defaultValue": "柯基犬",
+        "axis": "画面主体",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "柴犬",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "柴犬 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "垂耳兔",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "垂耳兔 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "小羊",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "小羊 与 柯基犬 属于同一画面主体编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 pet_subject 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "ground_look",
+        "defaultValue": "浅灰户外地面",
+        "axis": "户外地面",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "浅色石板地面",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "浅色石板地面 与 浅灰户外地面 属于同一户外地面编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "暖灰水泥地面",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "暖灰水泥地面 与 浅灰户外地面 属于同一户外地面编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "细砂户外地面",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "细砂户外地面 与 浅灰户外地面 属于同一户外地面编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 ground_look 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "outdoor_mood",
+        "defaultValue": "均匀自然日光",
+        "axis": "户外光线",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "清晨柔光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "清晨柔光 与 均匀自然日光 属于同一户外光线编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "阴天漫射光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "阴天漫射光 与 均匀自然日光 属于同一户外光线编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "傍晚暖光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "傍晚暖光 与 均匀自然日光 属于同一户外光线编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 outdoor_mood 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": false,

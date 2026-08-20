@@ -739,6 +739,264 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
         audit = load_json(result.output_dir / "semantic-audit.json")
         self.assertFalse(audit["checks"][SUGGESTION_AUDIT_CHECK])
 
+    def test_semantic_audit_rejects_legacy_slot_id_only_suggestion_reviews(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_audit = adapters.audit_semantics
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        def legacy_audit(content: dict) -> dict:
+            audit = original_audit(content)
+            audit["evidence"][evidence_field] = [
+                slot["id"] for slot in content["slots"]
+            ]
+            return audit
+
+        adapters.audit_semantics = legacy_audit
+        request = {
+            **self.request,
+            "productionItemId": "legacy-slot-id-only-suggestion-reviews",
+        }
+
+        result = run_production(
+            request,
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_BLOCKED, result.outcome)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_semantic_audit_accepts_structured_per_suggestion_reviews(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        request = {
+            **self.request,
+            "productionItemId": "structured-per-suggestion-reviews",
+        }
+
+        result = run_production(
+            request,
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_COMPLETED, result.outcome)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        audit = load_json(result.output_dir / "semantic-audit.json")
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+        reviews = audit["evidence"][evidence_field]
+        self.assertEqual(
+            [slot["id"] for slot in editable["slots"]],
+            [review["slotId"] for review in reviews],
+        )
+        for slot, review in zip(editable["slots"], reviews, strict=True):
+            self.assertEqual(slot["defaultValue"], review["defaultValue"])
+            self.assertTrue(review["axis"].strip())
+            self.assertTrue(review["granularity"].strip())
+            self.assertTrue(review["evidence"].strip())
+            self.assertEqual(
+                slot["suggestions"],
+                [item["value"] for item in review["suggestionReviews"]],
+            )
+            for item in review["suggestionReviews"]:
+                self.assertIs(item["sameAxis"], True)
+                self.assertIs(item["sameGranularity"], True)
+                self.assertIs(item["mechanismCompatible"], True)
+                self.assertTrue(item["evidence"].strip())
+
+    def test_structured_suggestion_reviews_bind_the_current_default_value(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_audit = adapters.audit_semantics
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        def mismatched_default_audit(content: dict) -> dict:
+            audit = original_audit(content)
+            audit["evidence"][evidence_field][0]["defaultValue"] = "另一模板默认值"
+            return audit
+
+        adapters.audit_semantics = mismatched_default_audit
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "suggestion-review-default-mismatch",
+            },
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_BLOCKED, result.outcome)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_structured_suggestion_reviews_bind_every_current_suggestion(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_audit = adapters.audit_semantics
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        def mismatched_suggestion_audit(content: dict) -> dict:
+            audit = original_audit(content)
+            audit["evidence"][evidence_field][0]["suggestionReviews"][0][
+                "value"
+            ] = "另一模板推荐值"
+            return audit
+
+        adapters.audit_semantics = mismatched_suggestion_audit
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "suggestion-review-value-mismatch",
+            },
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_BLOCKED, result.outcome)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_structured_suggestion_reviews_require_positive_grounded_claims(self) -> None:
+        cases = (
+            ("blank-axis", lambda reviews: reviews[0].__setitem__("axis", "")),
+            (
+                "blank-granularity",
+                lambda reviews: reviews[0].__setitem__("granularity", ""),
+            ),
+            (
+                "blank-slot-evidence",
+                lambda reviews: reviews[0].__setitem__("evidence", ""),
+            ),
+            (
+                "cross-axis",
+                lambda reviews: reviews[0]["suggestionReviews"][0].__setitem__(
+                    "sameAxis", False
+                ),
+            ),
+            (
+                "wrong-granularity",
+                lambda reviews: reviews[0]["suggestionReviews"][0].__setitem__(
+                    "sameGranularity", False
+                ),
+            ),
+            (
+                "mechanism-incompatible",
+                lambda reviews: reviews[0]["suggestionReviews"][0].__setitem__(
+                    "mechanismCompatible", False
+                ),
+            ),
+            (
+                "blank-item-evidence",
+                lambda reviews: reviews[0]["suggestionReviews"][0].__setitem__(
+                    "evidence", ""
+                ),
+            ),
+        )
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        for case_name, mutate in cases:
+            with self.subTest(case=case_name):
+                adapters = DeterministicFixtureAdapters(FIXTURE)
+                original_audit = adapters.audit_semantics
+
+                def invalid_claim_audit(content: dict, mutate=mutate) -> dict:
+                    audit = original_audit(content)
+                    mutate(audit["evidence"][evidence_field])
+                    return audit
+
+                adapters.audit_semantics = invalid_claim_audit
+                result = run_production(
+                    {
+                        **self.request,
+                        "productionItemId": f"suggestion-review-{case_name}",
+                    },
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RESULT_BLOCKED, result.outcome)
+                self.assertEqual(
+                    RULES["errorCodes"]["contractFailure"], result.error_code
+                )
+                self.assertEqual([], adapters.upload_calls)
+
+    def test_structured_suggestion_reviews_reject_duplicate_slot_coverage(self) -> None:
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+        original_audit = adapters.audit_semantics
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        def duplicate_slot_audit(content: dict) -> dict:
+            audit = original_audit(content)
+            reviews = audit["evidence"][evidence_field]
+            reviews.append(copy.deepcopy(reviews[0]))
+            return audit
+
+        adapters.audit_semantics = duplicate_slot_audit
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "duplicate-suggestion-slot-review",
+            },
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_BLOCKED, result.outcome)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_structured_suggestion_reviews_reject_shape_and_coverage_drift(self) -> None:
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        cases = (
+            ("missing-slot", lambda reviews: reviews.pop()),
+            (
+                "unknown-slot",
+                lambda reviews: reviews[0].__setitem__("slotId", "unknown-slot"),
+            ),
+            (
+                "unknown-slot-field",
+                lambda reviews: reviews[0].__setitem__("unexpected", True),
+            ),
+            (
+                "unknown-suggestion-field",
+                lambda reviews: reviews[0]["suggestionReviews"][0].__setitem__(
+                    "unexpected", True
+                ),
+            ),
+        )
+
+        for case_name, mutate in cases:
+            with self.subTest(case=case_name):
+                adapters = DeterministicFixtureAdapters(FIXTURE)
+                original_audit = adapters.audit_semantics
+
+                def invalid_shape_audit(content: dict, mutate=mutate) -> dict:
+                    audit = original_audit(content)
+                    mutate(audit["evidence"][evidence_field])
+                    return audit
+
+                adapters.audit_semantics = invalid_shape_audit
+                result = run_production(
+                    {
+                        **self.request,
+                        "productionItemId": f"suggestion-review-{case_name}",
+                    },
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RESULT_BLOCKED, result.outcome)
+                self.assertEqual(
+                    RULES["errorCodes"]["contractFailure"], result.error_code
+                )
+                self.assertEqual([], adapters.upload_calls)
+
     def test_preserve_cannot_freeze_a_value_required_by_the_dependency_closure(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)
         request = {

@@ -2189,6 +2189,62 @@ def _validation_report(
     maximum_difference_set = (
         set(maximum_difference_inputs) if unique_nonempty_strings(maximum_difference_inputs) else set()
     )
+    suggestion_review_contract = rules["slotSuggestionReviewContract"]
+    suggestion_slot_fields = suggestion_review_contract["slotReviewFields"]
+    suggestion_item_fields = suggestion_review_contract["suggestionReviewFields"]
+    editable_slot_by_id = {slot["id"]: slot for slot in editable["slots"]}
+
+    def suggestion_item_valid(item: Any) -> bool:
+        return bool(
+            isinstance(item, dict)
+            and set(item) == set(suggestion_item_fields.values())
+            and item.get(suggestion_item_fields["sameAxis"]) is True
+            and item.get(suggestion_item_fields["sameGranularity"]) is True
+            and item.get(suggestion_item_fields["mechanismCompatible"]) is True
+            and isinstance(item.get(suggestion_item_fields["evidence"]), str)
+            and item[suggestion_item_fields["evidence"]].strip()
+        )
+
+    def suggestion_slot_review_valid(review: Any) -> bool:
+        if not isinstance(review, dict):
+            return False
+        if set(review) != set(suggestion_slot_fields.values()):
+            return False
+        slot_id = review.get(suggestion_slot_fields["slotIdentity"])
+        if not isinstance(slot_id, str) or slot_id not in editable_slot_by_id:
+            return False
+        slot = editable_slot_by_id[slot_id]
+        reviewed_suggestions = review.get(
+            suggestion_slot_fields["suggestionReviews"]
+        )
+        return bool(
+            review.get(suggestion_slot_fields["defaultValue"])
+            == slot["defaultValue"]
+            and all(
+                isinstance(review.get(suggestion_slot_fields[field]), str)
+                and review[suggestion_slot_fields[field]].strip()
+                for field in ("axis", "granularity", "evidence")
+            )
+            and isinstance(reviewed_suggestions, list)
+            and all(suggestion_item_valid(item) for item in reviewed_suggestions)
+            and [
+                item[suggestion_item_fields["value"]]
+                for item in reviewed_suggestions
+            ]
+            == slot["suggestions"]
+        )
+
+    structured_suggestion_reviews_valid = bool(
+        isinstance(suggestion_reviews, list)
+        and suggestion_reviews
+        and len(suggestion_reviews) == len(expected_slot_ids)
+        and all(suggestion_slot_review_valid(review) for review in suggestion_reviews)
+        and {
+            review[suggestion_slot_fields["slotIdentity"]]
+            for review in suggestion_reviews
+        }
+        == expected_slot_ids
+    )
     expected_runtime_fields = set(
         rules["runtimeSemanticsContract"]["fields"].values()
     )
@@ -2202,8 +2258,7 @@ def _validation_report(
             maximum_difference_set & set(slot["suggestions"])
             for slot in editable["slots"]
         )
-        and unique_nonempty_strings(suggestion_reviews)
-        and set(suggestion_reviews) == expected_slot_ids
+        and structured_suggestion_reviews_valid
         and isinstance(runtime_scope_review, dict)
         and set(runtime_scope_review)
         == {"requiredFields", "outOfScopeContentDetected", "evidence"}

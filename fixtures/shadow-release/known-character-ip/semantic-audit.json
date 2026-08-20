@@ -1,6 +1,6 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.20.0",
+  "schemaVersion": "0.21.0",
   "contentSha256": "d8091d4608df42d446224217467e936af2943ebe9d1e3ee331f74037f0c5816e",
   "checks": {
     "promptResolutionsNatural": true,
@@ -36,9 +36,96 @@
       "暖色发布会灯光"
     ],
     "slotSuggestionReviews": [
-      "character_subject",
-      "convention_floor",
-      "convention_mood"
+      {
+        "slotId": "character_subject",
+        "defaultValue": "白兔充气角色",
+        "axis": "充气角色",
+        "granularity": "单个主体身份",
+        "suggestionReviews": [
+          {
+            "value": "堂吉诃德",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "堂吉诃德 与 白兔充气角色 属于同一充气角色编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "小王子",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "小王子 与 白兔充气角色 属于同一充气角色编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "胡桃夹子王子",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "胡桃夹子王子 与 白兔充气角色 属于同一充气角色编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 character_subject 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "convention_floor",
+        "defaultValue": "灰色展厅地面",
+        "axis": "会场地面",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "浅灰磨石地面",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "浅灰磨石地面 与 灰色展厅地面 属于同一会场地面编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "深色橡胶展会地面",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "深色橡胶展会地面 与 灰色展厅地面 属于同一会场地面编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "浅木色临时展台地面",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "浅木色临时展台地面 与 灰色展厅地面 属于同一会场地面编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 convention_floor 的默认值与全部推荐值"
+      },
+      {
+        "slotId": "convention_mood",
+        "defaultValue": "明亮会展顶灯",
+        "axis": "会展氛围",
+        "granularity": "单个可编辑描述值",
+        "suggestionReviews": [
+          {
+            "value": "暖色发布会灯光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "暖色发布会灯光 与 明亮会展顶灯 属于同一会展氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "冷白科技展灯光",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "冷白科技展灯光 与 明亮会展顶灯 属于同一会展氛围编辑轴并保持当前模板机制"
+          },
+          {
+            "value": "自然采光展厅",
+            "sameAxis": true,
+            "sameGranularity": true,
+            "mechanismCompatible": true,
+            "evidence": "自然采光展厅 与 明亮会展顶灯 属于同一会展氛围编辑轴并保持当前模板机制"
+          }
+        ],
+        "evidence": "逐项比较 convention_mood 的默认值与全部推荐值"
+      }
     ],
     "identityNeutralityReview": {
       "applicable": true,
