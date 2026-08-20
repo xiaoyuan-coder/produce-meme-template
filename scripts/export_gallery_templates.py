@@ -93,7 +93,7 @@ def export_gallery_templates(
     source: Path,
     output_dir: Path,
     *,
-    manifest_path: Path | None = None,
+    manifest_path: Path,
     overwrite: bool = False,
 ) -> dict[str, Any]:
     """Validate and export one formal record per ``<key>.json`` file."""
@@ -102,10 +102,9 @@ def export_gallery_templates(
     records = _load_records(source)
     expected_names = {f"{record['key']}.json" for record in records}
 
-    if manifest_path is not None:
-        manifest_path = manifest_path.resolve()
-        if manifest_path == output_dir or manifest_path.is_relative_to(output_dir):
-            raise ExportError("交付清单必须位于单模板 JSON 数据目录之外。")
+    manifest_path = manifest_path.resolve()
+    if manifest_path == output_dir or manifest_path.is_relative_to(output_dir):
+        raise ExportError("交付清单必须位于单模板 JSON 数据目录之外。")
 
     if output_dir.exists() and not output_dir.is_dir():
         raise ExportError(f"输出路径不是目录：{output_dir}")
@@ -115,8 +114,7 @@ def export_gallery_templates(
         unexpected = sorted(
             path.name
             for path in output_dir.iterdir()
-            if not path.name.startswith(".")
-            and (not path.is_file() or path.name not in expected_names)
+            if not path.is_file() or path.name not in expected_names
         )
     if unexpected:
         raise ExportError(
@@ -160,15 +158,14 @@ def export_gallery_templates(
         ),
     }
     manifest_payload = pretty_json_bytes(manifest)
-    if manifest_path is not None:
-        if (
-            manifest_path.exists()
-            and manifest_path.read_bytes() != manifest_payload
-            and not overwrite
-        ):
-            raise ExportError(
-                f"交付清单已有不同内容；确认后使用 --overwrite：{manifest_path}"
-            )
+    if (
+        manifest_path.exists()
+        and manifest_path.read_bytes() != manifest_payload
+        and not overwrite
+    ):
+        raise ExportError(
+            f"交付清单已有不同内容；确认后使用 --overwrite：{manifest_path}"
+        )
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, payload in payloads.items():
@@ -176,9 +173,8 @@ def export_gallery_templates(
         if not target.exists() or target.read_bytes() != payload:
             _atomic_write(target, payload)
 
-    if manifest_path is not None:
-        if not manifest_path.exists() or manifest_path.read_bytes() != manifest_payload:
-            _atomic_write(manifest_path, manifest_payload)
+    if not manifest_path.exists() or manifest_path.read_bytes() != manifest_payload:
+        _atomic_write(manifest_path, manifest_payload)
     return manifest
 
 
@@ -186,7 +182,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--manifest", type=Path)
+    parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument(
         "--overwrite",
         action="store_true",

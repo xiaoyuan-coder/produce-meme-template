@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import shutil
 import tempfile
 import unittest
 from datetime import datetime
@@ -47,13 +48,11 @@ class ScenarioAdapters(DeterministicFixtureAdapters):
         self,
         source_transform,
         approved_transform,
-        failed_semantic_checks=(),
         identity_text_applicable=False,
     ):
         super().__init__(FIXTURE)
         self.source_transform = source_transform
         self.approved_transform = approved_transform
-        self.failed_semantic_checks = set(failed_semantic_checks)
         self.identity_text_applicable = identity_text_applicable
 
     def analyze_source(self, source_image: Path, replacement_strategy: dict | None) -> dict:
@@ -90,7 +89,7 @@ class ScenarioAdapters(DeterministicFixtureAdapters):
         result["contentSha256"] = digest
         result["observedContentSha256"] = digest
         result["checks"] = {
-            contract["check"]: contract["check"] not in self.failed_semantic_checks
+            contract["check"]: True
             for contract in RULES["semanticAuditChecks"].values()
         }
         neutrality_contract = RULES["semanticAuditChecks"]["identityNeutrality"]
@@ -724,11 +723,18 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
             ]
             return analysis
 
-        adapters = ScenarioAdapters(
-            lambda analysis: analysis,
-            cross_axis_suggestions,
-            failed_semantic_checks={SUGGESTION_AUDIT_CHECK},
-        )
+        adapters = ScenarioAdapters(lambda analysis: analysis, cross_axis_suggestions)
+        original_audit = adapters.audit_semantics
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+
+        def cross_axis_audit(content: dict) -> dict:
+            audit = original_audit(content)
+            audit["evidence"][evidence_field][0]["suggestionReviews"][0][
+                "sameAxis"
+            ] = False
+            return audit
+
+        adapters.audit_semantics = cross_axis_audit
         request = {**self.request, "productionItemId": "cross-axis-slot-suggestions"}
 
         result = run_production(request, self.output_root, adapters, clock=lambda: FIXED_TIME)
@@ -737,7 +743,44 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
         self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertEqual([], adapters.upload_calls)
         audit = load_json(result.output_dir / "semantic-audit.json")
-        self.assertFalse(audit["checks"][SUGGESTION_AUDIT_CHECK])
+        self.assertTrue(audit["checks"][SUGGESTION_AUDIT_CHECK])
+        self.assertFalse(
+            audit["evidence"][evidence_field][0]["suggestionReviews"][0][
+                "sameAxis"
+            ]
+        )
+
+    def test_deterministic_adapter_preserves_fixture_authored_axis_and_granularity(
+        self,
+    ) -> None:
+        fixture = self.output_root / "authored-semantic-fixture"
+        shutil.copytree(FIXTURE, fixture)
+        audit_path = fixture / "semantic-audit.json"
+        audit = load_json(audit_path)
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+        audit["evidence"][evidence_field][0]["axis"] = "逐图定义的角色身份轴"
+        audit["evidence"][evidence_field][0]["granularity"] = "单个动物角色"
+        audit_path.write_text(
+            json.dumps(audit, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        request = {
+            **self.request,
+            "productionItemId": "fixture-authored-suggestion-semantics",
+        }
+
+        result = run_production(
+            request,
+            self.output_root,
+            DeterministicFixtureAdapters(fixture),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_COMPLETED, result.outcome)
+        recorded = load_json(result.output_dir / "semantic-audit.json")
+        review = recorded["evidence"][evidence_field][0]
+        self.assertEqual("逐图定义的角色身份轴", review["axis"])
+        self.assertEqual("单个动物角色", review["granularity"])
 
     def test_semantic_audit_rejects_legacy_slot_id_only_suggestion_reviews(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)

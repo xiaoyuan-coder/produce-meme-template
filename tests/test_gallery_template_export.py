@@ -65,7 +65,11 @@ class GalleryTemplateExportTest(unittest.TestCase):
         output = self.root / "单模板JSON"
 
         with self.assertRaisesRegex(ExportError, "重复 key"):
-            export_gallery_templates(self.source, output)
+            export_gallery_templates(
+                self.source,
+                output,
+                manifest_path=self.root / "duplicate-manifest.json",
+            )
 
         self.assertFalse(output.exists())
 
@@ -77,7 +81,11 @@ class GalleryTemplateExportTest(unittest.TestCase):
             encoding="utf-8",
         )
         with self.assertRaisesRegex(ExportError, "未通过当前正式 Gallery 合同"):
-            export_gallery_templates(self.source, self.root / "invalid")
+            export_gallery_templates(
+                self.source,
+                self.root / "invalid",
+                manifest_path=self.root / "invalid-manifest.json",
+            )
 
         self.source.write_text(
             json.dumps(self.records[0], ensure_ascii=False),
@@ -88,14 +96,36 @@ class GalleryTemplateExportTest(unittest.TestCase):
         target = output / f"{self.records[0]['key']}.json"
         target.write_text("{}\n", encoding="utf-8")
         with self.assertRaisesRegex(ExportError, "已有不同内容"):
-            export_gallery_templates(self.source, output)
+            export_gallery_templates(
+                self.source,
+                output,
+                manifest_path=self.root / "conflict-manifest.json",
+            )
+
+    def test_requires_a_manifest_outside_the_data_directory(self) -> None:
+        with self.assertRaises(TypeError):
+            export_gallery_templates(self.source, self.root / "missing-manifest")
 
     def test_data_directory_rejects_manifest_and_unexpected_files(self) -> None:
         output = self.root / "单模板JSON"
         output.mkdir()
         (output / "notes.txt").write_text("sidecar", encoding="utf-8")
         with self.assertRaisesRegex(ExportError, "交付范围外"):
-            export_gallery_templates(self.source, output)
+            export_gallery_templates(
+                self.source,
+                output,
+                manifest_path=self.root / "notes-manifest.json",
+            )
+
+        hidden_output = self.root / "hidden"
+        hidden_output.mkdir()
+        (hidden_output / ".DS_Store").write_text("sidecar", encoding="utf-8")
+        with self.assertRaisesRegex(ExportError, "交付范围外"):
+            export_gallery_templates(
+                self.source,
+                hidden_output,
+                manifest_path=self.root / "hidden-manifest.json",
+            )
 
         clean_output = self.root / "clean"
         with self.assertRaisesRegex(ExportError, "数据目录之外"):
