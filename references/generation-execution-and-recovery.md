@@ -10,6 +10,8 @@
 - revision、生成 request ID、完整 Prompt、尺寸、格式、输出数量和主输出索引。
 - request intent SHA、输入总摘要和稳定 task ID。
 
+单个 Production Item 默认只允许创建一个新供应商请求。视觉硬失败保留重做能力，后续调用必须显式设置机器合同声明的 `authorizeVisualRedo=true`；未授权的恢复调用保持原失败状态，不提交新 request ID。模板数据修订继续使用同一 Production Item 的第三阶段，直接复用已确认图片。
+
 任何冻结输入变化都会产生新任务身份。已完成项和 P7 恢复还会重算 task、WAL、主输出与候选图的语义对账；单独改写 manifest 摘要无法绕过该门禁。
 
 ## 2. 提交日志
@@ -40,7 +42,7 @@ WAL 只保存恢复必需的机器事实：task ID 与 task SHA、revision、供
 
 跨进程重跑先验证 Production Item 身份、pin、Generation Package、冻结 task 和 WAL。提交前进程退出时，核心可重算并登记完全一致的 package/task/prepared WAL，然后执行首次 submit。WAL 先于 manifest 落盘的合法一步前滚由 `previousWalSha256` 证明并修复 manifest 摘要；任何非 prepared WAL 都必须保留合法前驱摘要。
 
-已有合法 request ID 时，核心重建提交快照并只调用 poll；请求提交次数保持不变。succeeded WAL 与本地候选图、task、package、pin 和输出摘要全部对账时，恢复直接进入视觉审核，不依赖供应商结果继续可用。视觉硬失败重做使用新 revision、新 Generation Package、新 task 和新 WAL，同时复用校验通过的 P0/P1。
+已有合法 request ID 时，核心重建提交快照并只调用 poll；请求提交次数保持不变。succeeded WAL 与本地候选图、task、package、pin 和输出摘要全部对账时，恢复直接进入视觉审核，不依赖供应商结果继续可用。经显式授权的视觉硬失败重做使用新 revision、新 Generation Package、新 task 和新 WAL，同时复用校验通过的 P0/P1。
 
 候选图仍要通过模板图确认合同的六维视觉、改动集、稳定锚点、非目标漂移、文字与水印门禁。供应商返回成功只证明生成任务完成，Approved Template Image 仍由工作流硬门禁派生。
 

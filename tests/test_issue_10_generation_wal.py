@@ -678,10 +678,24 @@ class Issue10GenerationWalTest(unittest.TestCase):
         first_adapters.expected_output_dir = self.output_root / item_id
 
         first = self.run_case(item_id, first_adapters)
+        unapproved_adapters = self.adapters_for(item_id)
+        unapproved = self.run_case(item_id, unapproved_adapters)
         second_adapters = self.adapters_for(item_id)
-        second = self.run_case(item_id, second_adapters)
+        second = run_production(
+            {
+                **self.request,
+                "productionItemId": item_id,
+                "authorizeVisualRedo": True,
+            },
+            self.output_root,
+            second_adapters,
+            clock=lambda: FIXED_TIME,
+        )
 
         self.assertEqual(RULES["errorCodes"]["visualHardFailure"], first.error_code)
+        self.assertEqual(RULES["errorCodes"]["visualHardFailure"], unapproved.error_code)
+        self.assertTrue(unapproved.resumed)
+        self.assertEqual([], unapproved_adapters.submission_calls)
         self.assertEqual(RULES["resultStates"]["completed"], second.state)
         first_task = load_json(second.output_dir / "generation-task.json")
         second_task = load_json(second.output_dir / "generation-task-r2.json")
@@ -874,14 +888,20 @@ class Issue10GenerationWalTest(unittest.TestCase):
             ),
         )
         second_client = SuccessfulClient("fal-provider-request-redo-r2")
-        second = self.run_case(
-            item_id,
+        second = run_production(
+            {
+                **self.request,
+                "productionItemId": item_id,
+                "authorizeVisualRedo": True,
+            },
+            self.output_root,
             FalQueueWorkflowAdapters(
                 DeterministicFixtureAdapters(FIXTURE),
                 client=second_client,
                 download_bytes=lambda _url: image_bytes,
                 sleep=lambda _seconds: None,
             ),
+            clock=lambda: FIXED_TIME,
         )
 
         self.assertEqual(RULES["errorCodes"]["visualHardFailure"], first.error_code)

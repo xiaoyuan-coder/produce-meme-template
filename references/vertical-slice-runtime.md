@@ -2,7 +2,7 @@
 
 ## 1. 公共工作流
 
-正式生产只通过 `run_production(request, output_root, adapters, stage=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认四路并发、不共享业务事实，并按输入顺序归集结果。显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+正式生产只通过 `run_production(request, output_root, adapters, stage=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认五路并发、不共享业务事实，并按输入顺序归集结果。批量执行在每个用户大阶段之间设置屏障，所有可执行项先完成 P1 分析和 Prompt 冻结，再并发提交 P2。显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
 四个用户大阶段只聚合 P0–P8，不创建平行状态机：
 

@@ -203,7 +203,7 @@ class Issue25AuthoringHandoffTest(unittest.TestCase):
         self.assertEqual("blocked", result.outcome)
         self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
 
-    def test_default_batch_runs_independent_items_with_four_lane_policy(self) -> None:
+    def test_default_batch_runs_independent_items_concurrently(self) -> None:
         class ConcurrentStageOne(DeterministicFixtureAdapters):
             def __init__(self) -> None:
                 super().__init__(FIXTURE)
@@ -244,6 +244,87 @@ class Issue25AuthoringHandoffTest(unittest.TestCase):
         ])
         self.assertGreaterEqual(adapters.maximum_active, 2)
         self.assertTrue(all(item.outcome == "completed" for item in result.items))
+
+    def test_five_item_batch_finishes_all_p1_checks_before_five_concurrent_submits(
+        self,
+    ) -> None:
+        class FiveItemGenerationBarrier(DeterministicFixtureAdapters):
+            def __init__(self) -> None:
+                super().__init__(FIXTURE)
+                self.lock = threading.Lock()
+                self.analysis_count = 0
+                self.submit_active = 0
+                self.maximum_submit_active = 0
+                self.submit_before_all_analysis = False
+                self.submit_barrier = threading.Barrier(5)
+
+            def analyze_source(self, source_image: Path, replacement_strategy):
+                analysis = super().analyze_source(
+                    source_image, replacement_strategy
+                )
+                with self.lock:
+                    self.analysis_count += 1
+                return analysis
+
+            def submit_generation(
+                self,
+                source_image: Path,
+                generation_package: dict,
+                generation_task: dict,
+            ) -> dict:
+                with self.lock:
+                    if self.analysis_count != 5:
+                        self.submit_before_all_analysis = True
+                    self.submit_active += 1
+                    self.maximum_submit_active = max(
+                        self.maximum_submit_active, self.submit_active
+                    )
+                try:
+                    try:
+                        self.submit_barrier.wait(timeout=0.5)
+                    except threading.BrokenBarrierError:
+                        pass
+                    return super().submit_generation(
+                        source_image, generation_package, generation_task
+                    )
+                finally:
+                    with self.lock:
+                        self.submit_active -= 1
+
+        adapters = FiveItemGenerationBarrier()
+        items = [
+            {
+                **self.request,
+                "productionItemId": f"one-shot-generation-{index}",
+                "templateKey": f"one-shot-template-{index}",
+            }
+            for index in range(5)
+        ]
+
+        result = run_production(
+            {"batchId": "five-item-one-shot-generation", "items": items},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+            stage=2,
+        )
+
+        self.assertTrue(all(item.outcome == "completed" for item in result.items))
+        self.assertFalse(adapters.submit_before_all_analysis)
+        self.assertEqual(5, adapters.maximum_submit_active)
+        self.assertEqual(5, len(adapters.submission_calls))
+
+        resumed = run_production(
+            {"batchId": "five-item-one-shot-generation", "items": items},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+            stage=3,
+        )
+
+        self.assertTrue(all(item.outcome == "completed" for item in resumed.items))
+        self.assertTrue(all(item.resumed for item in resumed.items))
+        self.assertEqual(5, len(adapters.submission_calls))
 
 
 if __name__ == "__main__":

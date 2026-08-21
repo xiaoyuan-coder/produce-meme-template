@@ -60,6 +60,9 @@ def _replacement_strategy_errors(request: dict[str, Any], rules: dict[str, Any])
 
 def _generation_options_errors(request: dict[str, Any], rules: dict[str, Any]) -> list[str]:
     contract = rules["generationExecutionContract"]
+    for field in contract["requestControlFields"].values():
+        if field in request and not isinstance(request[field], bool):
+            return [f"{field} must be a boolean"]
     options_field = contract["requestOptionsField"]
     if options_field not in request:
         return []

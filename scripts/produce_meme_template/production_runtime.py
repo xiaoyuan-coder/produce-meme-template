@@ -1269,6 +1269,22 @@ def _run_single_production(
                         resumed=True,
                     )
         if existing.get("error", {}).get("code") == rules["errorCodes"]["visualHardFailure"]:
+            redo_field = rules["generationExecutionContract"][
+                "requestControlFields"
+            ]["authorizeVisualRedo"]
+            if request.get(redo_field) is not True:
+                return ProductionResult(
+                    existing.get("outcome", "blocked"),
+                    item_id,
+                    existing.get("state", rules["resultStates"]["blocked"]),
+                    output_dir,
+                    error_code=rules["errorCodes"]["visualHardFailure"],
+                    message=(
+                        "当前生产项已经消耗一次新供应商请求；视觉重做需要显式设置 "
+                        f"{redo_field}=true。"
+                    ),
+                    resumed=True,
+                )
             previous_revision = existing.get("revision")
             if not isinstance(previous_revision, int) or previous_revision < 1:
                 recovery_errors = ["manifest revision invalid"]

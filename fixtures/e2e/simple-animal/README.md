@@ -15,7 +15,7 @@
 | E27 | Prompt Template 槽位绑定、`freeEditableContent`、默认值/推荐值代入自然度、隐藏语义冲突与最大差异标题断言 |
 | E25 | Replacement Pool 与 Slot Suggestion Pool 分离；推荐项拒绝默认值和重复值 |
 | E29 | 六维视觉事实逐项携带 `pass` 与图像证据，并绑定当前生成事实 |
-| E34 | 视觉硬失败从 P2 创建新 request ID 与不可变 revision，复用已验证 P0/P1 |
+| E34 | request ID 与 WAL 恢复不重复提交；视觉硬失败只在显式授权后创建新 request ID 与不可变 revision |
 | E35、E36 | 正式白名单、同 URL 回填与 sidecar 隔离断言 |
 | E38 | 测试只允许 fixture generation/OSS 调用，不调用数据库、管理台或发布系统 |
 

@@ -87,6 +87,44 @@ def _map_batch_items(
     ) as executor:
         return tuple(executor.map(operation, items))
 
+
+def _run_batch_with_stage_barriers(
+    items: list[dict[str, Any]],
+    operation: Callable[[dict[str, Any], int], ProductionResult],
+    rules: dict[str, Any],
+    target_stage: int,
+) -> tuple[ProductionResult, ...]:
+    """Finish every eligible item at one major stage before starting the next."""
+
+    if not rules["batchProductionContract"]["executionPolicy"][
+        "majorStageBarrierBeforeNextStage"
+    ]:
+        return _map_batch_items(
+            items,
+            lambda item: operation(item, target_stage),
+            rules,
+        )
+    results: list[ProductionResult | None] = [None] * len(items)
+    for stage_number in range(1, target_stage + 1):
+        eligible_indices = [
+            index
+            for index, result in enumerate(results)
+            if result is None or result.outcome == "completed"
+        ]
+        if not eligible_indices:
+            break
+        stage_items = [items[index] for index in eligible_indices]
+        stage_results = _map_batch_items(
+            stage_items,
+            lambda item: operation(item, stage_number),
+            rules,
+        )
+        for index, result in zip(eligible_indices, stage_results, strict=True):
+            results[index] = result
+    if any(result is None for result in results):
+        raise RuntimeError("batch stage barrier left an item without a result")
+    return tuple(result for result in results if result is not None)
+
 def run_production(
     request: Any,
     output_root: str | Path,
@@ -174,16 +212,17 @@ def run_production(
         )
     shared_policy = request.get(shared_policy_field)
     if shared_policy is None:
-        results = _map_batch_items(
+        results = _run_batch_with_stage_barriers(
             raw_items,
-            lambda item: _run_batch_item(
+            lambda item, stage_number: _run_batch_item(
                 item,
                 output_root,
                 adapters,
                 clock=clock,
-                target_stage=target_stage,
+                target_stage=stage_number,
             ),
             rules,
+            target_stage,
         )
         return BatchProductionResult(
             batch_id=batch_id,
@@ -238,7 +277,9 @@ def run_production(
     scope = set(
         normalized_policy[contract["sharedPolicyFields"]["scope"]]
     )
-    def run_resolved_item(item: dict[str, Any]) -> ProductionResult:
+    def run_resolved_item(
+        item: dict[str, Any], stage_number: int
+    ) -> ProductionResult:
         item_id = item["productionItemId"]
         if item_id not in scope:
             return _run_batch_item(
@@ -246,7 +287,7 @@ def run_production(
                 output_root,
                 adapters,
                 clock=clock,
-                target_stage=target_stage,
+                target_stage=stage_number,
             )
         if item_id in preparation_failures:
             failed_request = effective_requests.get(item_id, item)
@@ -256,7 +297,7 @@ def run_production(
                 adapters,
                 clock=clock,
                 preparation_stop=preparation_failures[item_id],
-                target_stage=target_stage,
+                target_stage=stage_number,
             )
         if item_id not in effective_requests or item_id not in resolutions:
             return _run_batch_item(
@@ -271,7 +312,7 @@ def run_production(
                     "共享批次策略没有为该生产项分配兼容值。",
                     {"productionItemId": item_id},
                 ),
-                target_stage=target_stage,
+                target_stage=stage_number,
             )
         return _run_batch_item(
             effective_requests[item_id],
@@ -280,9 +321,14 @@ def run_production(
             clock=clock,
             prepared_source_analysis=analyses.get(item_id),
             shared_policy_resolution=resolutions[item_id],
-            target_stage=target_stage,
+            target_stage=stage_number,
         )
-    item_results = _map_batch_items(raw_items, run_resolved_item, rules)
+    item_results = _run_batch_with_stage_barriers(
+        raw_items,
+        run_resolved_item,
+        rules,
+        target_stage,
+    )
     return BatchProductionResult(
         batch_id=batch_id,
         items=item_results,

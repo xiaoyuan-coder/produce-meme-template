@@ -709,7 +709,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
 
         second_adapters.analyze_source = p0_must_not_repeat
         recovered = run_production(
-            item_request,
+            {**item_request, "authorizeVisualRedo": True},
             self.output_root,
             second_adapters,
             clock=lambda: FIXED_TIME,
@@ -769,7 +769,7 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
             clock=lambda: FIXED_TIME,
         )
         completed = run_production(
-            request,
+            {**request, "authorizeVisualRedo": True},
             self.output_root,
             DeterministicFixtureAdapters(FIXTURE),
             clock=lambda: FIXED_TIME,

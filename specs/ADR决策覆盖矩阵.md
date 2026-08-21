@@ -63,7 +63,7 @@ ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0025 中共有 24 份生效�
 | D45 | `0.1.0` 开发，影子运行通过后冻结 `1.0.0` | 发布配置 | `release.json`、发布检查和影子运行验收 | 配置门禁已指定 |
 | D46 | 旧 Unified 与拆分版只作只读迁移事实源 | 仓库与迁移边界 | ADR 0011；历史经验迁移矩阵 | 复合覆盖 |
 | D47 | 四个可恢复用户大阶段聚合 P0–P8，第二阶段调用 Fal API | 公共工作流与外部副作用 | ADR 0023；`references/vertical-slice-runtime.md` | 复合覆盖 |
-| D48 | P1 语义/结构经验通过 Authoring Handoff 注入 P3，P3 以 Approved Image 做增量分析；默认批次四路并发 | 阶段事实边界与性能架构 | ADR 0025；`references/template-image-gate.md`；`references/shared-batch-policy.md` | 复合覆盖 |
+| D48 | P1 语义/结构经验通过 Authoring Handoff 注入 P3，P3 以 Approved Image 做增量分析；默认批次五路并发、大阶段屏障与单项一次新请求 | 阶段事实边界与性能架构 | ADR 0025；`references/template-image-gate.md`；`references/shared-batch-policy.md` | 复合覆盖 |
 
 ## 3. ADR 边界检查
 

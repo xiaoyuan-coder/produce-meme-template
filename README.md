@@ -8,7 +8,7 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `2.0.0` | `release.json` |
+| Skill 版本 | `2.1.0` | `release.json` |
 | 发布验收 Profile | `live_external` | `release.json` |
 | Artifact Schema | `0.23.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
@@ -25,13 +25,14 @@
 | 3 | `template_data` | 模板数据编译 | 通过 Approved Image + Handoff 增量编译并校验待 OSS 数据包 | `template-data-package.json` |
 | 4 | `final` | OSS 最终化 | 上传确认模板图到 OSS，回填并交付正式模板 JSON | `gallery-template.json` |
 
-省略 `stage` 或指定第四阶段时，工作流依次完成全部四阶段。第二阶段必须通过图片生成 adapter 调用 API；真实生产使用 Fal 队列。第三阶段的产物状态为 `awaiting_oss_finalization`，只有第四阶段完成 OSS 上传与 URL 回填后才会生成正式 `gallery-template.json`。
+省略 `stage` 或指定第四阶段时，工作流依次完成全部四阶段。批量调用在大阶段之间设置屏障：先完成全部 P1 与 Prompt 检查，再并发进入 P2。第二阶段必须通过图片生成 adapter 调用 API；真实生产使用 Fal 队列。第三阶段的产物状态为 `awaiting_oss_finalization`，只有第四阶段完成 OSS 上传与 URL 回填后才会生成正式 `gallery-template.json`。
 
 ## 核心合同
 
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
 - P1 必须完成 IP/文化身份发现和主体连续性冻结；`authoring-intent.json` 与 `authoring-handoff.json` 将这些事实注入 P3。
-- 默认批次使用 `4` 路并发，结果仍按输入顺序归集。
+- 默认批次使用 `5` 路并发，结果仍按输入顺序归集。
+- 单个 Production Item 默认只创建 `1` 个新供应商请求；视觉重做需要显式设置 `authorizeVisualRedo=true`。
 - 高价值内容进入 `inputSchema`；可全文编辑且无需主动开槽的内容保留在 `promptTemplate`。
 - 明显主体只要能通过用户上传图实现替换，就必须开放 subject 槽；自由文本理由不能作为省略证据。
 - `promptTemplate` 只承载用户可编辑内容；媒介、画风、固定构图和清理指令进入隐藏视觉合同。
@@ -49,15 +50,16 @@
 
 - 当前格式：`^[a-z][a-z0-9-]{1,59}$`（小写字母开头，只允许小写字母、数字和连字符，总长 2–60 位）。
 - 同一个 Production Item 恢复执行时，继续使用原 `templateKey`；请求改 key 会触发身份完整性阻断。
-- 需要重新编译模板数据并在下游替换旧记录时，创建新的 `productionItemId`，同时继续传入旧 `templateKey`。
-- 新旧模板图相同时，OSS 对象可以幂等复用；模板图变化时，对象路径中的图片 SHA 和最终 URL 会更新，正式模板 `key` 保持不变。
+- 只修正标题、描述、槽位、Prompt 或语义审计时，继续使用原 `productionItemId` 并运行第三阶段；已确认图片与 request ID 会直接复用。
+- 只有模板图确实需要重做时才增加供应商请求，并在人工确认后显式传入 `authorizeVisualRedo=true`。
+- 模板图未变时，OSS 对象可以幂等复用；模板图变化时，对象路径中的图片 SHA 和最终 URL 会更新，正式模板 `key` 保持不变。
 - OSS 对象路径以 `gallery/templates/<templateKey>/<approved-image-sha>.<ext>` 生成。Skill 交付稳定的 `key`，数据库按 key 执行 upsert 或替换由下游导入系统负责。
 
 重跑请求示例：
 
 ```json
 {
-  "productionItemId": "new-production-run-id",
+  "productionItemId": "existing-production-item-id",
   "templateKey": "previous-template-key",
   "sourceImage": "path/to/source-image.jpg"
 }

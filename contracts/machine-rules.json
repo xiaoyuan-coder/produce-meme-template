@@ -489,9 +489,10 @@
     "maximumItems": 100,
     "maximumReplacementPoolItems": 100,
     "executionPolicy": {
-      "defaultMaxConcurrency": 4,
+      "defaultMaxConcurrency": 5,
       "preserveResultOrder": true,
-      "adapterCallsMayOverlapAcrossItems": true
+      "adapterCallsMayOverlapAcrossItems": true,
+      "majorStageBarrierBeforeNextStage": true
     }
   },
   "authoringHandoffContract": {
@@ -1433,6 +1434,10 @@
   },
   "generationExecutionContract": {
     "requestOptionsField": "generationOptions",
+    "requestControlFields": {
+      "authorizeVisualRedo": "authorizeVisualRedo"
+    },
+    "defaultMaximumNewProviderRequestsPerItem": 1,
     "requestOptionFields": {
       "imageCount": "imageCount",
       "primaryOutputIndex": "primaryOutputIndex"
@@ -2093,7 +2098,7 @@
     },
     "requiredExperienceSha256ById": {
       "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
-      "E02": "2e950a7156219e7b621165b0892812a16d3fe12bec161fd2d774d0cf1e80a7b7",
+      "E02": "11e0a5ce76e95bb8cac47dec30de9cd11adef5d241ba541ced33c708d54c3812",
       "E03": "67029c577c412e6c4688afd945ad7330998cfc400f55212773e450b14c8295e5",
       "E04": "54654d217c0feae42d1ec791dddb7be75ab52596fda421db237cf637445c6322",
       "E05": "1d2f3b237df6c37a79407768c1ce3d0575b6c38a4c3cdaa8778b3df0b6aa740c",
@@ -2125,7 +2130,7 @@
       "E31": "80fdf42b6d3cf4c0bd5bfe64c612d43e03b937b96c2e087ef76c2f7a2bf14f93",
       "E32": "738ad6ae0d41823bd67df3a6b8b691527a1824c7ebe68d94709f53ee024c97f2",
       "E33": "026332c0bd23c864fb35f6863f65261cbe47d4120be8142e6ca72ea3804bab71",
-      "E34": "b3f027e4d598ccf15a28f7396b6fa50d9d57436d4a1967ded37fabba983688db",
+      "E34": "784c275f1439415f1bfa071701a97628f2677fe47c2b3d0a98e91e320aaa497b",
       "E35": "d5a0133768abb9aa93ca1937d2ce08fd26195e5324d2c8bbe0ba3098d927dae1",
       "E36": "2e9cc24693f67e9b98bfd3ab1e0ea109457cdc45698832bf6d4c9921ed7ecc63",
       "E37": "061ee8e898b06cb8d18162d34bb776de3254f500b1c7e99a299106f8fc2ff837",

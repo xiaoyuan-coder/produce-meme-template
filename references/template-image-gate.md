@@ -22,7 +22,7 @@ P2 通过后还要编译 `authoring-handoff.json`：它绑定 P1 `authoring-inte
 
 ## 4. 不可变重做
 
-视觉硬失败后的同一 Production Item 从 P2 重做，复用摘要校验通过的 P0 来源分析和 P1 替换计划。每次重做递增 manifest revision，生成新的 request ID，并使用 `-rN` 保存 generation package、候选图、视觉审核和确认图；既有 revision 不覆盖。
+视觉硬失败后的同一 Production Item 默认保持阻断且不增加供应商请求。用户明确授权 `authorizeVisualRedo=true` 后才从 P2 重做，复用摘要校验通过的 P0 来源分析和 P1 替换计划。每次已授权重做递增 manifest revision，生成新的 request ID，并使用 `-rN` 保存 generation package、候选图、视觉审核和确认图；既有 revision 不覆盖。
 
 manifest 的失效事件记录被替代的 generation package、新 package、两者摘要、旧依赖后代以及 P2–P8 失效阶段。新模板分析只绑定当前 revision 的 Approved Template Image 和视觉审核。歧义或证据不足保持人工复核状态，不自动重做。
 

@@ -17,7 +17,7 @@
       "legacyDisposition": null,
       "authority": {"path": "references/shared-batch-policy.md", "anchor": "## 1. 入口与边界"},
       "implementation": {"kind": "python-symbol", "path": "scripts/produce_meme_template/workflow.py", "locator": "run_production"},
-      "evidence": [{"testId": "tests.test_issue_12_batch_isolation.Issue12BatchIsolationTest.test_default_batch_creates_only_independent_production_items", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/request.json"]}]
+      "evidence": [{"testId": "tests.test_issue_25_authoring_handoff.Issue25AuthoringHandoffTest.test_five_item_batch_finishes_all_p1_checks_before_five_concurrent_submits", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/request.json"]}]
     },
     {
       "experienceId": "E03",
@@ -312,7 +312,7 @@
       "legacyDisposition": null,
       "authority": {"path": "references/generation-execution-and-recovery.md", "anchor": "## 4. 恢复与失效"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/generationExecutionContract/walFields"},
-      "evidence": [{"testId": "tests.test_issue_10_generation_wal.Issue10GenerationWalTest.test_retryable_poll_failure_resumes_same_provider_request_without_resubmit", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/request.json"]}]
+      "evidence": [{"testId": "tests.test_issue_10_generation_wal.Issue10GenerationWalTest.test_visual_hard_failure_redo_creates_a_new_frozen_provider_task", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/request.json"]}]
     },
     {
       "experienceId": "E35",

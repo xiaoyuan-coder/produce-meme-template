@@ -29,7 +29,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - **第三阶段**：执行 P3–P6，P3 使用 Approved Image 与只读 Authoring Handoff 做增量分析，输出状态为 `awaiting_oss_finalization` 的 `template-data-package.json`；其中绑定正式 draft、runtimeSemantics、语义审计和四层验证。
 - **第四阶段**：执行 P7–P8，上传当前 Approved Template Image，回填同一 OSS URL，输出最终 `gallery-template.json`。
 - **完整生产**：省略阶段参数或指定第四阶段，依次执行四个大阶段。四次分段调用和一次完整调用使用同一个 Production Item、revision、pin 与产物谱系。
-- **批量提交**：把多张来源网图拆成相互独立的 Production Item，默认四路并发并按输入顺序归集；仅在用户显式提供共享批次策略时建立跨图约束。
+- **批量提交**：把多张来源网图拆成相互独立的 Production Item，默认五路并发并按输入顺序归集；批次先完成全部 P1 与 Prompt 检查，再并发提交 P2；仅在用户显式提供共享批次策略时建立跨图约束。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
 - **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；生产 sidecar 留在 Production workspace，交付清单位于单模板数据目录之外，OSS 与正式记录内容不因拆分再次生成。
 
