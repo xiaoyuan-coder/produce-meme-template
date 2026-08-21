@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "updated_at": "2026-08-21",
-  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，用 Authoring Handoff 连接换图意图与 Approved Image 增量编译，并以五路并发和阶段屏障生产独立模板。",
+  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，用 Authoring Handoff 传递主体身份单元与重复实例，强制可实现的传图主体开槽，并以五路并发生产独立模板。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",

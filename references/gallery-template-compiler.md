@@ -12,6 +12,8 @@ P3 以后只读取 Approved Template Image 的 SHA 绑定分析。Source Web Ima
 
 人物的服装、造型、发型、姿势和颜色分别记录四道门禁、是否入槽和图像证据；入槽决定必须与门禁结论一致。每次 Approved Template Image 分析都必须提供 `componentGraph` 与 `assetUnitAnalysis`，分别计数可见主体、身份单元、上传素材和控件，不从其中一个数量推导其他数量；控件数最终必须与通过门禁的槽位数一致。组件图、容器和关系的详细规则读取 [多实例组件图与图片操作合同](multi-instance-image-operations.md)。
 
+Artifact Schema `0.24.0` 起，Authoring Handoff 增加 `subjectEditIntent`，显式传递来源主体身份单元、主体组件、`repeated_identity` 关系与建议绑定模式。主体省略 blocker 除了字段完整，还必须通过代码对应的可计算前提。`inseparable_multi_identity_unit` 至少需要两个身份单元，且将成员分别开放为 subject 后必须超过槽位硬上限；条件不成立时直接阻断。旧 `reason` 字段保持为无效迁移输入，适配器不再将它静默升级为合格类型证据。
+
 默认值必须是非空用户文案，优先使用中文且原则上为 2–8 个字符；偏离语言或长度偏好时必须按槽位保存已复核结论与理由。硬上限为 12 个字符，只有 `exactVisibleTextEvidence` 同时绑定当前 Approved Template Image SHA、逐字默认值和非空图像证据的文字槽可以超过。每个推荐池必须非空；推荐项按 trim 后的用户可见值判断重复与默认值冲突，同轴、同颗粒度和可生成性继续由绑定完整内容摘要的独立语义审计判断。
 
 Prompt Template 是完整自然语言描述：

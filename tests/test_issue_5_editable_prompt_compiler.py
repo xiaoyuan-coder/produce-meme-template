@@ -185,6 +185,41 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             editable["subjectSlotOmissionEvidence"]["evidence"],
         )
 
+    def test_single_identity_cannot_claim_inseparable_multi_identity_omission(self) -> None:
+        def forge_multi_identity_blocker(analysis: dict) -> dict:
+            analysis["slotCandidates"] = [
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["semanticRole"] != SUBJECT_ROLE
+            ]
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace(
+                '{{ pet_subject | "柯基犬" }}',
+                "一只放松的小动物",
+            ).replace("一只一只", "一只")
+            analysis["subjectSlotOmissionEvidence"] = {
+                "reviewed": True,
+                "valueGates": {
+                    role: role != VALUE_GATE_ROLES["mechanismPreservation"]
+                    for role in VALUE_GATE_ROLES.values()
+                },
+                "uploadReplacementFeasible": False,
+                "blockerCode": "inseparable_multi_identity_unit",
+                "evidence": "声称多身份不可分，但资产分析只有一个身份单元",
+            }
+            analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 2
+            analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["uploads"]] = 0
+            analysis["renderingCoherenceDecision"]["subjectTransfers"] = []
+            return analysis
+
+        result = self.run_case(
+            "forged-inseparable-multi-identity-omission",
+            forge_multi_identity_blocker,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
     def test_exhaustive_single_slot_exception_is_allowed_and_preserved_as_evidence(self) -> None:
         reviewed_axes = list(SINGLE_SLOT_REVIEW_AXES)
 

@@ -400,16 +400,6 @@ class DeterministicFixtureAdapters:
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "approved-analysis.json")
         result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
-        omission = result.get("subjectSlotOmissionEvidence")
-        if isinstance(omission, dict) and "reason" in omission:
-            evidence = omission.pop("reason")
-            omission.update(
-                {
-                    "uploadReplacementFeasible": False,
-                    "blockerCode": "inseparable_multi_identity_unit",
-                    "evidence": evidence,
-                }
-            )
         image_sha = hashlib.sha256(approved_image.read_bytes()).hexdigest()
         result["visualFactSourceSha256"] = image_sha
         decision_contract = _read_json(RULES_PATH).get(
@@ -444,9 +434,9 @@ class DeterministicFixtureAdapters:
                 for suggestion in slot["suggestions"]
             ],
         ]
-        result["evidence"][roles["openAxes"]["evidence"]] = [
-            slot["semanticRole"] for slot in slots
-        ]
+        result["evidence"][roles["openAxes"]["evidence"]] = list(
+            dict.fromkeys(slot["semanticRole"] for slot in slots)
+        )
         result["evidence"][roles["maximumDifference"]["evidence"]] = [
             slot["suggestions"][0] for slot in slots
         ]

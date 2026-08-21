@@ -34,6 +34,10 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 主体槽采用强制优先级：当前图存在明显主体，且用户上传图能在保持机制的前提下接管该主体时，必须开放 `subject`。“当前 v2 不支持”、“为了简化控件”或自由文本理由不能省略主体。省略时必须提供 `uploadReplacementFeasible=false` 和机器合同允许的类型化 blocker；明显猫、狗、人物、单个道具等可分离主体通常不满足省略条件。
 
+多主体分析先分开“身份成员”和“显示实例”。爱丽丝与白兔、两位人物或两只可独立辨识的宠物是两个身份单元；同一角色在手机外、屏幕内、镜像或反射中再次出现是同一身份的重复实例。当“身份单元数 + 其他高价值槽位数”不超过机器上限时，每个身份成员建立独立 `subject`，同一成员的多个显示实例继续共享一份上传资产和一个控件。
+
+`inseparable_multi_identity_unit` 只在至少两个身份单元确实存在，且将每个成员开放为独立 subject 会超过槽位硬上限时才成立。`no_stable_subject_boundary` 要求 `modelControllable=false`；`fixed_identity_is_mechanism_anchor` 要求 `mechanismPreserved=false`。类型代码与可计算前提不一致时，P3 在产出可编辑侧车前阻断。
+
 结构化槽位的四道门禁固定为：
 
 - `userMotivation`：用户有清晰、常见且可表达的修改目的；
@@ -101,6 +105,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 - `image.promptValue` 是图片模式提供给运行时/LLM 的中性主体说明；`image.hint` 是上传 UI 文案。它们都不承担目标定位、身份绑定或画风约束。目标位置和接管关系只由 `runtimeSemantics.targetInstances + inputBindings` 表达。
 - 作者可省略这两项，编译器分别回填“用户上传图中的主体”和“上传1张主体清晰的单主体图片”。需要让界面更清楚时可提供非空短文本覆盖，例如“用户上传图中的人物”；无需逐图复述容器、动作和空间位置。
 - `maxCount` 当前固定为 `1`。多个独立身份或素材使用独立 subject 槽；当前合同不把多人合照静默压成单主体。
+- 一个身份的多个重复实例共享该 subject 的单张上传图；每个实例都要在 `componentGraph` 和 `repeated_identity` 关系中明确建模。
 - `minWidth/minHeight`、`private` 和 `sourceOptions` 由机器合同统一投影，作者分析不得按批次随意改写。
 
 ### 5.1 身份特征继承裁决

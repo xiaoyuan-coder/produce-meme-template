@@ -10,6 +10,84 @@ def _digest(value: Any) -> str:
     return sha256_bytes(canonical_json_bytes(value))
 
 
+def _subject_edit_intent(
+    source_analysis: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
+    contract = rules["authoringHandoffContract"]["subjectEditIntentContract"]
+    fields = contract["fields"]
+    modes = contract["bindingModes"]
+    multi = rules["multiInstanceContract"]
+    graph = source_analysis["componentGraph"]
+    components = graph[multi["graphFields"]["components"]]
+    relations = graph[multi["graphFields"]["relations"]]
+    component_fields = multi["componentFields"]
+    relation_fields = multi["relationFields"]
+    subject_role = multi["componentRoles"]["subject"]
+    repeated_identity = multi["relationTypes"]["repeatedIdentity"]
+    subject_components = [
+        component
+        for component in components
+        if component[component_fields["role"]] == subject_role
+        and component[component_fields["identityUnit"]] is not None
+    ]
+    identity_units = sorted(
+        {
+            component[component_fields["identityUnit"]]
+            for component in subject_components
+        }
+    )
+    subject_count = len(identity_units)
+    binding_mode = (
+        modes["none"]
+        if subject_count == 0
+        else modes["single"]
+        if subject_count == 1
+        else modes["multiple"]
+    )
+    return {
+        fields["identityUnits"]: identity_units,
+        fields["subjectComponents"]: sorted(
+            component[component_fields["identity"]]
+            for component in subject_components
+        ),
+        fields["repeatedIdentityRelations"]: sorted(
+            relation[relation_fields["identity"]]
+            for relation in relations
+            if relation[relation_fields["type"]] == repeated_identity
+        ),
+        fields["subjectCount"]: subject_count,
+        fields["bindingMode"]: binding_mode,
+    }
+
+
+def _subject_edit_intent_valid(value: Any, rules: dict[str, Any]) -> bool:
+    contract = rules["authoringHandoffContract"]["subjectEditIntentContract"]
+    fields = contract["fields"]
+    return bool(
+        isinstance(value, dict)
+        and set(value) == set(fields.values())
+        and all(
+            isinstance(value.get(fields[role]), list)
+            and all(
+                isinstance(item, str) and item.strip()
+                for item in value[fields[role]]
+            )
+            and len(value[fields[role]]) == len(set(value[fields[role]]))
+            for role in (
+                "identityUnits",
+                "subjectComponents",
+                "repeatedIdentityRelations",
+            )
+        )
+        and isinstance(value.get(fields["subjectCount"]), int)
+        and not isinstance(value[fields["subjectCount"]], bool)
+        and value[fields["subjectCount"]]
+        == len(value[fields["identityUnits"]])
+        and value.get(fields["bindingMode"])
+        in set(contract["bindingModes"].values())
+    )
+
+
 def source_authoring_context_errors(
     source_analysis: dict[str, Any], rules: dict[str, Any]
 ) -> list[str]:
@@ -97,6 +175,7 @@ def compile_authoring_intent(
     """Freeze the reusable P1 meaning needed by both generation and authoring."""
 
     contract = rules["authoringHandoffContract"]
+    subject_edit_contract = contract["subjectEditIntentContract"]
     source_intent = {
         "mechanism": copy.deepcopy(replacement_plan["mechanism"]),
         "target": copy.deepcopy(source_analysis["target"]),
@@ -109,6 +188,7 @@ def compile_authoring_intent(
             source_analysis.get("culturalReferenceDiscovery")
         ),
         "subjectContinuity": copy.deepcopy(source_analysis.get("subjectContinuity")),
+        subject_edit_contract["field"]: _subject_edit_intent(source_analysis, rules),
     }
     replacement_intent = {
         "primaryTargets": copy.deepcopy(replacement_plan["primaryTargets"]),
@@ -196,6 +276,12 @@ def authoring_handoff_valid(
         and handoff.get("schemaVersion") == rules["schemaVersion"]
         and isinstance(handoff.get("sourceIntent"), dict)
         and isinstance(handoff["sourceIntent"].get("mechanism"), dict)
+        and _subject_edit_intent_valid(
+            handoff["sourceIntent"].get(
+                contract["subjectEditIntentContract"]["field"]
+            ),
+            rules,
+        )
         and isinstance(handoff.get("replacementIntent"), dict)
         and isinstance(handoff["replacementIntent"].get("primaryTargets"), list)
         and isinstance(handoff.get("approvedDelta"), dict)

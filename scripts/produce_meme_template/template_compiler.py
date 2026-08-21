@@ -664,6 +664,44 @@ def _compile_editable_spec(
         omission_contract = rules["authoringHandoffContract"][
             "subjectOmissionContract"
         ]
+        blocker_code = omission.get("blockerCode") if isinstance(omission, dict) else None
+        blocker_predicate = omission_contract["blockerPredicates"].get(blocker_code, {})
+        asset_units_for_omission = analysis.get("assetUnitAnalysis")
+        identity_count_field = slot_contract["assetUnitCountFields"]["identities"]
+        identity_count = (
+            asset_units_for_omission.get(identity_count_field)
+            if isinstance(asset_units_for_omission, dict)
+            else None
+        )
+        minimum_identity_count = blocker_predicate.get("minimumIdentityUnitCount")
+        required_false_gates = blocker_predicate.get("requiredFalseValueGates", [])
+        blocker_predicate_valid = bool(
+            isinstance(blocker_predicate, dict)
+            and isinstance(required_false_gates, list)
+            and all(
+                omission.get("valueGates", {}).get(gate) is False
+                for gate in required_false_gates
+            )
+            and (
+                minimum_identity_count is None
+                or (
+                    isinstance(identity_count, int)
+                    and not isinstance(identity_count, bool)
+                    and identity_count >= minimum_identity_count
+                )
+            )
+            and (
+                blocker_predicate.get(
+                    "requireIndividualSubjectSlotsExceedMaximumBudget"
+                )
+                is not True
+                or (
+                    isinstance(identity_count, int)
+                    and not isinstance(identity_count, bool)
+                    and identity_count + len(slots) > budget["maximum"]
+                )
+            )
+        )
         omission_valid = bool(
             isinstance(omission, dict)
             and set(omission) == set(omission_contract["requiredFields"])
@@ -677,6 +715,7 @@ def _compile_editable_spec(
             in set(omission_contract["allowedBlockerCodes"])
             and isinstance(omission.get("evidence"), str)
             and omission["evidence"].strip()
+            and blocker_predicate_valid
         )
         if not omission_valid:
             raise _stop(

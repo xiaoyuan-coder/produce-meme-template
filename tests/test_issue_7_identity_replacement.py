@@ -292,7 +292,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
             analysis["subjectSlotOmissionEvidence"] = {
                 "reviewed": True,
                 "valueGates": {
-                    gate: gate != VALUE_GATES["userDemand"]
+                    gate: gate != VALUE_GATES["mechanismPreservation"]
                     for gate in VALUE_GATES.values()
                 },
                 "uploadReplacementFeasible": False,

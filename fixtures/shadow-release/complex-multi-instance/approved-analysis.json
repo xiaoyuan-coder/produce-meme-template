@@ -400,7 +400,9 @@
       "modelControllable": true,
       "mechanismPreserved": false
     },
-    "reason": "v2 单主体上传只允许一对一身份绑定；四格人物组作为整组内容文字编辑轴处理。"
+    "uploadReplacementFeasible": false,
+    "blockerCode": "inseparable_multi_identity_unit",
+    "evidence": "四个独立身份与三个其他高价值控件合计七个槽位，超过当前五槽硬上限；四格人物组作为整组内容编辑轴处理。"
   },
   "renderingCoherenceDecision": {
     "mode": "unified",

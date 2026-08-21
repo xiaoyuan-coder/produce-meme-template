@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.23.0",
+  "schemaVersion": "0.24.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -507,6 +507,21 @@
     "authoringModes": {
       "incrementalDelta": "approved_image_delta"
     },
+    "subjectEditIntentContract": {
+      "field": "subjectEditIntent",
+      "fields": {
+        "identityUnits": "identityUnitIds",
+        "subjectComponents": "subjectComponentIds",
+        "repeatedIdentityRelations": "repeatedIdentityRelationIds",
+        "subjectCount": "subjectCount",
+        "bindingMode": "bindingMode"
+      },
+      "bindingModes": {
+        "none": "no_subject_control",
+        "single": "single_subject_control",
+        "multiple": "multi_member_controls"
+      }
+    },
     "requiredDigestFields": [
       "sourceImageSha256",
       "sourceAnalysisSha256",
@@ -542,7 +557,22 @@
         "inseparable_multi_identity_unit",
         "fixed_identity_is_mechanism_anchor",
         "safety_or_rights_block"
-      ]
+      ],
+      "blockerPredicates": {
+        "no_stable_subject_boundary": {
+          "requiredFalseValueGates": ["modelControllable"]
+        },
+        "inseparable_multi_identity_unit": {
+          "minimumIdentityUnitCount": 2,
+          "requireIndividualSubjectSlotsExceedMaximumBudget": true
+        },
+        "fixed_identity_is_mechanism_anchor": {
+          "requiredFalseValueGates": ["mechanismPreserved"]
+        },
+        "safety_or_rights_block": {
+          "requiredFalseValueGates": []
+        }
+      }
     }
   },
   "sourceAuthoringContextContract": {

@@ -71,6 +71,16 @@ class Issue25AuthoringHandoffTest(unittest.TestCase):
             handoff["sourceIntent"]["culturalReferenceDiscovery"]["assessed"]
         )
         self.assertIn("contrastMechanism", handoff["sourceIntent"]["subjectContinuity"])
+        self.assertEqual(
+            {
+                "identityUnitIds": ["source-animal"],
+                "subjectComponentIds": ["animal-main"],
+                "repeatedIdentityRelationIds": [],
+                "subjectCount": 1,
+                "bindingMode": "single_subject_control",
+            },
+            handoff["sourceIntent"]["subjectEditIntent"],
+        )
         generation = load_json(result.output_dir / "generation-package.json")
         self.assertIn("culturalReference", generation["sections"])
         self.assertIn("subjectContinuity", generation["sections"])

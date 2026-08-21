@@ -1,4 +1,4 @@
 interface:
   display_name: "Meme 模板生产"
-  short_description: "四阶段并发完成换图、生图、增量模板编译与 OSS 最终化"
-  default_prompt: "使用 $produce-meme-template 按我指定的第一、第二、第三或第四阶段继续同一个模板生产项；第一阶段冻结 IP、主体连续性与玩法机制，第二阶段通过 Fal API 生成并确认模板图，第三阶段通过 Authoring Handoff 增量编写槽位、标题、用户 Prompt 与严格画风合同。"
+  short_description: "四阶段并发生产，强制可替换主体开放传图槽"
+  default_prompt: "使用 $produce-meme-template 按我指定的第一、第二、第三或第四阶段继续同一个模板生产项；第一阶段冻结 IP、每个主体身份单元、重复实例与玩法机制，第二阶段通过 Fal API 生成并确认模板图，第三阶段通过 Authoring Handoff 增量编写传图槽位、标题、用户 Prompt 与严格画风合同。"

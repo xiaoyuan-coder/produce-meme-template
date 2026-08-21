@@ -8,9 +8,9 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `2.1.0` | `release.json` |
+| Skill 版本 | `2.2.0` | `release.json` |
 | 发布验收 Profile | `live_external` | `release.json` |
-| Artifact Schema | `0.23.0` | `release.json` |
+| Artifact Schema | `0.24.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
 | Manifest 更新时间 | `2026-08-21` | `skill-manifest.json` |
@@ -30,11 +30,11 @@
 ## 核心合同
 
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
-- P1 必须完成 IP/文化身份发现和主体连续性冻结；`authoring-intent.json` 与 `authoring-handoff.json` 将这些事实注入 P3。
+- P1 必须完成 IP/文化身份发现和主体连续性冻结；`subjectEditIntent` 将身份单元、主体组件和重复实例关系注入 P3。
 - 默认批次使用 `5` 路并发，结果仍按输入顺序归集。
 - 单个 Production Item 默认只创建 `1` 个新供应商请求；视觉重做需要显式设置 `authorizeVisualRedo=true`。
 - 高价值内容进入 `inputSchema`；可全文编辑且无需主动开槽的内容保留在 `promptTemplate`。
-- 明显主体只要能通过用户上传图实现替换，就必须开放 subject 槽；自由文本理由不能作为省略证据。
+- 明显主体只要能通过用户上传图实现替换，就必须开放 subject 槽；多个独立身份在槽位预算内分拆为多个 subject，重复实例继续共享同一输入。
 - `promptTemplate` 只承载用户可编辑内容；媒介、画风、固定构图和清理指令进入隐藏视觉合同。
 - subject 图片默认继承用户上传图的清晰可见身份特征；只有核心玩法特征沿用模板值。
 - 纯色铺底默认留在 Prompt 或色光事实中；缺少独立高价值编辑动机时不建立槽位。
