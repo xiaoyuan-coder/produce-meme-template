@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "visibleFacts": [
     "四组旅人分别位于左上、右上、左下、右下四格褪色照片",
     "每格人物组、照片边框和二乘二阅读顺序可逐项识别",
@@ -323,15 +323,60 @@
   "visualFactSourceSha256": "974e045f21308a4d1520c7c8478809b503b83490811624ea61a0da19a5650148",
   "runtimeSemantics": {
     "targetInstances": [
-      {"id": "approved-person-a", "kind": "content_element", "role": "第一格人物", "region": "画面左上方的第一分格内"},
-      {"id": "approved-person-b", "kind": "content_element", "role": "第二格人物", "region": "画面右上方的第二分格内"},
-      {"id": "approved-person-c", "kind": "content_element", "role": "第三格人物", "region": "画面左下方的第三分格内"},
-      {"id": "approved-person-d", "kind": "content_element", "role": "第四格人物", "region": "画面右下方的第四分格内"},
-      {"id": "approved-panel-a", "kind": "content_element", "role": "四格档案的分格边框", "region": "画面左上方并与其他三格组成四格骨架"},
-      {"id": "approved-panel-b", "kind": "content_element", "role": "固定的第二分格", "region": "画面右上方"},
-      {"id": "approved-panel-c", "kind": "content_element", "role": "固定的第三分格", "region": "画面左下方"},
-      {"id": "approved-panel-d", "kind": "content_element", "role": "固定的第四分格", "region": "画面右下方"},
-      {"id": "approved-grid-scene", "kind": "content_element", "role": "四格档案的整体场景色调", "region": "四个分格后方及画面四周"}
+      {
+        "id": "approved-person-a",
+        "kind": "content_element",
+        "role": "第一格人物",
+        "region": "画面左上方的第一分格内"
+      },
+      {
+        "id": "approved-person-b",
+        "kind": "content_element",
+        "role": "第二格人物",
+        "region": "画面右上方的第二分格内"
+      },
+      {
+        "id": "approved-person-c",
+        "kind": "content_element",
+        "role": "第三格人物",
+        "region": "画面左下方的第三分格内"
+      },
+      {
+        "id": "approved-person-d",
+        "kind": "content_element",
+        "role": "第四格人物",
+        "region": "画面右下方的第四分格内"
+      },
+      {
+        "id": "approved-panel-a",
+        "kind": "content_element",
+        "role": "四格档案的分格边框",
+        "region": "画面左上方并与其他三格组成四格骨架"
+      },
+      {
+        "id": "approved-panel-b",
+        "kind": "content_element",
+        "role": "固定的第二分格",
+        "region": "画面右上方"
+      },
+      {
+        "id": "approved-panel-c",
+        "kind": "content_element",
+        "role": "固定的第三分格",
+        "region": "画面左下方"
+      },
+      {
+        "id": "approved-panel-d",
+        "kind": "content_element",
+        "role": "固定的第四分格",
+        "region": "画面右下方"
+      },
+      {
+        "id": "approved-grid-scene",
+        "kind": "content_element",
+        "role": "四格档案的整体场景色调",
+        "region": "四个分格后方及画面四周"
+      }
     ],
     "visualContract": {
       "medium": "褪色相纸与档案纸组合的旅行照片拼贴，保留颗粒、折痕和纸边",
@@ -356,5 +401,33 @@
       "mechanismPreserved": false
     },
     "reason": "v2 单主体上传只允许一对一身份绑定；四格人物组作为整组内容文字编辑轴处理。"
+  },
+  "renderingCoherenceDecision": {
+    "mode": "unified",
+    "approvedImageSha256": null,
+    "medium": "褪色相纸与档案纸组合的旅行照片拼贴，保留颗粒、折痕和纸边",
+    "renderingUnits": [
+      {
+        "unitId": "whole-approved-image",
+        "componentIds": [
+          "approved-person-a",
+          "approved-person-b",
+          "approved-person-c",
+          "approved-person-d",
+          "approved-panel-a",
+          "approved-panel-b",
+          "approved-panel-c",
+          "approved-panel-d",
+          "approved-grid-scene"
+        ],
+        "styleTraits": [
+          "四格照片共享低细节纪实摄影质感，每格相纸边缘清晰且磨损程度一致"
+        ],
+        "evidence": "确认模板图中的主体、派生区域、物件与背景共享同一可观察绘制体系"
+      }
+    ],
+    "boundaryEvidence": [],
+    "subjectTransfers": [],
+    "evidence": "逐组件核对后确认当前模板图采用单一渲染体系"
   }
 }

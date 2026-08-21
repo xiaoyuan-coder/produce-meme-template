@@ -244,6 +244,54 @@ def _run_template_data_stage(
         adapters.audit_semantics,
         semantic_audit_request,
     )
+    grounding_contract = rules["visualContractGroundingReviewContract"]
+    grounding_request_fields = grounding_contract["requestFields"]
+    runtime_fields = rules["runtimeSemanticsContract"]["fields"]
+    formal_runtime_field = rules["formalProjection"]["topLevel"][
+        "runtimeSemantics"
+    ]
+    grounding_request = {
+        grounding_request_fields["approvedImageSha256"]: approved_sha,
+        grounding_request_fields["visualContract"]: copy.deepcopy(
+            draft[formal_runtime_field][runtime_fields["visualContract"]]
+        ),
+        grounding_request_fields["renderingCoherenceDecision"]: copy.deepcopy(
+            editable[
+                rules["renderingCoherenceDecisionContract"]["authoringField"]
+            ]
+        ),
+        grounding_request_fields["componentGraph"]: copy.deepcopy(
+            editable[
+                rules["multiInstanceContract"]["approvedFields"][
+                    "componentGraph"
+                ]
+            ]
+        ),
+    }
+    grounding_request_sha = _sha_bytes(_canonical_bytes(grounding_request))
+    visual_contract_grounding_review = _adapter_snapshot_image_object_call(
+        rules,
+        "audit_visual_contract",
+        adapters.audit_visual_contract,
+        approved_path,
+        approved_sha,
+        grounding_request,
+    )
+    if _sha_bytes(_canonical_bytes(grounding_request)) != grounding_request_sha:
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "视觉合同审计 adapter 修改了只读对账快照。",
+            {},
+        )
+    semantic_evidence = semantic_audit.get("evidence")
+    grounding_evidence_field = grounding_contract["evidenceField"]
+    if (
+        isinstance(semantic_evidence, dict)
+        and grounding_evidence_field not in semantic_evidence
+    ):
+        semantic_evidence[grounding_evidence_field] = visual_contract_grounding_review
     compiled_content_unchanged = (
         _sha_bytes(
             _canonical_bytes(_semantic_audit_payload(draft, editable, rules))
@@ -270,7 +318,11 @@ def _run_template_data_stage(
         output_dir,
         "semantic-audit.json",
         p6,
-        ["gallery-template.draft.json", "editable-template-spec.json"],
+        [
+            "gallery-template.draft.json",
+            "editable-template-spec.json",
+            approved_rel,
+        ],
     )
     review = _load_json(output_dir / review_name)
     validation = _validation_report(

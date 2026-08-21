@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
-from tests.fixture_contracts import rebuild_runtime_targets
+from tests.fixture_contracts import (
+    rebuild_rendering_coherence_decision,
+    rebuild_runtime_targets,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -349,7 +352,8 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         )
         if self.approved_mutator:
             self.approved_mutator(analysis)
-        return rebuild_runtime_targets(analysis, RULES)
+        analysis = rebuild_runtime_targets(analysis, RULES)
+        return rebuild_rendering_coherence_decision(analysis, RULES)
 
     def audit_semantics(self, content: dict) -> dict:
         audit = super().audit_semantics(content)

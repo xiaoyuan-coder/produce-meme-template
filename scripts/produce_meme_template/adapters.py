@@ -16,7 +16,10 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-from .artifacts import load_json_object as _read_json
+from .artifacts import (
+    canonical_json_bytes as _canonical_bytes,
+    load_json_object as _read_json,
+)
 from .validation import is_public_ip_address, is_safe_public_https_url
 
 
@@ -343,7 +346,18 @@ class DeterministicFixtureAdapters:
 
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "approved-analysis.json")
-        result["visualFactSourceSha256"] = hashlib.sha256(approved_image.read_bytes()).hexdigest()
+        image_sha = hashlib.sha256(approved_image.read_bytes()).hexdigest()
+        result["visualFactSourceSha256"] = image_sha
+        decision_contract = _read_json(RULES_PATH).get(
+            "renderingCoherenceDecisionContract", {}
+        )
+        decision = result.get(decision_contract.get("authoringField"))
+        if isinstance(decision, dict):
+            approved_image_field = decision_contract.get("fields", {}).get(
+                "approvedImageSha256"
+            )
+            if approved_image_field:
+                decision[approved_image_field] = image_sha
         return result
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
@@ -649,6 +663,66 @@ class DeterministicFixtureAdapters:
         }
         return result
 
+    def audit_visual_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        rules = _read_json(RULES_PATH)
+        contract = rules["visualContractGroundingReviewContract"]
+        fields = contract["reviewFields"]
+        unit_review_fields = contract["renderingUnitReviewFields"]
+        transfer_review_fields = contract["subjectTransferReviewFields"]
+        decision_contract = rules["renderingCoherenceDecisionContract"]
+        decision_fields = decision_contract["fields"]
+        unit_fields = decision_contract["renderingUnitFields"]
+        transfer_fields = decision_contract["subjectTransferFields"]
+        decision = review_request["renderingCoherenceDecision"]
+        return {
+            fields["approvedImageSha256"]: hashlib.sha256(
+                approved_image.read_bytes()
+            ).hexdigest(),
+            fields["visualContractSha256"]: hashlib.sha256(
+                _canonical_bytes(review_request["visualContract"])
+            ).hexdigest(),
+            fields["renderingCoherenceDecisionSha256"]: hashlib.sha256(
+                _canonical_bytes(decision)
+            ).hexdigest(),
+            fields["mediumMatchesApprovedImage"]: True,
+            fields["compositionMatchesApprovedImage"]: True,
+            fields["relationsMatchApprovedImage"]: True,
+            fields["renderingUnitReviews"]: [
+                {
+                    unit_review_fields["identity"]: unit[unit_fields["identity"]],
+                    unit_review_fields["componentIdentities"]: unit[
+                        unit_fields["componentIdentities"]
+                    ],
+                    unit_review_fields["matchesApprovedImage"]: True,
+                    unit_review_fields["evidence"]: (
+                        f"逐组件核对 {unit[unit_fields['identity']]} 的媒介与画风"
+                    ),
+                }
+                for unit in decision[decision_fields["renderingUnits"]]
+            ],
+            fields["subjectTransferReviews"]: [
+                {
+                    transfer_review_fields["inputIdentity"]: transfer[
+                        transfer_fields["inputIdentity"]
+                    ],
+                    transfer_review_fields["targetIdentities"]: transfer[
+                        transfer_fields["targetIdentities"]
+                    ],
+                    transfer_review_fields["completeRedraw"]: True,
+                    transfer_review_fields["authorityMatches"]: True,
+                    transfer_review_fields["evidence"]: (
+                        "逐项核对上传继承范围、模板保留范围与完整重绘结果"
+                    ),
+                }
+                for transfer in decision[decision_fields["subjectTransfers"]]
+            ],
+            fields["evidence"]: (
+                "逐区域核对确认图媒介、固定组件绘制语言与 subject 完整转绘范围"
+            ),
+        }
+
     def upload(self, approved_image: Path, object_key: str) -> dict[str, Any]:
         image_sha = hashlib.sha256(approved_image.read_bytes()).hexdigest()
         call = {"approvedImage": str(approved_image), "objectKey": object_key, "imageSha256": image_sha}
@@ -871,6 +945,11 @@ class FalQueueWorkflowAdapters:
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.delegate.audit_semantics(content)
+
+    def audit_visual_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.audit_visual_contract(approved_image, review_request)
 
     def fetch_template_image(self, url: str) -> bytes:
         return self._download_bytes(url)
@@ -1113,6 +1192,11 @@ class AliyunOssWorkflowAdapters:
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.delegate.audit_semantics(content)
+
+    def audit_visual_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.audit_visual_contract(approved_image, review_request)
 
     @staticmethod
     def _header_value(headers: Any, name: str) -> str | None:

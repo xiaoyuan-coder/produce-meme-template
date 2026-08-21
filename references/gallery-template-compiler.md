@@ -36,6 +36,8 @@ Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存
 
 `runtimeSemantics.version` 固定为 `1`。Approved Template Image 分析必须逐个写出 `targetInstances` 的稳定 ID、可观察角色和明确空间区域；编译器保留这些作者事实，并与 Approved 组件图双向核对。subject 输入对应唯一 `identity_subject`，prompt 内容输入对应一个或一组 `content_element`；关键固定内容可以作为无输入绑定的 `content_element`。每个 input id 必须在 `inputBindings` 中出现且只能绑定类型匹配的目标。编译器保留 `identityInheritanceDecision` 在 `editable-template-spec.json`，并将上传继承范围与核心玩法例外确定性转为 `visualContract.relations`；该裁决不投影为新的正式字段。
 
+Artifact Schema `0.22.0` 起，P3 还必须提交 `renderingCoherenceDecision`。它把当前组件图完整划分为统一或刻意混合的渲染单元，并为每个 subject 精确绑定 target、身份继承范围、模板保留范围和完整重绘结论。编译器只从这份决策生成正式 `visualContract.medium/styleTraits`；组件遗漏、单元重叠、混合媒介缺少边界依据、subject 未完整重绘或权限与槽位不一致都会在 draft 前阻断。该 sidecar 不改变正式 Gallery Schema。
+
 subject binding 固定使用 `replace_identity + one_to_one + illustration_redraw + single_subject + reject`，并只接受一张单主体图片。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。当前正式合同不声明合照成员选择、像素保留或未经客户端确认的多主体能力。
 
 `visualContract` 的作者语义与逐图画风标准读取 `template-authoring.md`，正式结构精确包含：
@@ -48,7 +50,7 @@ subject binding 固定使用 `replace_identity + one_to_one + illustration_redra
 
 编译器拒绝只用“沿用确认模板图”“高质量插画”“精美细节”“合理构图”或“自然关系”等泛化约束；每个字段必须达到机器合同的最小信息长度，并写出当前图可观察的媒介、造型、构图或关系事实。旧 v1 `promptEnhancement` 不参与新生产项的 v2 编译。
 
-每个高价值槽位继续提供 `hiddenConflictTokens` 和 `titleForbiddenTokens`。确定性门禁拒绝 visual contract 锁回槽位默认值、建议值或自由编辑内容；独立语义审计复核目标—绑定职责、开放内容权限、身份中性和最大差异标题。审计 SHA 同时绑定标题、Prompt、runtimeSemantics、自由内容和全部槽位默认值/推荐值；任何被审计内容变化都会让旧结论失效。
+每个高价值槽位继续提供 `hiddenConflictTokens` 和 `titleForbiddenTokens`。确定性门禁拒绝 visual contract 锁回槽位默认值、建议值或自由编辑内容；独立语义审计复核目标—绑定职责、开放内容权限、身份中性和最大差异标题。审计 SHA 同时绑定标题、Prompt、runtimeSemantics、渲染决策、自由内容和全部槽位默认值/推荐值；任何被审计内容变化都会让旧结论失效。P6 视觉合同审计直接读取 Approved Template Image，并逐项返回媒介、构图、动作关系、渲染单元和 subject 转绘权限结论；验证器按决策中的 unit/component 与 input/target 原样对账，拒绝总括式“已检查”证据。
 
 ## 4. 四层验收与正式投影
 

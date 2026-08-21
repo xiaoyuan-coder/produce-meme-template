@@ -12,6 +12,7 @@ from typing import Callable
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
 from tests.fixture_contracts import (
     rebuild_approved_component_graph,
+    rebuild_rendering_coherence_decision,
     rebuild_source_component_graph_for_named_closure,
 )
 
@@ -463,7 +464,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                         }
                     )
                 observed_by_role[role] = observed_by_role.get(role, 0) + 1
-        return analysis
+        return rebuild_rendering_coherence_decision(analysis, RULES)
 
     def audit_semantics(self, content: dict) -> dict:
         audit = super().audit_semantics(content)

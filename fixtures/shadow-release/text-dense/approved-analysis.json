@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "visibleFacts": [
     "一张竖幅复古海报以赭黄、酒红和褐色构成",
     "左上人物仰头并向画面中央伸出双手",
@@ -208,8 +208,14 @@
         "演说者"
       ],
       "identityInheritanceDecision": {
-        "inheritFromUpload": ["可辨认身份特征", "服装与外形细节", "表情"],
-        "keepFromTemplate": ["仰头并向画面中央伸出手臂的动作"],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "服装与外形细节",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "仰头并向画面中央伸出手臂的动作"
+        ],
         "reason": "仰头伸手动作构成海报的核心阅读引导"
       },
       "valueGates": {
@@ -347,9 +353,24 @@
   },
   "runtimeSemantics": {
     "targetInstances": [
-      {"id": "approved-poster-figure", "kind": "identity_subject", "role": "仰头并伸出手臂的海报人物", "region": "画面左上方的人物头部、躯干与手臂区域"},
-      {"id": "approved-headline-text", "kind": "content_element", "role": "四行英文主标题", "region": "画面下半部的大字标题区"},
-      {"id": "approved-poster-background", "kind": "content_element", "role": "旧纸、酒红色块与磨损构成的海报底图", "region": "人物与文字后方的整张画面"}
+      {
+        "id": "approved-poster-figure",
+        "kind": "identity_subject",
+        "role": "仰头并伸出手臂的海报人物",
+        "region": "画面左上方的人物头部、躯干与手臂区域"
+      },
+      {
+        "id": "approved-headline-text",
+        "kind": "content_element",
+        "role": "四行英文主标题",
+        "region": "画面下半部的大字标题区"
+      },
+      {
+        "id": "approved-poster-background",
+        "kind": "content_element",
+        "role": "旧纸、酒红色块与磨损构成的海报底图",
+        "region": "人物与文字后方的整张画面"
+      }
     ],
     "visualContract": {
       "medium": "旧纸上的二十世纪石版印刷海报，墨色块带套印偏差、折痕和磨损",
@@ -364,5 +385,47 @@
       ],
       "colorAndLight": []
     }
+  },
+  "renderingCoherenceDecision": {
+    "mode": "unified",
+    "approvedImageSha256": null,
+    "medium": "旧纸上的二十世纪石版印刷海报，墨色块带套印偏差、折痕和磨损",
+    "renderingUnits": [
+      {
+        "unitId": "whole-approved-image",
+        "componentIds": [
+          "approved-poster-figure",
+          "approved-headline-text",
+          "approved-secondary-copy",
+          "approved-poster-background",
+          "approved-poster-frame"
+        ],
+        "styleTraits": [
+          "人物与文字使用平面剪影和粗颗粒油墨，边框由多层几何色块构成"
+        ],
+        "evidence": "确认模板图中的主体、派生区域、物件与背景共享同一可观察绘制体系"
+      }
+    ],
+    "boundaryEvidence": [],
+    "subjectTransfers": [
+      {
+        "inputId": "poster_figure",
+        "targetIds": [
+          "approved-poster-figure"
+        ],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "服装与外形细节",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "仰头并向画面中央伸出手臂的动作"
+        ],
+        "renderingUnitId": "whole-approved-image",
+        "completeRedraw": true,
+        "evidence": "输入 poster_figure 的身份范围完整重绘进确认模板图的统一媒介"
+      }
+    ],
+    "evidence": "逐组件核对后确认当前模板图采用单一渲染体系"
   }
 }

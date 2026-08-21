@@ -358,6 +358,20 @@
       "authority": {"path": "references/gallery-template-compiler.md", "anchor": "## 4. 四层验收与正式投影"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/formalProjection/recognizedMetadataSidecars"},
       "evidence": [{"testId": "tests.test_issue_6_formal_gallery_contract.Issue6FormalGalleryContractTest.test_production_sidecars_do_not_leak_into_the_formal_record", "polarity": "bad-case", "fixturePaths": ["fixtures/contracts/latest-gallery-samples/wedding.input.json"], "expectedGateLocator": "/resultStates/completed"}]
+    },
+    {
+      "experienceId": "E40",
+      "topic": "交付视觉合同逐组件绑定确认图",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {"path": "references/template-authoring.md", "anchor": "### 9.3 renderingCoherenceDecision"},
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/renderingCoherenceDecisionContract"},
+      "evidence": [
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_rendering_decision_is_the_authority_for_formal_medium_and_style", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]},
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_p6_blocks_one_mismatched_rendering_region_before_oss", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/resultStates/blocked"},
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_p6_blocks_subject_garment_authority_mismatch_before_oss", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/resultStates/blocked"},
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_p6_blocks_composition_or_action_facts_that_do_not_match_image", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/resultStates/blocked"}
+      ]
     }
   ],
   "corpus": {

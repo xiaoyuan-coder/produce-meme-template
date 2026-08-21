@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "visibleFacts": [
     "人物双手在画面中央握住一束白色、粉色和紫色小花",
     "手指精确覆盖花束左右边缘并保持原有握持姿态",
@@ -133,8 +133,14 @@
         "礼物盒"
       ],
       "identityInheritanceDecision": {
-        "inheritFromUpload": ["可辨认身份特征", "物件类别", "外形与表面标识"],
-        "keepFromTemplate": ["双手握持接触与遮挡关系"],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "物件类别",
+          "外形与表面标识"
+        ],
+        "keepFromTemplate": [
+          "双手握持接触与遮挡关系"
+        ],
         "reason": "双手握持关系构成模板核心玩法"
       },
       "valueGates": {
@@ -183,8 +189,18 @@
   "visualFactSourceSha256": "ebd657aae8267d901ea15794c8fdb59d1d36a7a695c3216d86f8ce2ba4760d2a",
   "runtimeSemantics": {
     "targetInstances": [
-      {"id": "approved-held-object", "kind": "identity_subject", "role": "被双手握持的主要物件", "region": "画面中央、双手之间的前景区域"},
-      {"id": "approved-contact-background", "kind": "content_element", "role": "室内环境与自然光", "region": "手部与主要物件后方的画面背景"}
+      {
+        "id": "approved-held-object",
+        "kind": "identity_subject",
+        "role": "被双手握持的主要物件",
+        "region": "画面中央、双手之间的前景区域"
+      },
+      {
+        "id": "approved-contact-background",
+        "kind": "content_element",
+        "role": "室内环境与自然光",
+        "region": "手部与主要物件后方的画面背景"
+      }
     ],
     "visualContract": {
       "medium": "室内写实人物摄影，手指与物件边缘清晰",
@@ -199,5 +215,45 @@
       ],
       "colorAndLight": []
     }
+  },
+  "renderingCoherenceDecision": {
+    "mode": "unified",
+    "approvedImageSha256": null,
+    "medium": "室内写实人物摄影，手指与物件边缘清晰",
+    "renderingUnits": [
+      {
+        "unitId": "whole-approved-image",
+        "componentIds": [
+          "approved-person",
+          "approved-held-object",
+          "approved-contact-background"
+        ],
+        "styleTraits": [
+          "人物面部、眼镜、服装和手部保持真实摄影质感，前景物件细节可辨"
+        ],
+        "evidence": "确认模板图中的主体、派生区域、物件与背景共享同一可观察绘制体系"
+      }
+    ],
+    "boundaryEvidence": [],
+    "subjectTransfers": [
+      {
+        "inputId": "held_object",
+        "targetIds": [
+          "approved-held-object"
+        ],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "物件类别",
+          "外形与表面标识"
+        ],
+        "keepFromTemplate": [
+          "双手握持接触与遮挡关系"
+        ],
+        "renderingUnitId": "whole-approved-image",
+        "completeRedraw": true,
+        "evidence": "输入 held_object 的身份范围完整重绘进确认模板图的统一媒介"
+      }
+    ],
+    "evidence": "逐组件核对后确认当前模板图采用单一渲染体系"
   }
 }

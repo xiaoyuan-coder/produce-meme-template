@@ -8,9 +8,9 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `1.6.0` | `release.json` |
+| Skill 版本 | `1.7.0` | `release.json` |
 | 发布验收 Profile | `compatible_minor` | `release.json` |
-| Artifact Schema | `0.21.0` | `release.json` |
+| Artifact Schema | `0.22.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
 | Manifest 更新时间 | `2026-08-20` | `skill-manifest.json` |

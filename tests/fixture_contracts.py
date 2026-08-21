@@ -3,6 +3,82 @@ from __future__ import annotations
 from typing import Any
 
 
+def rebuild_rendering_coherence_decision(
+    analysis: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
+    """Keep transformed fixtures explicit about component rendering coverage."""
+    rendering = rules["renderingCoherenceDecisionContract"]
+    multi = rules["multiInstanceContract"]
+    graph_fields = multi["graphFields"]
+    component_fields = multi["componentFields"]
+    graph = analysis[multi["approvedFields"]["componentGraph"]]
+    components = graph[graph_fields["components"]]
+    subject_type = rules["slotCompilationContract"]["slotTypes"][
+        "primarySubjectUpload"
+    ]
+    dependent_roles = {
+        multi["componentRoles"]["reflection"],
+        multi["componentRoles"]["shadow"],
+    }
+    transfers = []
+    for slot in analysis["slotCandidates"]:
+        if slot["type"] != subject_type:
+            continue
+        inheritance = slot.get("identityInheritanceDecision")
+        if not isinstance(inheritance, dict):
+            continue
+        candidates = [
+            component
+            for component in components
+            if component[component_fields["control"]] == slot["id"]
+            and component[component_fields["role"]] not in dependent_roles
+        ]
+        identity_units = {
+            component[component_fields["identityUnit"]]
+            for component in candidates
+        }
+        selected = candidates[:1] if len(identity_units) == 1 else candidates
+        transfers.append(
+            {
+                "inputId": slot["id"],
+                "targetIds": [
+                    component[component_fields["identity"]]
+                    for component in selected
+                ],
+                "inheritFromUpload": inheritance["inheritFromUpload"],
+                "keepFromTemplate": inheritance["keepFromTemplate"],
+                "renderingUnitId": "whole-approved-image",
+                "completeRedraw": True,
+                "evidence": (
+                    f"输入 {slot['id']} 的身份范围完整重绘进当前确认图的统一媒介"
+                ),
+            }
+        )
+    visual = analysis["runtimeSemantics"]["visualContract"]
+    analysis[rendering["authoringField"]] = {
+        "mode": rendering["modes"]["unified"],
+        "approvedImageSha256": analysis["visualFactSourceSha256"],
+        "medium": visual["medium"],
+        "renderingUnits": [
+            {
+                "unitId": "whole-approved-image",
+                "componentIds": [
+                    component[component_fields["identity"]]
+                    for component in components
+                ],
+                "styleTraits": visual["styleTraits"],
+                "evidence": (
+                    "当前测试确认图中的主体、派生区域、物件与背景共享同一绘制体系"
+                ),
+            }
+        ],
+        "boundaryEvidence": [],
+        "subjectTransfers": transfers,
+        "evidence": "逐组件核对后确认当前测试图采用单一渲染体系",
+    }
+    return analysis
+
+
 def rebuild_runtime_targets(
     analysis: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
@@ -247,6 +323,23 @@ def rebuild_approved_component_graph(
         for component in existing_components
         if isinstance(component, dict)
         and isinstance(component.get(component_fields["identity"]), str)
+    }
+    rendering_contract = rules.get("renderingCoherenceDecisionContract", {})
+    rendering_decision = analysis.get(rendering_contract.get("authoringField"))
+    rendering_fields = rendering_contract.get("fields", {})
+    rendering_unit_fields = rendering_contract.get("renderingUnitFields", {})
+    existing_rendering_units = (
+        rendering_decision.get(rendering_fields.get("renderingUnits"), [])
+        if isinstance(rendering_decision, dict)
+        else []
+    )
+    existing_rendering_component_ids = {
+        component_id
+        for unit in existing_rendering_units
+        if isinstance(unit, dict)
+        for component_id in unit.get(
+            rendering_unit_fields.get("componentIdentities"), []
+        )
     }
     existing_bindings = analysis.get(
         contract["approvedFields"]["operationBindings"], []
@@ -834,4 +927,34 @@ def rebuild_approved_component_graph(
             }
         )
     analysis[contract["approvedFields"]["operationBindings"]] = approved_bindings
-    return rebuild_runtime_targets(analysis, rules)
+    analysis = rebuild_runtime_targets(analysis, rules)
+    if (
+        isinstance(rendering_decision, dict)
+        and len(existing_rendering_units) == 1
+        and existing_rendering_component_ids == set(existing_component_by_id)
+    ):
+        existing_rendering_units[0][
+            rendering_unit_fields["componentIdentities"]
+        ] = [component[component_fields["identity"]] for component in components]
+        transfer_fields = rendering_contract["subjectTransferFields"]
+        dependent_roles = {
+            contract["componentRoles"]["reflection"],
+            contract["componentRoles"]["shadow"],
+        }
+        for transfer in rendering_decision[rendering_fields["subjectTransfers"]]:
+            slot_id = transfer[transfer_fields["inputIdentity"]]
+            candidates = [
+                component
+                for component in components
+                if component[component_fields["control"]] == slot_id
+                and component[component_fields["role"]] not in dependent_roles
+            ]
+            identity_units = {
+                component[component_fields["identityUnit"]]
+                for component in candidates
+            }
+            selected = candidates[:1] if len(identity_units) == 1 else candidates
+            transfer[transfer_fields["targetIdentities"]] = [
+                component[component_fields["identity"]] for component in selected
+            ]
+    return analysis

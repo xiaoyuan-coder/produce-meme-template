@@ -77,6 +77,23 @@ class AnimalOnlyReadinessAdapters:
 
     def workflow_adapters_for_scenario(self, scenario: dict):
         workflow_adapters = DeterministicFixtureAdapters(BASE_FIXTURE)
+        original_audit = workflow_adapters.audit_semantics
+
+        def audit_current_scenario(content: dict) -> dict:
+            audit = original_audit(content)
+            digest = hashlib.sha256(
+                json.dumps(
+                    content,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            audit["contentSha256"] = digest
+            audit["observedContentSha256"] = digest
+            return audit
+
+        workflow_adapters.audit_semantics = audit_current_scenario
         role = scenario[SCENARIO_FIELDS["role"]]
         workflow_adapters.approved_image_path_override = (
             SHADOW_FIXTURE

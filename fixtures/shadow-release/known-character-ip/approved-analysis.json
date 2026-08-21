@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "visibleFacts": [
     "一只白色长耳充气兔角色站在展会大厅中央",
     "角色穿红色背心、蓝色领结并手持怀表",
@@ -128,8 +128,14 @@
         "胡桃夹子王子"
       ],
       "identityInheritanceDecision": {
-        "inheritFromUpload": ["可辨认身份特征", "角色服装与必要配饰", "表情"],
-        "keepFromTemplate": ["完整站立并与地面稳定接触的动作"],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "角色服装与必要配饰",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "完整站立并与地面稳定接触的动作"
+        ],
         "reason": "站立落地关系构成模板核心结构"
       },
       "valueGates": {
@@ -250,9 +256,24 @@
   },
   "runtimeSemantics": {
     "targetInstances": [
-      {"id": "fixture-component-0", "kind": "identity_subject", "role": "会场中央的充气角色主体", "region": "画面中央的完整角色轮廓区域"},
-      {"id": "fixture-component-1", "kind": "content_element", "role": "承托角色的会场地面", "region": "画面下半部和角色脚下"},
-      {"id": "fixture-component-2", "kind": "content_element", "role": "建筑、展位与旁观人群构成的会场", "region": "主体后方及画面四周"}
+      {
+        "id": "fixture-component-0",
+        "kind": "identity_subject",
+        "role": "会场中央的充气角色主体",
+        "region": "画面中央的完整角色轮廓区域"
+      },
+      {
+        "id": "fixture-component-1",
+        "kind": "content_element",
+        "role": "承托角色的会场地面",
+        "region": "画面下半部和角色脚下"
+      },
+      {
+        "id": "fixture-component-2",
+        "kind": "content_element",
+        "role": "建筑、展位与旁观人群构成的会场",
+        "region": "主体后方及画面四周"
+      }
     ],
     "visualContract": {
       "medium": "展会现场写实摄影，充气材质保留柔和高光与表面褶皱",
@@ -267,5 +288,45 @@
       ],
       "colorAndLight": []
     }
+  },
+  "renderingCoherenceDecision": {
+    "mode": "unified",
+    "approvedImageSha256": null,
+    "medium": "展会现场写实摄影，充气材质保留柔和高光与表面褶皱",
+    "renderingUnits": [
+      {
+        "unitId": "whole-approved-image",
+        "componentIds": [
+          "fixture-component-0",
+          "fixture-component-1",
+          "fixture-component-2"
+        ],
+        "styleTraits": [
+          "角色使用饱满充气体积、清晰轮廓和织物表面，背景人群细节较低"
+        ],
+        "evidence": "确认模板图中的主体、派生区域、物件与背景共享同一可观察绘制体系"
+      }
+    ],
+    "boundaryEvidence": [],
+    "subjectTransfers": [
+      {
+        "inputId": "character_subject",
+        "targetIds": [
+          "fixture-component-0"
+        ],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "角色服装与必要配饰",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "完整站立并与地面稳定接触的动作"
+        ],
+        "renderingUnitId": "whole-approved-image",
+        "completeRedraw": true,
+        "evidence": "输入 character_subject 的身份范围完整重绘进确认模板图的统一媒介"
+      }
+    ],
+    "evidence": "逐组件核对后确认当前模板图采用单一渲染体系"
   }
 }

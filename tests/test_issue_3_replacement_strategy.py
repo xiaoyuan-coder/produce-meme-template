@@ -13,6 +13,7 @@ from typing import Any, Callable
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
 from tests.fixture_contracts import (
     rebuild_approved_component_graph,
+    rebuild_rendering_coherence_decision,
     rebuild_source_component_graph_for_named_closure,
 )
 
@@ -64,9 +65,10 @@ class ScenarioAdapters(DeterministicFixtureAdapters):
 
     def analyze_approved(self, approved_image: Path) -> dict:
         analysis = self.approved_transform(super().analyze_approved(approved_image))
-        return rebuild_approved_component_graph(
+        analysis = rebuild_approved_component_graph(
             analysis, RULES, getattr(self, "source_analysis", None)
         )
+        return rebuild_rendering_coherence_decision(analysis, RULES)
 
     def inspect_generated(self, generated_image: Path, review_context: dict) -> dict:
         result = super().inspect_generated(generated_image, review_context)

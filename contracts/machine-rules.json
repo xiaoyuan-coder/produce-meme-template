@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -750,6 +750,38 @@
   "prompt": {
     "forbiddenProductionTerms": ["候选图", "来源图", "原图", "作者源", "revision", "审核"]
   },
+  "renderingCoherenceDecisionContract": {
+    "authoringField": "renderingCoherenceDecision",
+    "modes": {
+      "unified": "unified",
+      "intentionalMixed": "intentional_mixed"
+    },
+    "fields": {
+      "mode": "mode",
+      "approvedImageSha256": "approvedImageSha256",
+      "medium": "medium",
+      "renderingUnits": "renderingUnits",
+      "boundaryEvidence": "boundaryEvidence",
+      "subjectTransfers": "subjectTransfers",
+      "evidence": "evidence"
+    },
+    "renderingUnitFields": {
+      "identity": "unitId",
+      "componentIdentities": "componentIds",
+      "styleTraits": "styleTraits",
+      "evidence": "evidence"
+    },
+    "subjectTransferFields": {
+      "inputIdentity": "inputId",
+      "targetIdentities": "targetIds",
+      "inheritFromUpload": "inheritFromUpload",
+      "keepFromTemplate": "keepFromTemplate",
+      "renderingUnitIdentity": "renderingUnitId",
+      "completeRedraw": "completeRedraw",
+      "evidence": "evidence"
+    },
+    "minimumTextCharacters": 8
+  },
   "runtimeSemanticsContract": {
     "version": 1,
     "fields": {
@@ -871,6 +903,39 @@
       "sameAxis": "sameAxis",
       "sameGranularity": "sameGranularity",
       "mechanismCompatible": "mechanismCompatible",
+      "evidence": "evidence"
+    }
+  },
+  "visualContractGroundingReviewContract": {
+    "evidenceField": "visualContractGroundingReview",
+    "requestFields": {
+      "approvedImageSha256": "approvedImageSha256",
+      "visualContract": "visualContract",
+      "renderingCoherenceDecision": "renderingCoherenceDecision",
+      "componentGraph": "componentGraph"
+    },
+    "reviewFields": {
+      "approvedImageSha256": "approvedImageSha256",
+      "visualContractSha256": "visualContractSha256",
+      "renderingCoherenceDecisionSha256": "renderingCoherenceDecisionSha256",
+      "mediumMatchesApprovedImage": "mediumMatchesApprovedImage",
+      "compositionMatchesApprovedImage": "compositionMatchesApprovedImage",
+      "relationsMatchApprovedImage": "relationsMatchApprovedImage",
+      "renderingUnitReviews": "renderingUnitReviews",
+      "subjectTransferReviews": "subjectTransferReviews",
+      "evidence": "evidence"
+    },
+    "renderingUnitReviewFields": {
+      "identity": "unitId",
+      "componentIdentities": "componentIds",
+      "matchesApprovedImage": "matchesApprovedImage",
+      "evidence": "evidence"
+    },
+    "subjectTransferReviewFields": {
+      "inputIdentity": "inputId",
+      "targetIdentities": "targetIds",
+      "completeRedraw": "completeRedraw",
+      "authorityMatches": "authorityMatches",
       "evidence": "evidence"
     }
   },
@@ -1786,7 +1851,7 @@
     "artifactType": "historical-experience-regression",
     "matrixRelativePath": "fixtures/regression/historical-experience-matrix.json",
     "evidenceRunnerRelativePath": "scripts/experience_evidence_runner.py",
-    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39"],
+    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40"],
     "requiredCorpusRoles": {
       "latestHeartInput": "latest-heart-input",
       "latestHeartExpected": "latest-heart-expected",
@@ -1928,7 +1993,13 @@
       "E36": [{"polarityRole":"goodCase","expectedGateLocator":null}],
       "E37": [{"polarityRole":"goodCase","expectedGateLocator":null}],
       "E38": [{"polarityRole":"badCase","expectedGateLocator":"/historicalExperienceContract/retiredRepositoryPrefixes"}],
-      "E39": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/completed"}]
+      "E39": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/completed"}],
+      "E40": [
+        {"polarityRole":"goodCase","expectedGateLocator":null},
+        {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},
+        {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},
+        {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}
+      ]
     },
     "requiredExperienceSha256ById": {
       "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
@@ -1969,7 +2040,8 @@
       "E36": "2e9cc24693f67e9b98bfd3ab1e0ea109457cdc45698832bf6d4c9921ed7ecc63",
       "E37": "061ee8e898b06cb8d18162d34bb776de3254f500b1c7e99a299106f8fc2ff837",
       "E38": "cdf590d160e166b69cd01fd248ac10c8058f2e368f99adc66a88351cb5f6e582",
-      "E39": "bb87b4341904257d429f70f27e39fb9d7d46d4d13c58ffc0e6d607193ed82b5d"
+      "E39": "bb87b4341904257d429f70f27e39fb9d7d46d4d13c58ffc0e6d607193ed82b5d",
+      "E40": "3ffe9239e58913199911166fa7648d5b8f0e1bcabf389b3f3e5c149ba821efad"
     },
     "implementationKinds": {
       "machineRule": "machine-rule",

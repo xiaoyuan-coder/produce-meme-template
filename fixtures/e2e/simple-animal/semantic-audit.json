@@ -1,7 +1,7 @@
 {
   "artifactType": "semantic-audit",
-  "schemaVersion": "0.21.0",
-  "contentSha256": "b1e9e7a1ad1e88b464a2e197181f017b0feabbbdd4031a03f58a761f3df9af73",
+  "schemaVersion": "0.22.0",
+  "contentSha256": "0b445371f347368cf559f584103a42f963aa5f6eb23d0620d80dc1a8adb8f7a6",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,
@@ -154,5 +154,5 @@
       "evidence": "逐项比较后未发现职责重复或整图复述"
     }
   },
-  "observedContentSha256": "b1e9e7a1ad1e88b464a2e197181f017b0feabbbdd4031a03f58a761f3df9af73"
+  "observedContentSha256": "0b445371f347368cf559f584103a42f963aa5f6eb23d0620d80dc1a8adb8f7a6"
 }

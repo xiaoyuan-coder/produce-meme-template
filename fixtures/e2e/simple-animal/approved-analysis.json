@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "visibleFacts": [
     "一只短腿小动物蜷卧在暖黄色软垫上",
     "两只前爪搭住垫边",
@@ -257,6 +257,49 @@
     "宠物",
     "慵懒"
   ],
+  "renderingCoherenceDecision": {
+    "mode": "unified",
+    "approvedImageSha256": null,
+    "medium": "柔和低饱和的写实数码插画，主体、承托物与室内环境共享同一细腻绘制体系",
+    "renderingUnits": [
+      {
+        "unitId": "whole-approved-image",
+        "componentIds": [
+          "approved-animal-main",
+          "approved-animal-reflection",
+          "approved-animal-shadow",
+          "approved-animal-mark",
+          "approved-cushion",
+          "approved-room"
+        ],
+        "styleTraits": [
+          "短毛、织物和室内背景统一使用柔和低饱和色块、细腻颗粒与克制景深"
+        ],
+        "evidence": "确认模板图中主体短毛、软垫织物、接触阴影和背景光线共享同一数码插画笔触"
+      }
+    ],
+    "boundaryEvidence": [],
+    "subjectTransfers": [
+      {
+        "inputId": "pet_subject",
+        "targetIds": [
+          "approved-animal-main"
+        ],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "毛色与花纹",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "蜷卧姿态与前爪搭住软垫的动作"
+        ],
+        "renderingUnitId": "whole-approved-image",
+        "completeRedraw": true,
+        "evidence": "用户上传主体完整重绘为确认图的写实数码插画，保留蜷卧搭爪动作和接触关系"
+      }
+    ],
+    "evidence": "逐组件核对后确认当前模板图采用单一写实数码插画体系"
+  },
   "runtimeSemantics": {
     "targetInstances": [
       {"id": "approved-animal-main", "kind": "identity_subject", "role": "软垫上蜷卧的中央主体", "region": "画面中央偏下的头部、躯干与前爪区域"},

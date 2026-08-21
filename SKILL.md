@@ -44,7 +44,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - 四个用户大阶段、P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - 三线版本、发布风险分级、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
 - T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
-- E01–E39 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
+- E01–E40 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
 - 首稳、major 或显式外部风险候选的六类影子样本、未见图前向、四场景 live 和 readiness 报告读取 [真实影子批次与稳定版发布准备合同](references/release-readiness.md)。
 - 创建、迁移、审查或独立测试 Gallery Template JSON，以及 P3–P8 的槽位、Prompt Template、runtimeSemantics 和正式投影，完整读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 判断模板身份、编辑权限、subject 身份特征继承范围，或编写标题、槽位全部属性、Prompt Template、target/binding 与逐图画风约束时，完整读取 [模板身份、编辑权限与正式字段编写规范](references/template-authoring.md)。
@@ -59,4 +59,4 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 
 ## 完成条件
 
-实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E39 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。发布按候选锁中的 profile 验收；首稳、major 和显式外部风险要求真实外部 readiness，兼容 minor/patch 要求全量验证、双轴 clean review、全新安装和 doctor。
+实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E40 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。发布按候选锁中的 profile 验收；首稳、major 和显式外部风险要求真实外部 readiness，兼容 minor/patch 要求全量验证、双轴 clean review、全新安装和 doctor。

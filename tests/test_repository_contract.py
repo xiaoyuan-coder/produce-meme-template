@@ -329,6 +329,34 @@ class RepositoryContractTest(unittest.TestCase):
 
         self.assertEqual(schema_fields, runtime_fields)
 
+    def test_rendering_coherence_contract_has_one_typed_machine_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["renderingCoherenceDecisionContract"]
+        for mapping_name in (
+            "modes",
+            "fields",
+            "renderingUnitFields",
+            "subjectTransferFields",
+        ):
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+            self.assertTrue(all(isinstance(value, str) and value for value in mapping.values()))
+        self.assertNotIn(
+            contract["authoringField"],
+            rules["formalProjection"]["topLevel"].values(),
+        )
+        review_contract = rules["visualContractGroundingReviewContract"]
+        self.assertEqual(
+            {
+                "approvedImageSha256",
+                "visualContract",
+                contract["authoringField"],
+                rules["multiInstanceContract"]["approvedFields"]["componentGraph"],
+            },
+            set(review_contract["requestFields"].values()),
+        )
+
     def test_historical_experience_contract_has_one_complete_typed_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["historicalExperienceContract"]
@@ -365,7 +393,7 @@ class RepositoryContractTest(unittest.TestCase):
                 all(isinstance(value, str) and value for value in mapping.values())
             )
         self.assertEqual(
-            [f"E{index:02d}" for index in range(1, 40)],
+            [f"E{index:02d}" for index in range(1, 41)],
             contract["experienceIds"],
         )
         experience_fields = contract["experienceFields"]

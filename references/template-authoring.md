@@ -167,7 +167,19 @@ Prompt Template 是用户可见且可全文替换的完整自然语言画面描�
 
 每个正式 input ID 恰好出现一次。subject 绑定唯一 `identity_subject` 并执行一对一身份重绘；prompt 输入绑定一个内容目标，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
 
-### 9.3 visualContract
+### 9.3 renderingCoherenceDecision
+
+P3 必须先依据当前 Approved Template Image 建立 `renderingCoherenceDecision`，再编译正式 `visualContract.medium/styleTraits`。这份 sidecar 是媒介与画风的作者权威，字段由 `renderingCoherenceDecisionContract` 唯一定义：
+
+- `mode=unified` 表示整张图只有一个绘制体系，只允许一个 `renderingUnit`，且 `boundaryEvidence` 必须为空；
+- `mode=intentional_mixed` 表示确认图本身有刻意的混合媒介，至少声明两个 `renderingUnit`，并逐条写明可观察的分界依据；
+- 每个 `renderingUnit` 使用自由文本记录当前图的媒介特征，列出所覆盖的 `componentIds`；全部组件必须恰好覆盖一次，不能遗漏手部、道具、容器、阴影、文字或背景；
+- 每个 subject 都必须提交 `subjectTransfer`，其 target、上传继承范围和模板保留范围与组件绑定及 `identityInheritanceDecision` 完全一致，并明确 `completeRedraw=true`；
+- `medium` 与逐单元 `styleTraits` 由编译器投影进正式 `visualContract`。旧 visualContract 中同名作者文本不能覆盖这份决策。
+
+统一渲染强调的是确认图中的实际共同绘制语言。若人物、手部、物件和背景都采用二维闭合线稿与平涂色块，应放在同一单元；若确认图确实使用二维角色叠加摄影背景，则分别建单元并说明边界。不能为了兼容生成结果，事后把意外的摄影手部、三维公仔或写实皮肤登记成“刻意混合”。
+
+### 9.4 visualContract
 
 `visualContract` 保存用户替换内容后仍需成立的严格视觉事实：
 
@@ -181,7 +193,7 @@ Prompt Template 是用户可见且可全文替换的完整自然语言画面描�
 
 动态、无容器或人物冲出画面的模板需要额外固定动作事实：`composition` 至少写明画幅、头部中心位置、头肩占幅、上下左右裁切边界、躯干轴向和装饰分布；`relations` 至少写明肩胸朝向、手臂进入或退出画面的范围、头发或飘带的运动方向，以及装饰元素与人物的前后层级。只写“高能、动感、冲出画面”会给模型过大的构图自由，容易发生人物缩小、服装体积膨胀、姿态旋转和装饰密度失控。
 
-最小信息长度和禁用泛词只负责阻断明显空值。直接读取 Approved Template Image 的 P3 作者分析负责当前图事实、目标可定位性和 visual contract 具体性的最终视觉裁决；P6 独立语义审计对这些已编译内容的职责分离、开放权限和内部一致性作复核，并绑定同一内容摘要。
+最小信息长度和禁用泛词只负责阻断明显空值。直接读取 Approved Template Image 的 P3 作者分析负责当前图事实、目标可定位性和 visual contract 具体性的视觉裁决。P6 另行把当前 Approved Template Image、编译后的 visual contract、渲染决策和组件图交给视觉审计 adapter：逐项核对媒介、构图、动作关系、每个渲染单元和每个 subject 权限。审计对象、图片和内容摘要必须一致；任一否定结论都在 OSS 前阻断。
 
 视觉合同保护模板身份，同时服从用户开放权限。它不能写入任一开放槽的默认值、推荐值、自由编辑字面或对应的同义锁定词。标题、Prompt、targets、bindings 和 visual contract 由独立语义审计绑定同一内容摘要；冲突、缺项或跨图事实在 OSS 上传前停止。
 

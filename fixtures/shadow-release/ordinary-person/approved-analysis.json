@@ -1,6 +1,6 @@
 {
   "artifactType": "approved-template-analysis",
-  "schemaVersion": "0.21.0",
+  "schemaVersion": "0.22.0",
   "visibleFacts": [
     "一位短发青年以头肩肖像位于画面中央",
     "人物正面看向镜头并露出轻微笑容",
@@ -120,8 +120,16 @@
         "长发青年"
       ],
       "identityInheritanceDecision": {
-        "inheritFromUpload": ["可辨认身份特征", "肤色", "发型", "服装", "表情"],
-        "keepFromTemplate": ["正面居中的头肩肖像姿态"],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "肤色",
+          "发型",
+          "服装",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "正面居中的头肩肖像姿态"
+        ],
         "reason": "正面头肩构图构成模板核心结构"
       },
       "valueGates": {
@@ -242,9 +250,24 @@
   },
   "runtimeSemantics": {
     "targetInstances": [
-      {"id": "fixture-component-0", "kind": "identity_subject", "role": "竖幅中央的人物头肩肖像", "region": "画面中央的头部、肩部与上胸区域"},
-      {"id": "fixture-component-1", "kind": "content_element", "role": "相纸边缘与暗角容器", "region": "人物肖像外围和画面四边"},
-      {"id": "fixture-component-2", "kind": "content_element", "role": "深色灰阶影棚背景", "region": "人物头肩后方的整个背景区域"}
+      {
+        "id": "fixture-component-0",
+        "kind": "identity_subject",
+        "role": "竖幅中央的人物头肩肖像",
+        "region": "画面中央的头部、肩部与上胸区域"
+      },
+      {
+        "id": "fixture-component-1",
+        "kind": "content_element",
+        "role": "相纸边缘与暗角容器",
+        "region": "人物肖像外围和画面四边"
+      },
+      {
+        "id": "fixture-component-2",
+        "kind": "content_element",
+        "role": "深色灰阶影棚背景",
+        "region": "人物头肩后方的整个背景区域"
+      }
     ],
     "visualContract": {
       "medium": "老相纸质感的写实头肩肖像摄影，保留颗粒、暗角和柔和面部层次",
@@ -259,5 +282,47 @@
       ],
       "colorAndLight": []
     }
+  },
+  "renderingCoherenceDecision": {
+    "mode": "unified",
+    "approvedImageSha256": null,
+    "medium": "老相纸质感的写实头肩肖像摄影，保留颗粒、暗角和柔和面部层次",
+    "renderingUnits": [
+      {
+        "unitId": "whole-approved-image",
+        "componentIds": [
+          "fixture-component-0",
+          "fixture-component-1",
+          "fixture-component-2"
+        ],
+        "styleTraits": [
+          "头肩人物使用细腻相纸颗粒，深色背景与旧相纸边缘形成年代感"
+        ],
+        "evidence": "确认模板图中的主体、派生区域、物件与背景共享同一可观察绘制体系"
+      }
+    ],
+    "boundaryEvidence": [],
+    "subjectTransfers": [
+      {
+        "inputId": "portrait_subject",
+        "targetIds": [
+          "fixture-component-0"
+        ],
+        "inheritFromUpload": [
+          "可辨认身份特征",
+          "肤色",
+          "发型",
+          "服装",
+          "表情"
+        ],
+        "keepFromTemplate": [
+          "正面居中的头肩肖像姿态"
+        ],
+        "renderingUnitId": "whole-approved-image",
+        "completeRedraw": true,
+        "evidence": "输入 portrait_subject 的身份范围完整重绘进确认模板图的统一媒介"
+      }
+    ],
+    "evidence": "逐组件核对后确认当前模板图采用单一渲染体系"
   }
 }

@@ -49,6 +49,60 @@ def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def add_unified_rendering_decision(
+    analysis: dict,
+    *,
+    medium: str = "统一的二维数字平涂插画，所有前景与背景对象使用同一闭合线稿体系",
+    style_traits: list[str] | None = None,
+) -> dict:
+    style_traits = style_traits or [
+        "统一使用清晰闭合外轮廓、低渐变色块和少量平面高光，避免局部写实摄影质感"
+    ]
+    component_ids = [
+        component["componentId"]
+        for component in analysis["componentGraph"]["components"]
+    ]
+    subject = next(
+        slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
+    )
+    subject_target_ids = [
+        target["id"]
+        for target in analysis["runtimeSemantics"]["targetInstances"]
+        if target["kind"] == "identity_subject"
+    ]
+    analysis["renderingCoherenceDecision"] = {
+        "mode": "unified",
+        "approvedImageSha256": analysis["visualFactSourceSha256"],
+        "medium": medium,
+        "renderingUnits": [
+            {
+                "unitId": "whole-approved-image",
+                "componentIds": component_ids,
+                "styleTraits": style_traits,
+                "evidence": "确认模板图中主体、承托物、接触阴影和背景共享闭合线稿与平涂色块",
+            }
+        ],
+        "boundaryEvidence": [],
+        "subjectTransfers": [
+            {
+                "inputId": subject["id"],
+                "targetIds": subject_target_ids,
+                "inheritFromUpload": subject["identityInheritanceDecision"][
+                    "inheritFromUpload"
+                ],
+                "keepFromTemplate": subject["identityInheritanceDecision"][
+                    "keepFromTemplate"
+                ],
+                "renderingUnitId": "whole-approved-image",
+                "completeRedraw": True,
+                "evidence": "上传主体只继承身份范围，并完整重绘进确认模板图的统一二维媒介",
+            }
+        ],
+        "evidence": "逐组件检查后确认整张图只有一个渲染体系",
+    }
+    return analysis
+
+
 class ApprovedAnalysisAdapters(DeterministicFixtureAdapters):
     def __init__(self, transform: Callable[[dict], dict]):
         super().__init__(FIXTURE)
@@ -68,6 +122,15 @@ class ApprovedAnalysisAdapters(DeterministicFixtureAdapters):
         result["contentSha256"] = digest
         result["observedContentSha256"] = digest
         return result
+
+
+class PostRebuildApprovedAnalysisAdapters(ApprovedAnalysisAdapters):
+    def analyze_approved(self, approved_image: Path) -> dict:
+        analysis = DeterministicFixtureAdapters.analyze_approved(
+            self, approved_image
+        )
+        rebuild_approved_component_graph(analysis, RULES)
+        return self.transform(analysis)
 
 
 class Issue5EditablePromptCompilerTest(unittest.TestCase):
@@ -107,6 +170,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             }
             analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 2
             analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["uploads"]] = 0
+            analysis["renderingCoherenceDecision"]["subjectTransfers"] = []
             return analysis
 
         result = self.run_case("audited-subject-slot-omission", omit_subject)
@@ -308,6 +372,11 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 "keepFromTemplate": [],
                 "reason": "",
             }
+            transfer = analysis["renderingCoherenceDecision"]["subjectTransfers"][0]
+            transfer["inheritFromUpload"] = subject["identityInheritanceDecision"][
+                "inheritFromUpload"
+            ]
+            transfer["keepFromTemplate"] = []
             return analysis
 
         result = self.run_case("subject-inherits-all-identity-traits", inherit_all)
@@ -612,7 +681,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
 
     def test_instruction_scope_and_hidden_layer_responsibilities_are_enforced(self) -> None:
         def out_of_scope_instruction(analysis: dict) -> dict:
-            analysis["runtimeSemantics"]["visualContract"]["medium"] = (
+            analysis["renderingCoherenceDecision"]["medium"] = (
                 "媒介层同时固定暖黄色软垫"
             )
             return analysis
@@ -676,7 +745,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         for index, forbidden_fragment in enumerate(FORBIDDEN_VISUAL_REFERENCE_FRAGMENTS):
             with self.subTest(fragment=forbidden_fragment):
                 def generic_style_contract(analysis: dict) -> dict:
-                    analysis["runtimeSemantics"]["visualContract"]["medium"] = (
+                    analysis["renderingCoherenceDecision"]["medium"] = (
                         forbidden_fragment
                     )
                     return analysis
@@ -703,6 +772,327 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["blocked"], vague.state)
         self.assertEqual(RULES["errorCodes"]["contractFailure"], vague.error_code)
         self.assertFalse((vague.output_dir / "gallery-template.json").exists())
+
+    def test_rendering_decision_is_the_authority_for_formal_medium_and_style(self) -> None:
+        expected_medium = "统一的二维数字平涂插画，所有人物、手部和物件使用同一闭合线稿体系"
+        expected_traits = [
+            "人物、手部与物件统一使用清晰闭合外轮廓、低渐变色块和少量平面高光"
+        ]
+
+        def decide_rendering(analysis: dict) -> dict:
+            analysis["runtimeSemantics"]["visualContract"]["medium"] = (
+                "冲突的三维写实产品摄影媒介"
+            )
+            analysis["runtimeSemantics"]["visualContract"]["styleTraits"] = [
+                "冲突的真实皮肤纹理、摄影景深与塑料玩具材质"
+            ]
+            return add_unified_rendering_decision(
+                analysis,
+                medium=expected_medium,
+                style_traits=expected_traits,
+            )
+
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "rendering-decision-authority",
+            },
+            self.output_root,
+            PostRebuildApprovedAnalysisAdapters(decide_rendering),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        editable = load_json(result.output_dir / "editable-template-spec.json")
+        formal = load_json(result.gallery_template)
+        self.assertEqual(
+            expected_medium,
+            formal["runtimeSemantics"]["visualContract"]["medium"],
+        )
+        self.assertEqual(
+            expected_traits,
+            formal["runtimeSemantics"]["visualContract"]["styleTraits"],
+        )
+        self.assertEqual(
+            expected_medium,
+            editable["renderingCoherenceDecision"]["medium"],
+        )
+
+    def test_rendering_decision_must_cover_every_approved_component(self) -> None:
+        def omit_holding_component(analysis: dict) -> dict:
+            analysis = add_unified_rendering_decision(analysis)
+            unit = analysis["renderingCoherenceDecision"]["renderingUnits"][0]
+            unit["componentIds"].remove(unit["componentIds"][-2])
+            return analysis
+
+        adapters = PostRebuildApprovedAnalysisAdapters(omit_holding_component)
+        result = run_production(
+            {**self.request, "productionItemId": "rendering-component-omitted"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_subject_transfer_requires_complete_redraw_and_exact_authority(self) -> None:
+        def incomplete_redraw(analysis: dict) -> dict:
+            analysis = add_unified_rendering_decision(analysis)
+            transfer = analysis["renderingCoherenceDecision"]["subjectTransfers"][0]
+            transfer["completeRedraw"] = False
+            transfer["keepFromTemplate"] = ["默认服装"]
+            return analysis
+
+        adapters = PostRebuildApprovedAnalysisAdapters(incomplete_redraw)
+        result = run_production(
+            {**self.request, "productionItemId": "subject-transfer-incomplete"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual([], adapters.upload_calls)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_intentional_mixed_rendering_requires_explicit_boundary_evidence(self) -> None:
+        def mixed_decision(analysis: dict, *, with_boundary: bool) -> dict:
+            analysis = add_unified_rendering_decision(analysis)
+            decision = analysis["renderingCoherenceDecision"]
+            all_components = decision["renderingUnits"][0]["componentIds"]
+            subject_target = decision["subjectTransfers"][0]["targetIds"][0]
+            subject_components = [subject_target]
+            environment_components = [
+                component_id
+                for component_id in all_components
+                if component_id != subject_target
+            ]
+            decision["mode"] = "intentional_mixed"
+            decision["renderingUnits"] = [
+                {
+                    "unitId": "illustrated-subject",
+                    "componentIds": subject_components,
+                    "styleTraits": ["主体使用闭合线稿和低渐变二维平涂色块"],
+                    "evidence": "确认图中主体轮廓明确采用二维插画处理",
+                },
+                {
+                    "unitId": "textured-environment",
+                    "componentIds": environment_components,
+                    "styleTraits": ["环境保留颗粒化织物与柔和景深纹理"],
+                    "evidence": "确认图中承托物和背景有独立材质纹理",
+                },
+            ]
+            decision["subjectTransfers"][0]["renderingUnitId"] = (
+                "illustrated-subject"
+            )
+            decision["boundaryEvidence"] = (
+                ["主体闭合轮廓与环境材质在接触边界清楚分层，属于设计事实"]
+                if with_boundary
+                else []
+            )
+            return analysis
+
+        valid = run_production(
+            {**self.request, "productionItemId": "intentional-mixed-valid"},
+            self.output_root,
+            PostRebuildApprovedAnalysisAdapters(
+                lambda analysis: mixed_decision(analysis, with_boundary=True)
+            ),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["completed"], valid.state)
+
+        adapters = PostRebuildApprovedAnalysisAdapters(
+            lambda analysis: mixed_decision(analysis, with_boundary=False)
+        )
+        invalid = run_production(
+            {**self.request, "productionItemId": "intentional-mixed-no-boundary"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], invalid.state)
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_rendering_coherence_decision_is_required_before_delivery(self) -> None:
+        def remove_rendering_decision(analysis: dict) -> dict:
+            analysis.pop("renderingCoherenceDecision")
+            return analysis
+
+        adapters = ApprovedAnalysisAdapters(remove_rendering_decision)
+        result = run_production(
+            {**self.request, "productionItemId": "rendering-decision-missing"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual([], adapters.upload_calls)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_p6_blocks_visual_contract_that_mismatches_the_approved_image(self) -> None:
+        class MediumMismatchAdapters(ApprovedAnalysisAdapters):
+            def audit_visual_contract(
+                self, approved_image: Path, review_request: dict
+            ) -> dict:
+                self.visual_contract_audit_calls = (
+                    getattr(self, "visual_contract_audit_calls", 0) + 1
+                )
+                visual_contract = review_request["visualContract"]
+                visual_contract_sha = hashlib.sha256(
+                    json.dumps(
+                        visual_contract,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+                decision = review_request["renderingCoherenceDecision"]
+                decision_sha = hashlib.sha256(
+                    json.dumps(
+                        decision,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ).hexdigest()
+                return {
+                    "approvedImageSha256": hashlib.sha256(
+                        approved_image.read_bytes()
+                    ).hexdigest(),
+                    "visualContractSha256": visual_contract_sha,
+                    "renderingCoherenceDecisionSha256": decision_sha,
+                    "mediumMatchesApprovedImage": False,
+                    "compositionMatchesApprovedImage": True,
+                    "relationsMatchApprovedImage": True,
+                    "renderingUnitReviews": [
+                        {
+                            "unitId": unit["unitId"],
+                            "componentIds": unit["componentIds"],
+                            "matchesApprovedImage": True,
+                            "evidence": "逐组件检查渲染单元",
+                        }
+                        for unit in decision["renderingUnits"]
+                    ],
+                    "subjectTransferReviews": [
+                        {
+                            "inputId": transfer["inputId"],
+                            "targetIds": transfer["targetIds"],
+                            "completeRedraw": True,
+                            "authorityMatches": True,
+                            "evidence": "逐项检查主体完整转绘与权限",
+                        }
+                        for transfer in decision["subjectTransfers"]
+                    ],
+                    "evidence": "确认图是平涂插画，待交付合同却声明三维写实媒介",
+                }
+
+        adapters = MediumMismatchAdapters(lambda analysis: analysis)
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "visual-contract-medium-mismatch",
+            },
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual(1, adapters.visual_contract_audit_calls)
+        self.assertEqual([], adapters.upload_calls)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_p6_blocks_one_mismatched_rendering_region_before_oss(self) -> None:
+        class RegionMismatchAdapters(ApprovedAnalysisAdapters):
+            def audit_visual_contract(
+                self, approved_image: Path, review_request: dict
+            ) -> dict:
+                review = super().audit_visual_contract(
+                    approved_image, review_request
+                )
+                review["renderingUnitReviews"][0]["matchesApprovedImage"] = False
+                review["renderingUnitReviews"][0]["evidence"] = (
+                    "手部仍是简化写实体积，人物与耳机盒却是二维平涂"
+                )
+                return review
+
+        adapters = RegionMismatchAdapters(lambda analysis: analysis)
+        result = run_production(
+            {**self.request, "productionItemId": "rendering-region-mismatch"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual([], adapters.upload_calls)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_p6_blocks_subject_garment_authority_mismatch_before_oss(self) -> None:
+        class GarmentAuthorityMismatchAdapters(ApprovedAnalysisAdapters):
+            def audit_visual_contract(
+                self, approved_image: Path, review_request: dict
+            ) -> dict:
+                review = super().audit_visual_contract(
+                    approved_image, review_request
+                )
+                transfer = review["subjectTransferReviews"][0]
+                transfer["authorityMatches"] = False
+                transfer["evidence"] = "生成规则额外保留默认服装，超出已声明模板权限"
+                return review
+
+        adapters = GarmentAuthorityMismatchAdapters(lambda analysis: analysis)
+        result = run_production(
+            {**self.request, "productionItemId": "garment-authority-mismatch"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual([], adapters.upload_calls)
+        self.assertFalse((result.output_dir / "gallery-template.json").exists())
+
+    def test_p6_blocks_composition_or_action_facts_that_do_not_match_image(self) -> None:
+        cases = {
+            "compositionMatchesApprovedImage": "构图遗漏主体裁切、倾斜方向和近景占比",
+            "relationsMatchApprovedImage": "动作关系遗漏托举接触与身体朝向",
+        }
+        for index, (field, evidence) in enumerate(cases.items()):
+            with self.subTest(field=field):
+                class FactMismatchAdapters(ApprovedAnalysisAdapters):
+                    def audit_visual_contract(
+                        self, approved_image: Path, review_request: dict
+                    ) -> dict:
+                        review = super().audit_visual_contract(
+                            approved_image, review_request
+                        )
+                        review[field] = False
+                        review["evidence"] = evidence
+                        return review
+
+                adapters = FactMismatchAdapters(lambda analysis: analysis)
+                result = run_production(
+                    {
+                        **self.request,
+                        "productionItemId": f"visual-fact-mismatch-{index}",
+                    },
+                    self.output_root,
+                    adapters,
+                    clock=lambda: FIXED_TIME,
+                )
+
+                self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+                self.assertEqual([], adapters.upload_calls)
+                self.assertFalse(
+                    (result.output_dir / "gallery-template.json").exists()
+                )
 
     def test_v1_prompt_enhancement_cannot_supply_v2_runtime_semantics(self) -> None:
         def legacy_only(analysis: dict) -> dict:

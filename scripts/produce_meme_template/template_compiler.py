@@ -1397,6 +1397,10 @@ def _compile_editable_spec(
         editable["defaultValuePreferenceExceptionEvidence"] = preference_exceptions
     if needs_review is not None:
         editable[review_field] = needs_review.strip()
+    rendering_decision = _rendering_coherence_decision(analysis, editable, rules)
+    editable[
+        rules["renderingCoherenceDecisionContract"]["authoringField"]
+    ] = rendering_decision
     return editable
 
 
@@ -1445,14 +1449,227 @@ def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _rendering_coherence_decision(
+    analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, Any]:
+    contract = rules["renderingCoherenceDecisionContract"]
+    decision = analysis.get(contract["authoringField"])
+    if decision is None:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "P3 必须根据当前确认模板图提交 renderingCoherenceDecision。",
+            {},
+        )
+    fields = contract["fields"]
+    unit_fields = contract["renderingUnitFields"]
+    transfer_fields = contract["subjectTransferFields"]
+    modes = contract["modes"]
+    minimum_text = contract["minimumTextCharacters"]
+    multi_contract = rules["multiInstanceContract"]
+    graph_fields = multi_contract["graphFields"]
+    component_fields = multi_contract["componentFields"]
+    graph = editable[multi_contract["approvedFields"]["componentGraph"]]
+    components = graph[graph_fields["components"]]
+    component_by_id = {
+        component[component_fields["identity"]]: component
+        for component in components
+    }
+    units = decision.get(fields["renderingUnits"]) if isinstance(decision, dict) else None
+    boundaries = decision.get(fields["boundaryEvidence"]) if isinstance(decision, dict) else None
+    transfers = decision.get(fields["subjectTransfers"]) if isinstance(decision, dict) else None
+    unit_ids = [
+        unit.get(unit_fields["identity"])
+        for unit in units
+        if isinstance(unit, dict)
+    ] if isinstance(units, list) else []
+    unit_components_by_id = {
+        unit.get(unit_fields["identity"]): unit.get(
+            unit_fields["componentIdentities"]
+        )
+        for unit in units or []
+        if isinstance(unit, dict)
+        and isinstance(unit.get(unit_fields["identity"]), str)
+        and isinstance(unit.get(unit_fields["componentIdentities"]), list)
+    } if isinstance(units, list) else {}
+    covered_component_ids = [
+        component_id
+        for unit in units or []
+        if isinstance(unit, dict)
+        for component_id in unit.get(unit_fields["componentIdentities"], [])
+        if isinstance(component_id, str)
+    ] if isinstance(units, list) else []
+    mode = decision.get(fields["mode"]) if isinstance(decision, dict) else None
+    unit_shape_valid = bool(
+        isinstance(units, list)
+        and units
+        and all(
+            isinstance(unit, dict)
+            and set(unit) == set(unit_fields.values())
+            and isinstance(unit.get(unit_fields["identity"]), str)
+            and unit[unit_fields["identity"]].strip()
+            and isinstance(unit.get(unit_fields["componentIdentities"]), list)
+            and unit[unit_fields["componentIdentities"]]
+            and all(
+                isinstance(value, str) and value.strip()
+                for value in unit[unit_fields["componentIdentities"]]
+            )
+            and len(unit[unit_fields["componentIdentities"]])
+            == len(set(unit[unit_fields["componentIdentities"]]))
+            and isinstance(unit.get(unit_fields["styleTraits"]), list)
+            and unit[unit_fields["styleTraits"]]
+            and all(
+                isinstance(value, str)
+                and len(value.strip()) >= minimum_text
+                for value in unit[unit_fields["styleTraits"]]
+            )
+            and len(unit[unit_fields["styleTraits"]])
+            == len(set(unit[unit_fields["styleTraits"]]))
+            and isinstance(unit.get(unit_fields["evidence"]), str)
+            and len(unit[unit_fields["evidence"]].strip()) >= minimum_text
+            for unit in units
+        )
+        and len(unit_ids) == len(set(unit_ids))
+        and set(covered_component_ids) == set(component_by_id)
+        and len(covered_component_ids) == len(component_by_id)
+    )
+    mode_shape_valid = bool(
+        mode in set(modes.values())
+        and isinstance(boundaries, list)
+        and all(
+            isinstance(value, str) and len(value.strip()) >= minimum_text
+            for value in boundaries
+        )
+        and len(boundaries) == len(set(boundaries))
+        and (
+            (
+                mode == modes["unified"]
+                and len(units or []) == 1
+                and boundaries == []
+            )
+            or (
+                mode == modes["intentionalMixed"]
+                and len(units or []) >= 2
+                and bool(boundaries)
+            )
+        )
+    )
+    slot_contract = rules["slotCompilationContract"]
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    inheritance_contract = slot_contract["identityInheritanceDecision"]
+    inheritance_field = inheritance_contract["authoringField"]
+    inheritance_fields = inheritance_contract["fields"]
+    dependent_roles = {
+        multi_contract["componentRoles"]["reflection"],
+        multi_contract["componentRoles"]["shadow"],
+    }
+    subject_slots = {
+        slot["id"]: slot
+        for slot in editable["slots"]
+        if slot["type"] == subject_type
+    }
+
+    def expected_subject_targets(slot_id: str) -> list[str]:
+        candidates = [
+            component
+            for component in components
+            if component.get(component_fields["control"]) == slot_id
+            and component[component_fields["role"]] not in dependent_roles
+        ]
+        identity_units = {
+            component[component_fields["identityUnit"]] for component in candidates
+        }
+        selected = candidates[:1] if len(identity_units) == 1 else candidates
+        return [component[component_fields["identity"]] for component in selected]
+
+    transfer_by_input = {
+        transfer.get(transfer_fields["inputIdentity"]): transfer
+        for transfer in transfers or []
+        if isinstance(transfer, dict)
+    } if isinstance(transfers, list) else {}
+    transfer_shape_valid = bool(
+        isinstance(transfers, list)
+        and len(transfers) == len(subject_slots)
+        and len(transfer_by_input) == len(transfers)
+        and set(transfer_by_input) == set(subject_slots)
+        and all(
+            isinstance(transfer, dict)
+            and set(transfer) == set(transfer_fields.values())
+            and transfer.get(transfer_fields["targetIdentities"])
+            == expected_subject_targets(slot_id)
+            and transfer.get(transfer_fields["inheritFromUpload"])
+            == subject_slots[slot_id][inheritance_field][
+                inheritance_fields["inheritFromUpload"]
+            ]
+            and transfer.get(transfer_fields["keepFromTemplate"])
+            == subject_slots[slot_id][inheritance_field][
+                inheritance_fields["keepFromTemplate"]
+            ]
+            and transfer.get(transfer_fields["completeRedraw"]) is True
+            and transfer.get(transfer_fields["renderingUnitIdentity"])
+            in unit_components_by_id
+            and set(transfer[transfer_fields["targetIdentities"]])
+            <= set(
+                unit_components_by_id[
+                    transfer[transfer_fields["renderingUnitIdentity"]]
+                ]
+            )
+            and isinstance(transfer.get(transfer_fields["evidence"]), str)
+            and len(transfer[transfer_fields["evidence"]].strip()) >= minimum_text
+            for slot_id, transfer in transfer_by_input.items()
+        )
+    )
+    valid = bool(
+        isinstance(decision, dict)
+        and set(decision) == set(fields.values())
+        and decision.get(fields["approvedImageSha256"])
+        == analysis.get("visualFactSourceSha256")
+        and isinstance(decision.get(fields["medium"]), str)
+        and len(decision[fields["medium"]].strip()) >= minimum_text
+        and isinstance(decision.get(fields["evidence"]), str)
+        and len(decision[fields["evidence"]].strip()) >= minimum_text
+        and unit_shape_valid
+        and mode_shape_valid
+        and transfer_shape_valid
+    )
+    if not valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "renderingCoherenceDecision 必须绑定当前确认模板图，完整覆盖组件，并逐 subject 声明统一转绘范围。",
+            {},
+        )
+    return copy.deepcopy(decision)
+
+
 def _runtime_visual_contract(
-    analysis: dict[str, Any], rules: dict[str, Any]
+    analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
     runtime = analysis.get("runtimeSemantics")
     visual = runtime.get("visualContract") if isinstance(runtime, dict) else None
     if not isinstance(visual, dict):
         visual = analysis.get("visualContract")
     fields = rules["runtimeSemanticsContract"]["visualContractFields"]
+    decision_contract = rules["renderingCoherenceDecisionContract"]
+    rendering_decision = editable.get(decision_contract["authoringField"])
+    if isinstance(visual, dict) and isinstance(rendering_decision, dict):
+        decision_fields = decision_contract["fields"]
+        unit_fields = decision_contract["renderingUnitFields"]
+        visual = copy.deepcopy(visual)
+        visual[fields["medium"]] = rendering_decision[
+            decision_fields["medium"]
+        ]
+        visual[fields["styleTraits"]] = list(
+            dict.fromkeys(
+                trait
+                for unit in rendering_decision[
+                    decision_fields["renderingUnits"]
+                ]
+                for trait in unit[unit_fields["styleTraits"]]
+            )
+        )
     expected = set(fields.values())
     list_fields = (
         fields["styleTraits"],
@@ -1708,7 +1925,7 @@ def _compile_runtime_semantics(
                 "unboundIdentityTargetIds": unbound_identity_targets,
             },
         )
-    visual_contract = _runtime_visual_contract(analysis, rules)
+    visual_contract = _runtime_visual_contract(analysis, editable, rules)
     relations_field = runtime_contract["visualContractFields"]["relations"]
     visual_contract[relations_field].extend(
         _identity_inheritance_relations(editable, rules)
@@ -1788,6 +2005,9 @@ def _semantic_audit_payload(
 ) -> dict[str, Any]:
     top_level = rules["formalProjection"]["topLevel"]
     text_analysis_fields = rules["visibleTextContract"]["analysisFields"]
+    rendering_field = rules["renderingCoherenceDecisionContract"][
+        "authoringField"
+    ]
     return copy.deepcopy({
         top_level["userTitle"]: draft[top_level["userTitle"]],
         top_level["userPromptTemplate"]: draft[top_level["userPromptTemplate"]],
@@ -1795,6 +2015,7 @@ def _semantic_audit_payload(
         "freeEditableContent": editable["freeEditableContent"],
         text_analysis_fields["regions"]: editable[text_analysis_fields["regions"]],
         text_analysis_fields["inventory"]: editable[text_analysis_fields["inventory"]],
+        rendering_field: editable[rendering_field],
         "slots": [
             {
                 "id": slot["id"],
@@ -1955,6 +2176,9 @@ def _validation_report(
     semantic_audit_requirements = tuple(semantic_audit_roles.values())
     required_check_fields = {contract["check"] for contract in semantic_audit_requirements}
     required_evidence_fields = {contract["evidence"] for contract in semantic_audit_requirements}
+    grounding_review_contract = rules["visualContractGroundingReviewContract"]
+    grounding_evidence_field = grounding_review_contract["evidenceField"]
+    required_evidence_fields.add(grounding_evidence_field)
     semantic_checks_payload = semantic_audit.get("checks")
     semantic_evidence_payload = semantic_audit.get("evidence")
     evidence = semantic_evidence_payload if isinstance(semantic_evidence_payload, dict) else {}
@@ -1983,6 +2207,7 @@ def _validation_report(
     runtime_responsibility_review = evidence.get(runtime_responsibility_field)
     identity_neutrality_review = evidence.get(identity_neutrality_field)
     visible_text_classification_review = evidence.get(visible_text_classification_field)
+    visual_contract_grounding_review = evidence.get(grounding_evidence_field)
     identity_neutrality_fields = identity_contract["neutralityAuditFields"]
     text_audit_fields = text_contract["semanticAuditFields"]
     text_decision_fields = text_contract["semanticDecisionFields"]
@@ -2248,6 +2473,128 @@ def _validation_report(
     expected_runtime_fields = set(
         rules["runtimeSemanticsContract"]["fields"].values()
     )
+    grounding_review_fields = grounding_review_contract["reviewFields"]
+    unit_review_fields = grounding_review_contract["renderingUnitReviewFields"]
+    transfer_review_fields = grounding_review_contract[
+        "subjectTransferReviewFields"
+    ]
+    rendering_contract = rules["renderingCoherenceDecisionContract"]
+    rendering_fields = rendering_contract["fields"]
+    unit_fields = rendering_contract["renderingUnitFields"]
+    transfer_fields = rendering_contract["subjectTransferFields"]
+    rendering_decision = editable[rendering_contract["authoringField"]]
+    expected_visual_contract_sha = _sha_bytes(
+        _canonical_bytes(
+            draft[runtime_semantics_field][
+                rules["runtimeSemanticsContract"]["fields"]["visualContract"]
+            ]
+        )
+    )
+    expected_rendering_decision_sha = _sha_bytes(
+        _canonical_bytes(rendering_decision)
+    )
+    unit_reviews = (
+        visual_contract_grounding_review.get(
+            grounding_review_fields["renderingUnitReviews"]
+        )
+        if isinstance(visual_contract_grounding_review, dict)
+        else None
+    )
+    expected_unit_by_id = {
+        unit[unit_fields["identity"]]: unit
+        for unit in rendering_decision[rendering_fields["renderingUnits"]]
+    }
+    unit_review_by_id = {
+        review.get(unit_review_fields["identity"]): review
+        for review in unit_reviews or []
+        if isinstance(review, dict)
+    } if isinstance(unit_reviews, list) else {}
+    rendering_unit_reviews_valid = bool(
+        isinstance(unit_reviews, list)
+        and len(unit_reviews) == len(expected_unit_by_id)
+        and len(unit_review_by_id) == len(unit_reviews)
+        and set(unit_review_by_id) == set(expected_unit_by_id)
+        and all(
+            set(review) == set(unit_review_fields.values())
+            and review.get(unit_review_fields["componentIdentities"])
+            == expected_unit_by_id[unit_id][unit_fields["componentIdentities"]]
+            and review.get(unit_review_fields["matchesApprovedImage"]) is True
+            and isinstance(review.get(unit_review_fields["evidence"]), str)
+            and review[unit_review_fields["evidence"]].strip()
+            for unit_id, review in unit_review_by_id.items()
+        )
+    )
+    transfer_reviews = (
+        visual_contract_grounding_review.get(
+            grounding_review_fields["subjectTransferReviews"]
+        )
+        if isinstance(visual_contract_grounding_review, dict)
+        else None
+    )
+    expected_transfer_by_input = {
+        transfer[transfer_fields["inputIdentity"]]: transfer
+        for transfer in rendering_decision[rendering_fields["subjectTransfers"]]
+    }
+    transfer_review_by_input = {
+        review.get(transfer_review_fields["inputIdentity"]): review
+        for review in transfer_reviews or []
+        if isinstance(review, dict)
+    } if isinstance(transfer_reviews, list) else {}
+    subject_transfer_reviews_valid = bool(
+        isinstance(transfer_reviews, list)
+        and len(transfer_reviews) == len(expected_transfer_by_input)
+        and len(transfer_review_by_input) == len(transfer_reviews)
+        and set(transfer_review_by_input) == set(expected_transfer_by_input)
+        and all(
+            set(review) == set(transfer_review_fields.values())
+            and review.get(transfer_review_fields["targetIdentities"])
+            == expected_transfer_by_input[input_id][
+                transfer_fields["targetIdentities"]
+            ]
+            and review.get(transfer_review_fields["completeRedraw"]) is True
+            and review.get(transfer_review_fields["authorityMatches"]) is True
+            and isinstance(review.get(transfer_review_fields["evidence"]), str)
+            and review[transfer_review_fields["evidence"]].strip()
+            for input_id, review in transfer_review_by_input.items()
+        )
+    )
+    visual_contract_grounding_valid = bool(
+        isinstance(visual_contract_grounding_review, dict)
+        and set(visual_contract_grounding_review)
+        == set(grounding_review_fields.values())
+        and visual_contract_grounding_review.get(
+            grounding_review_fields["approvedImageSha256"]
+        )
+        == editable["visualFactSourceSha256"]
+        and visual_contract_grounding_review.get(
+            grounding_review_fields["visualContractSha256"]
+        )
+        == expected_visual_contract_sha
+        and visual_contract_grounding_review.get(
+            grounding_review_fields["renderingCoherenceDecisionSha256"]
+        )
+        == expected_rendering_decision_sha
+        and all(
+            visual_contract_grounding_review.get(grounding_review_fields[field])
+            is True
+            for field in (
+                "mediumMatchesApprovedImage",
+                "compositionMatchesApprovedImage",
+                "relationsMatchApprovedImage",
+            )
+        )
+        and rendering_unit_reviews_valid
+        and subject_transfer_reviews_valid
+        and isinstance(
+            visual_contract_grounding_review.get(
+                grounding_review_fields["evidence"]
+            ),
+            str,
+        )
+        and visual_contract_grounding_review[
+            grounding_review_fields["evidence"]
+        ].strip()
+    )
     semantic_evidence_valid = bool(
         unique_nonempty_strings(resolved_cases)
         and set(resolved_cases) == expected_resolved_cases
@@ -2259,6 +2606,7 @@ def _validation_report(
             for slot in editable["slots"]
         )
         and structured_suggestion_reviews_valid
+        and visual_contract_grounding_valid
         and isinstance(runtime_scope_review, dict)
         and set(runtime_scope_review)
         == {"requiredFields", "outOfScopeContentDetected", "evidence"}
