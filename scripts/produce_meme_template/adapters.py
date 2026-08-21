@@ -21,6 +21,10 @@ from .artifacts import (
     load_json_object as _read_json,
 )
 from .validation import is_public_ip_address, is_safe_public_https_url
+from .production_gates import (
+    deterministic_authoring_contract_audit,
+    deterministic_template_identity_resolution,
+)
 
 
 RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "machine-rules.json"
@@ -151,6 +155,16 @@ class DeterministicFixtureAdapters:
         self.poll_calls: list[dict[str, Any]] = []
         self.upload_calls: list[dict[str, Any]] = []
         self.authoring_handoffs: list[dict[str, Any]] = []
+
+    def resolve_template_identity(
+        self, source_image: Path, request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return deterministic_template_identity_resolution(
+            source_image,
+            request,
+            _read_json(RULES_PATH),
+            registry_revision=f"fixture-empty:{self.fixture_dir.name}",
+        )
 
     def analyze_source(
         self, source_image: Path, replacement_strategy: dict[str, Any] | None
@@ -419,6 +433,13 @@ class DeterministicFixtureAdapters:
     ) -> dict[str, Any]:
         self.authoring_handoffs.append(copy.deepcopy(authoring_handoff))
         return self.analyze_approved(approved_image)
+
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return deterministic_authoring_contract_audit(
+            approved_image, review_request, _read_json(RULES_PATH)
+        )
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "semantic-audit.json")
@@ -996,6 +1017,11 @@ class FalQueueWorkflowAdapters:
     ) -> dict[str, Any]:
         return self.delegate.analyze_source(source_image, replacement_strategy)
 
+    def resolve_template_identity(
+        self, source_image: Path, request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.resolve_template_identity(source_image, request)
+
     def inspect_generated(
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
@@ -1011,6 +1037,11 @@ class FalQueueWorkflowAdapters:
         if callable(method):
             return method(approved_image, authoring_handoff)
         return self.delegate.analyze_approved(approved_image)
+
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.audit_authoring_contract(approved_image, review_request)
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.delegate.audit_semantics(content)
@@ -1220,6 +1251,11 @@ class AliyunOssWorkflowAdapters:
     ) -> dict[str, Any]:
         return self.delegate.analyze_source(source_image, replacement_strategy)
 
+    def resolve_template_identity(
+        self, source_image: Path, request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.resolve_template_identity(source_image, request)
+
     def submit_generation(
         self,
         source_image: Path,
@@ -1266,6 +1302,11 @@ class AliyunOssWorkflowAdapters:
         if callable(method):
             return method(approved_image, authoring_handoff)
         return self.delegate.analyze_approved(approved_image)
+
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.delegate.audit_authoring_contract(approved_image, review_request)
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.delegate.audit_semantics(content)

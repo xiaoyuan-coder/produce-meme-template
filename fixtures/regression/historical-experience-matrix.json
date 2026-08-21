@@ -372,6 +372,84 @@
         {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_p6_blocks_subject_garment_authority_mismatch_before_oss", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/resultStates/blocked"},
         {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_p6_blocks_composition_or_action_facts_that_do_not_match_image", "polarity": "bad-case", "fixturePaths": ["tests/test_issue_5_editable_prompt_compiler.py"], "expectedGateLocator": "/resultStates/blocked"}
       ]
+    },
+    {
+      "experienceId": "E41",
+      "topic": "素材追踪号不得冒充正式模板 key",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "material-1376 一类追踪号只作为 productionItemId；新模板 key 必须通过存量来源查询、冲突查询和语义审核。",
+      "authority": {
+        "path": "docs/adr/0026-生产前强制模板身份与独立作者合同审计.md",
+        "anchor": "### P0 模板身份门禁"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/templateIdentityContract"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_tracking_identifier_cannot_be_used_as_new_template_key",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/request.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/errorCodes/templateKeySemanticInvalid"
+        }
+      ]
+    },
+    {
+      "experienceId": "E42",
+      "topic": "Prompt Template 只承载用户可替换的画面内容",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "生产、清理、商品展示和输出禁止项从 promptTemplate 移出，并由独立逐句职责审计阻断回流。",
+      "authority": {
+        "path": "docs/adr/0026-生产前强制模板身份与独立作者合同审计.md",
+        "anchor": "### P4 独立作者合同审计"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/authoringContractAudit/productionClausePatterns"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_production_constraints_cannot_enter_prompt_template",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E43",
+      "topic": "每张图的槽位价值必须独立复核",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "分析对象内的四个 valueGates 只是候选提交；编译器只消费绑定 Approved Image 和组件 ID 的独立审计结果。",
+      "authority": {
+        "path": "docs/adr/0026-生产前强制模板身份与独立作者合同审计.md",
+        "anchor": "### P4 独立作者合同审计"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/authoringContractAudit/slotReviewFields"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_slot_self_certification_cannot_override_independent_review",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
     }
   ],
   "corpus": {

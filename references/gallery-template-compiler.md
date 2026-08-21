@@ -8,7 +8,7 @@ P3 以后只读取 Approved Template Image 的 SHA 绑定分析。Source Web Ima
 
 ## 2. 高价值槽位与 Prompt Template
 
-槽位必须使用唯一、非空且符合冻结 Gallery Schema `inputId.pattern` 的 ID；placeholder 解析直接派生同一 Schema 模式。作者侧四道价值门禁、槽位属性语义和单槽穷尽复核读取 `template-authoring.md`。subject 候选可选提供 `imagePromptValue/imageHint` 短文本，缺失时由机器合同回填通用单主体说明；`promptValue` 仅作为图片模式的中性 LLM 说明，`hint` 仅用于上传 UI，两者都不代替 target/binding。每个 subject 候选还必须提供 `identityInheritanceDecision`：默认继承上传图清晰可见的身份特征，只将参与模板核心玩法的特征列为模板固定例外。常态预算读取 `contracts/machine-rules.json`。分析必须明确提供 `hasPrimarySubject` 与机器合同内的 `subjectKind`，人物判别与主体存在性保持一致。
+槽位必须使用唯一、非空且符合冻结 Gallery Schema `inputId.pattern` 的 ID；placeholder 解析直接派生同一 Schema 模式。作者侧四道价值门禁、槽位属性语义和单槽穷尽复核读取 `template-authoring.md`。Artifact Schema `0.25.0` 起，`slotCandidates[].valueGates` 不再直接决定槽位入选；编译器只消费 `authoring-contract-audit.json` 中绑定 Approved Image SHA、当前组件 ID 和四道独立结论的复核。subject 候选可选提供 `imagePromptValue/imageHint` 短文本，缺失时由机器合同回填通用单主体说明；`promptValue` 仅作为图片模式的中性 LLM 说明，`hint` 仅用于上传 UI，两者都不代替 target/binding。每个 subject 候选还必须提供 `identityInheritanceDecision`：默认继承上传图清晰可见的身份特征，只将参与模板核心玩法的特征列为模板固定例外。常态预算读取 `contracts/machine-rules.json`。分析必须明确提供 `hasPrimarySubject` 与机器合同内的 `subjectKind`，人物判别与主体存在性保持一致。
 
 人物的服装、造型、发型、姿势和颜色分别记录四道门禁、是否入槽和图像证据；入槽决定必须与门禁结论一致。每次 Approved Template Image 分析都必须提供 `componentGraph` 与 `assetUnitAnalysis`，分别计数可见主体、身份单元、上传素材和控件，不从其中一个数量推导其他数量；控件数最终必须与通过门禁的槽位数一致。组件图、容器和关系的详细规则读取 [多实例组件图与图片操作合同](multi-instance-image-operations.md)。
 
@@ -81,4 +81,4 @@ python3 scripts/export_gallery_templates.py \
 
 导出器要求显式提供目录外的 `--manifest`，对每条记录重新执行当前 Gallery Schema 与最终业务合同，要求 key 唯一且合法，并把每条对象单独写为 `<key>.json`。单模板目录不接受汇总数组、交付清单、生产 sidecar、点文件或其他范围外内容。相同内容可幂等重跑；同名文件内容不同默认阻断，只有人工确认后显式使用 `--overwrite`。
 
-拆分导出只改变本地交付布局，不修改记录字段、模板图、OSS 对象或 URL。交付清单位于单模板目录之外，记录来源摘要、key 集合和每个文件摘要。新素材首次建档前还需按业务 key 规范确认语义 key；Schema 正则只校验字符合法性，不能替代存量查重和语义命名审核。
+拆分导出只改变本地交付布局，不修改记录字段、模板图、OSS 对象或 URL。交付清单位于单模板目录之外，记录来源摘要、key 集合和每个文件摘要。Artifact Schema `0.25.0` 起，P0 必须先写入 `template-key-resolution.json`，完成存量来源查询、语义 key 审核和冲突审核。Schema 正则继续只负责字符形状；缺失注册表证据或使用素材追踪号作为新 key 时，公共生产 seam 在 P1 前停止。

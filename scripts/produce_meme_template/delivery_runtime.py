@@ -8,6 +8,11 @@ from urllib.parse import unquote, urlsplit
 
 from .artifacts import load_json as _load_json, pretty_json_bytes as _json_bytes, sha256_file as _sha_file
 from .batch_policy import _shared_policy_plan_valid
+from .production_gates import (
+    authoring_contract_audit_errors,
+    compile_authoring_review_request,
+    template_identity_resolution_errors,
+)
 from .template_compiler import (
     _compile_draft,
     _compile_editable_spec,
@@ -296,9 +301,13 @@ def _current_item_fact_errors(
     rules: dict[str, Any],
 ) -> list[str]:
     try:
+        identity_resolution = _load_json(
+            output_dir / rules["templateIdentityContract"]["artifactName"]
+        )
         source_analysis = _load_json(output_dir / "source-analysis.json")
         plan = _load_json(output_dir / "replacement-plan.json")
         template_analysis = _load_json(output_dir / "template-analysis.json")
+        authoring_audit = _load_json(output_dir / "authoring-contract-audit.json")
         editable = _load_json(output_dir / "editable-template-spec.json")
         hidden = _load_json(output_dir / "hidden-template-spec.json")
         draft = _load_json(output_dir / "gallery-template.draft.json")
@@ -308,8 +317,10 @@ def _current_item_fact_errors(
         isinstance(item, dict)
         for item in (
             source_analysis,
+            identity_resolution,
             plan,
             template_analysis,
+            authoring_audit,
             editable,
             hidden,
             draft,
@@ -317,6 +328,16 @@ def _current_item_fact_errors(
     ):
         return ["production item facts shape invalid"]
     errors: list[str] = []
+    identity_error_role, identity_errors = template_identity_resolution_errors(
+        identity_resolution,
+        source_sha256=manifest.get("sourceImageSha256"),
+        proposed_key=manifest.get("templateKey"),
+        rules=rules,
+    )
+    if identity_error_role is not None:
+        errors.extend(
+            f"template identity replay: {error}" for error in identity_errors
+        )
     if source_analysis.get("sourceImageSha256") != manifest.get(
         "sourceImageSha256"
     ):
@@ -354,11 +375,22 @@ def _current_item_fact_errors(
         "approvedSha256"
     ):
         errors.append("template analysis belongs to another approved image")
+    else:
+        review_request = compile_authoring_review_request(
+            template_analysis, delivery["approvedSha256"], rules
+        )
+        errors.extend(
+            f"authoring contract replay: {error}"
+            for error in authoring_contract_audit_errors(
+                authoring_audit, review_request, rules
+            )
+        )
     try:
         expected_editable = _compile_editable_spec(
             template_analysis,
             rules,
             plan,
+            authoring_audit,
         )
         expected_hidden = _compile_hidden_spec(
             template_analysis,

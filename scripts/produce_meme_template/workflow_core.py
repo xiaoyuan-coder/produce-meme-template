@@ -56,6 +56,9 @@ PLACEHOLDER_WITH_DEFAULT = re.compile(
 
 
 class WorkflowAdapters(Protocol):
+    def resolve_template_identity(
+        self, source_image: Path, request: dict[str, Any]
+    ) -> dict[str, Any]: ...
     def analyze_source(
         self, source_image: Path, replacement_strategy: dict[str, Any] | None
     ) -> dict[str, Any]: ...
@@ -78,6 +81,9 @@ class WorkflowAdapters(Protocol):
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]: ...
     def analyze_approved_with_handoff(
         self, approved_image: Path, authoring_handoff: dict[str, Any]
+    ) -> dict[str, Any]: ...
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]: ...
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]: ...
     def audit_visual_contract(

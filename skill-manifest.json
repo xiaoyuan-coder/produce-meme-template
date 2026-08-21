@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "2.2.0",
+  "version": "3.0.0",
   "updated_at": "2026-08-21",
-  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，用 Authoring Handoff 传递主体身份单元与重复实例，强制可实现的传图主体开槽，并以五路并发生产独立模板。",
+  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，P0 先查询模板身份注册表并审核语义 key，P4 用绑定 Approved Image 的独立作者合同审计阻断统一槽位自证和 Prompt 职责泄漏。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -41,6 +41,7 @@
     "docs/adr/0023-用四个可恢复大阶段聚合P0-P8.md",
     "docs/adr/0024-稳定版按发布风险分级验收.md",
     "docs/adr/0025-用Authoring-Handoff连接替换分析与模板编译.md",
+    "docs/adr/0026-生产前强制模板身份与独立作者合同审计.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",
@@ -157,6 +158,7 @@
     "scripts/produce_meme_template/experience_regression.py",
     "scripts/produce_meme_template/generation_runtime.py",
     "scripts/produce_meme_template/production_runtime.py",
+    "scripts/produce_meme_template/production_gates.py",
     "scripts/produce_meme_template/release_management.py",
     "scripts/produce_meme_template/release_readiness.py",
     "scripts/produce_meme_template/replacement_planning.py",
@@ -196,6 +198,7 @@
     "tests/test_issue_16_shadow_release_readiness.py",
     "tests/test_issue_17_major_stages.py",
     "tests/test_issue_25_authoring_handoff.py",
+    "tests/test_issue_26_production_readiness_gates.py",
     "tests/test_repository_contract.py"
   ]
 }

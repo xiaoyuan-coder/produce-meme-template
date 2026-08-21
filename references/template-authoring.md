@@ -21,6 +21,8 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 ## 3. 模板身份与编辑权限
 
+正式作者分析前，P0 必须以 Source Image SHA 查询模板身份注册表。已有来源图继续使用冻结 key；新来源图使用描述画面机制的小写 kebab-case 语义 key。`material-1376`、批次日期和版本号属于追踪身份，只写入 `productionItemId`。查询结果以 `template-key-resolution.json` 绑定来源 SHA、注册表修订号、存量命中、语义审核和冲突审核；任一证据缺失时停止当前项。
+
 模板身份由用户替换默认内容后仍需成立的视觉机制构成：核心动作或关系、容器与空间骨架、画面阅读顺序、媒介与造型语言、必要的接触和遮挡，以及承担玩法的文字结构。具体默认人物、动物、物件、颜色、服装或文案在开放后不再属于模板身份。
 
 对当前确认图的每个显著内容按顺序裁决：
@@ -44,6 +46,8 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 - `visuallyVisible`：修改结果在成图中直接可见；
 - `modelControllable`：正式合同和图片模型能稳定控制该变化；
 - `mechanismPreserved`：替换为最大差异合法值后，模板核心玩法仍成立。
+
+`template-analysis.json.slotCandidates[].valueGates` 只是作者提交的候选事实。P4 必须产生绑定 Approved Image SHA 与当前 `componentGraph.controlId` 的 `authoring-contract-audit.json`，对每个候选重新裁决四道门禁。编译器只消费这份独立审计；批量项共用同一槽位向量、作者自证全 true、缺少组件绑定或任一独立否决都会在 editable spec 前停止当前项。
 
 “画面里能检测到”不构成槽位理由。低价值装饰、轻微渲染参数和与其他槽高度耦合的细节退出控件预算。常态保留 2–5 个槽位且通常约 3 个；单槽例外必须穷尽复核机器合同声明的全部轴。
 
@@ -160,7 +164,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 Prompt Template 是用户可见且可全文替换的完整自然语言画面描述。按当前确认图的阅读顺序编写：主要目标与动作、容器和关系、其他开放内容、具有编辑价值的自由内容。每个结构化槽恰好以 `{{ id | "默认值" }}` 出现，所有 `freeEditableContent` 原样出现。
 
-Prompt Template 的每个字面都应是用户可编辑的内容或它们之间的自然关系。“保留宠物照片剪贴与扁平应援图形的混合媒介”这类媒介、画风、渲染、固定构图、材质纪律、水印清理或内部审核指令统一进入 `runtimeSemantics.visualContract` 或生产 sidecar；机器合同在 `editable-template-spec.json` 写入前拦截泄漏片段。
+Prompt Template 的每个字面都应是用户可编辑的内容或它们之间的自然关系。媒介、画风、稳定构图、裁切、重复实例和装饰层级以正向可观察事实进入 `runtimeSemantics.visualContract`。“最终只输出平面图案”、“不出现领口、袖子、衣服轮廓、褶皱、商品背景、阴影或透视”这类生产、清理、商品展示与输出禁止项进入生产 sidecar。P4 的独立作者合同审计逐句分类 Prompt 职责，固定片段扫描作为辅助防线。
 
 默认值和每条推荐项逐项代入后都必须得到无残留 placeholder、语法完整、关系清楚的自然句。Prompt Template 只表达用户有权修改的画面内容及其自然关系；媒介、画风、固定构图、材质纪律、清洁要求和内部冲突说明进入 `runtimeSemantics.visualContract` 或生产 sidecar。
 

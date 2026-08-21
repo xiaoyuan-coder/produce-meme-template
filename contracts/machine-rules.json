@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.24.0",
+  "schemaVersion": "0.25.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -494,6 +494,76 @@
       "adapterCallsMayOverlapAcrossItems": true,
       "majorStageBarrierBeforeNextStage": true
     }
+  },
+  "templateIdentityContract": {
+    "artifactName": "template-key-resolution.json",
+    "artifactType": "template-key-resolution",
+    "operationalOnlyKeyPatterns": [
+      "^(?:material|asset|source)-[0-9]+$",
+      "^(?:batch|template)-[0-9]{4}(?:-[0-9]{1,2}){1,2}(?:-[0-9]+)?$",
+      "^(?:v|ver|version)-?[0-9]+(?:-[0-9]+)*$"
+    ],
+    "statuses": {
+      "existing": "existing",
+      "new": "new"
+    },
+    "fields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "sourceImageSha256": "sourceImageSha256",
+      "proposedKey": "proposedKey",
+      "resolvedKey": "resolvedKey",
+      "status": "status",
+      "registryRevision": "registryRevision",
+      "registryAvailable": "registryAvailable",
+      "sourceMatch": "sourceMatch",
+      "collisionFree": "collisionFree",
+      "semanticKey": "semanticKey",
+      "evidence": "evidence"
+    }
+  },
+  "authoringContractAudit": {
+    "artifactName": "authoring-contract-audit.json",
+    "artifactType": "authoring-contract-audit",
+    "requestFields": {
+      "approvedImageSha256": "approvedImageSha256",
+      "promptTemplate": "promptTemplate",
+      "freeEditableContent": "freeEditableContent",
+      "slotCandidates": "slotCandidates",
+      "componentGraph": "componentGraph",
+      "visualContract": "visualContract"
+    },
+    "reviewFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "approvedImageSha256": "approvedImageSha256",
+      "reviewRequestSha256": "reviewRequestSha256",
+      "promptReview": "promptReview",
+      "slotReviews": "slotReviews",
+      "pass": "pass",
+      "evidence": "evidence"
+    },
+    "promptReviewFields": {
+      "userEditableOnly": "userEditableOnly",
+      "leakedProductionClauses": "leakedProductionClauses",
+      "evidence": "evidence"
+    },
+    "slotReviewFields": {
+      "slotIdentity": "slotId",
+      "componentIdentities": "componentIds",
+      "userMotivation": "userMotivation",
+      "visuallyVisible": "visuallyVisible",
+      "modelControllable": "modelControllable",
+      "mechanismPreserved": "mechanismPreserved",
+      "evidence": "evidence"
+    },
+    "productionClausePatterns": [
+      "最终(?:只|仅)输出",
+      "(?:只|仅)(?:需|要)?输出(?:平面)?图案",
+      "不(?:要|得|应|可|出现|包含)[^。！？;\n]{0,80}(?:领口|袖子|衣服轮廓|褶皱|商品背景|透视)",
+      "(?:保持|保留|维持)[^。！？;\n]{0,80}(?:抠图边缘|重复实例裁切|正视独立印花画布|原有装饰层级|原有贴纸|原有图标)",
+      "(?:生产约束|视觉合同|输出禁止项|商品展示背景|独立印花画布)"
+    ]
   },
   "authoringHandoffContract": {
     "artifactNames": {
@@ -1697,6 +1767,10 @@
   "errorCodes": {
     "versionDiagnosticFailure": "VERSION_DIAGNOSTIC_FAILURE",
     "invalidProductionRequest": "INVALID_PRODUCTION_REQUEST",
+    "templateKeyRegistryUnavailable": "TEMPLATE_KEY_REGISTRY_UNAVAILABLE",
+    "templateKeyExistingMismatch": "TEMPLATE_KEY_EXISTING_MISMATCH",
+    "templateKeySemanticInvalid": "TEMPLATE_KEY_SEMANTIC_INVALID",
+    "templateKeyConflict": "TEMPLATE_KEY_CONFLICT",
     "productionItemIntegrityFailure": "PRODUCTION_ITEM_INTEGRITY_FAILURE",
     "explicitStrategyConflict": "EXPLICIT_STRATEGY_CONFLICT",
     "riskNeedsReview": "NEEDS_REVIEW",
@@ -1976,7 +2050,7 @@
     "artifactType": "historical-experience-regression",
     "matrixRelativePath": "fixtures/regression/historical-experience-matrix.json",
     "evidenceRunnerRelativePath": "scripts/experience_evidence_runner.py",
-    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40"],
+    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43"],
     "requiredCorpusRoles": {
       "latestHeartInput": "latest-heart-input",
       "latestHeartExpected": "latest-heart-expected",
@@ -2124,7 +2198,10 @@
         {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},
         {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},
         {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}
-      ]
+      ],
+      "E41": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/templateKeySemanticInvalid"}],
+      "E42": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E43": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}]
     },
     "requiredExperienceSha256ById": {
       "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
@@ -2166,7 +2243,10 @@
       "E37": "061ee8e898b06cb8d18162d34bb776de3254f500b1c7e99a299106f8fc2ff837",
       "E38": "cdf590d160e166b69cd01fd248ac10c8058f2e368f99adc66a88351cb5f6e582",
       "E39": "bb87b4341904257d429f70f27e39fb9d7d46d4d13c58ffc0e6d607193ed82b5d",
-      "E40": "3ffe9239e58913199911166fa7648d5b8f0e1bcabf389b3f3e5c149ba821efad"
+      "E40": "3ffe9239e58913199911166fa7648d5b8f0e1bcabf389b3f3e5c149ba821efad",
+      "E41": "7c1c8e2aab9273c9ae770140b8f02c6357424600a192a3e8014c015507d9f987",
+      "E42": "1b027699c2652a50d125ad96fb99f6c5015771de34e59fe9046b45743b4409c4",
+      "E43": "ca4a550ca9da16b1d652b95d189d8cd5b1f578d7055635b3661aa02ad38162d9"
     },
     "implementationKinds": {
       "machineRule": "machine-rule",

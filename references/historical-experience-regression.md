@@ -2,7 +2,7 @@
 
 ## 1. 唯一追踪矩阵
 
-`fixtures/regression/historical-experience-matrix.json` 是 E01–E40 的机器追踪矩阵。每条经验只声明一个当前权威规则、一个实现定位、迁移状态、旧口径裁决和至少一条具体 unittest 证据。机器枚举、字段名、迁移状态、证据极性、corpus 角色、报告字段与失败分类只读取 `contracts/machine-rules.json` 的 `historicalExperienceContract`。
+`fixtures/regression/historical-experience-matrix.json` 是 E01–E43 的机器追踪矩阵。每条经验只声明一个当前权威规则、一个实现定位、迁移状态、旧口径裁决和至少一条具体 unittest 证据。机器枚举、字段名、迁移状态、证据极性、corpus 角色、报告字段与失败分类只读取 `contracts/machine-rules.json` 的 `historicalExperienceContract`。
 
 条件化、重写或废止的经验必须写明 `legacyDisposition`。这份裁决与当前实现证据一起验证，旧入口或旧字段不能仅凭历史文档继续生效。E31 的正式隐藏层职责已经由当前冻结 Gallery Contract、编译器和冲突审计共同验收，迁移状态从待冻结收口为确认迁移。
 

@@ -432,7 +432,10 @@ def _validate_visible_text_contract(
 
 
 def _compile_editable_spec(
-    analysis: dict[str, Any], rules: dict[str, Any], plan: dict[str, Any]
+    analysis: dict[str, Any],
+    rules: dict[str, Any],
+    plan: dict[str, Any],
+    authoring_audit: dict[str, Any],
 ) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
     prompt_template = analysis.get("promptTemplate")
@@ -574,10 +577,27 @@ def _compile_editable_spec(
             "槽位候选必须提供合法默认值、推荐池和四道具名价值门禁；subject 还必须裁决上传继承范围与模板固定例外。",
             {},
         )
+    audit_contract = rules["authoringContractAudit"]
+    audit_review_fields = audit_contract["reviewFields"]
+    audit_slot_fields = audit_contract["slotReviewFields"]
+    independent_reviews = authoring_audit.get(
+        audit_review_fields["slotReviews"], []
+    )
+    independent_review_by_slot = {
+        review.get(audit_slot_fields["slotIdentity"]): review
+        for review in independent_reviews
+        if isinstance(review, dict)
+    }
     slots = [
         copy.deepcopy(slot)
         for slot in slot_candidates
-        if all(slot["valueGates"][role] for role in value_gate_roles)
+        if all(
+            independent_review_by_slot.get(slot["id"], {}).get(
+                audit_slot_fields[role]
+            )
+            is True
+            for role in value_gate_roles
+        )
     ]
     identity_contract = rules["identityReplacementContract"]
     identity_plan_fields = identity_contract["planFields"]

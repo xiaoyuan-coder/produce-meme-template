@@ -50,6 +50,11 @@ from .generation_runtime import (
     _sanitize_generation_failure_reason,
 )
 from .replacement_planning import _build_pin, _plan_replacement
+from .production_gates import (
+    authoring_contract_audit_errors,
+    compile_authoring_review_request,
+    template_identity_resolution_errors,
+)
 from .template_compiler import (
     _compile_draft,
     _compile_editable_spec,
@@ -254,7 +259,66 @@ def _run_template_data_stage(
     _advance(manifest, rules, p3, timestamp)
     _persist_manifest(output_dir, manifest)
 
-    editable = _compile_editable_spec(analysis, rules, plan)
+    authoring_review_request = compile_authoring_review_request(
+        analysis, approved_sha, rules
+    )
+    authoring_request_sha = _sha_bytes(
+        _canonical_bytes(authoring_review_request)
+    )
+    audit_authoring_contract = getattr(
+        adapters, "audit_authoring_contract", None
+    )
+    if not callable(audit_authoring_contract):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "模板分析 adapter 缺少独立 Authoring Contract Audit seam。",
+            {"operation": "audit_authoring_contract"},
+        )
+    authoring_audit = _adapter_snapshot_image_object_call(
+        rules,
+        "audit_authoring_contract",
+        audit_authoring_contract,
+        approved_path,
+        approved_sha,
+        authoring_review_request,
+    )
+    if _sha_bytes(_canonical_bytes(authoring_review_request)) != authoring_request_sha:
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "作者合同审计 adapter 修改了只读对账快照。",
+            {},
+        )
+    authoring_audit_name = rules["authoringContractAudit"]["artifactName"]
+    _atomic_write_new(
+        output_dir / authoring_audit_name, _json_bytes(authoring_audit)
+    )
+    _record_artifact(
+        manifest,
+        output_dir,
+        authoring_audit_name,
+        p4,
+        ["template-analysis.json", approved_rel],
+    )
+    authoring_errors = authoring_contract_audit_errors(
+        authoring_audit, authoring_review_request, rules
+    )
+    if authoring_errors:
+        _persist_manifest(output_dir, manifest)
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "独立作者合同审计未通过。",
+            {"errors": authoring_errors},
+        )
+
+    editable = _compile_editable_spec(
+        analysis, rules, plan, authoring_audit
+    )
     _atomic_write_new(
         output_dir / "editable-template-spec.json", _json_bytes(editable)
     )
@@ -263,7 +327,7 @@ def _run_template_data_stage(
         output_dir,
         "editable-template-spec.json",
         p4,
-        ["template-analysis.json"],
+        ["template-analysis.json", authoring_audit_name],
     )
     _advance(manifest, rules, p4, timestamp)
     _persist_manifest(output_dir, manifest)
@@ -419,6 +483,7 @@ def _run_template_data_stage(
         "approvedTemplateImage": approved_rel,
         "authoringHandoff": handoff_name,
         "templateAnalysis": "template-analysis.json",
+        "authoringContractAudit": authoring_audit_name,
         "editableTemplateSpec": "editable-template-spec.json",
         "runtimeSemanticsSpec": "hidden-template-spec.json",
         "formalDraft": "gallery-template.draft.json",
@@ -1425,9 +1490,79 @@ def _run_single_production(
                 resume_from_stage_one,
             )
         ):
+            identity_contract = rules["templateIdentityContract"]
+            identity_name = identity_contract["artifactName"]
+            resolve_template_identity = getattr(
+                adapters, "resolve_template_identity", None
+            )
+            if not callable(resolve_template_identity):
+                raise _stop(
+                    rules,
+                    "blocked",
+                    "templateKeyRegistryUnavailable",
+                    "生产 adapter 缺少模板身份注册表查询 seam。",
+                    {"operation": "resolve_template_identity"},
+                )
+            identity_request = {
+                "productionItemId": item_id,
+                "templateKey": template_key,
+            }
+            identity_request_sha = _sha_bytes(
+                _canonical_bytes(identity_request)
+            )
+            identity_resolution = _adapter_snapshot_image_object_call(
+                rules,
+                "resolve_template_identity",
+                resolve_template_identity,
+                source_image,
+                source_sha,
+                identity_request,
+            )
+            if _sha_bytes(_canonical_bytes(identity_request)) != identity_request_sha:
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "模板身份 adapter 修改了只读查询请求。",
+                    {},
+                )
+            identity_error_role, identity_errors = template_identity_resolution_errors(
+                identity_resolution,
+                source_sha256=source_sha,
+                proposed_key=template_key,
+                rules=rules,
+            )
+            _atomic_write_new(
+                output_dir / identity_name, _json_bytes(identity_resolution)
+            )
+            _record_artifact(manifest, output_dir, identity_name, p0, [])
+            if identity_error_role is not None:
+                state_role = (
+                    "needs_input"
+                    if identity_error_role
+                    in {
+                        "templateKeyExistingMismatch",
+                        "templateKeySemanticInvalid",
+                        "templateKeyConflict",
+                    }
+                    else "blocked"
+                )
+                raise _stop(
+                    rules,
+                    state_role,
+                    identity_error_role,
+                    "模板身份与语义 key 门禁未通过。",
+                    {"errors": identity_errors},
+                )
             pin = _build_pin(rules, release)
             _atomic_write_new(output_dir / "production-pin.json", _json_bytes(pin))
-            _record_artifact(manifest, output_dir, "production-pin.json", p0, [])
+            _record_artifact(
+                manifest,
+                output_dir,
+                "production-pin.json",
+                p0,
+                [identity_name],
+            )
             evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
             _atomic_write_new(evidence_source, source_image.read_bytes())
             _record_artifact(manifest, output_dir, str(evidence_source.relative_to(output_dir)), p0, [])

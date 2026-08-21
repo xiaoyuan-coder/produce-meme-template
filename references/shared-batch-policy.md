@@ -4,6 +4,8 @@
 
 `run_production(request, output_root, adapters, stage=...)` 同时接受单个 Production Item 和批量信封。批量信封只负责拆分和归集结果；所选大阶段应用于每个 item，每个 item 继续运行同一个 P0–P8 生命周期，拥有独立的来源事实、Replacement Plan、Production Pin、Manifest、不可变 revision、输出目录和正式 JSON。
 
+Artifact Schema `0.25.0` 起，每个 item 还必须拥有独立的 `template-key-resolution.json` 和 `authoring-contract-audit.json`。前者绑定该项 Source Image SHA 与注册表查询，后者绑定该项 Approved Image SHA、组件图、槽位候选和 Prompt 职责。批量内槽位数相同或命名相似不构成违规；任一项缺少自己的图片绑定与独立结论会单独阻断。
+
 批量信封字段、数量边界、共享策略字段和分辨产物字段统一读取 `contracts/machine-rules.json` 的 `batchProductionContract`。信封本身不生成跨图业务产物，下游仍只读取每个 item 的 `gallery-template.json`。
 
 ## 2. 默认隔离

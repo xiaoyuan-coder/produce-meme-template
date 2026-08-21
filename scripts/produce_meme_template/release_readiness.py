@@ -581,6 +581,11 @@ class _LiveReviewWorkflowDelegate:
             source_image, replacement_strategy
         )
 
+    def resolve_template_identity(
+        self, source_image: Path, request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.source_delegate.resolve_template_identity(source_image, request)
+
     def inspect_generated(
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
@@ -600,6 +605,13 @@ class _LiveReviewWorkflowDelegate:
         if callable(method):
             return method(approved_image, authoring_handoff)
         return self.review_delegate.analyze_approved(approved_image)
+
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.review_delegate.audit_authoring_contract(
+            approved_image, review_request
+        )
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.review_delegate.audit_semantics(content)

@@ -66,4 +66,4 @@
 
 ## 5. 迁移证据
 
-确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。E01–E40 的逐条覆盖关系、当前权威规则、实现定位、具体 unittest、fixture 和迁移裁决统一读取 `fixtures/regression/historical-experience-matrix.json`，并按 [历史经验回归门禁](historical-experience-regression.md) 在 release validation 中执行；本运行 reference 不维护第二份经验 ID 清单。
+确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。E01–E43 的逐条覆盖关系、当前权威规则、实现定位、具体 unittest、fixture 和迁移裁决统一读取 `fixtures/regression/historical-experience-matrix.json`，并按 [历史经验回归门禁](historical-experience-regression.md) 在 release validation 中执行；本运行 reference 不维护第二份经验 ID 清单。

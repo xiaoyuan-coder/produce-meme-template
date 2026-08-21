@@ -167,7 +167,7 @@ class Issue15HistoricalExperienceRegressionTest(unittest.TestCase):
         commit_source(destination)
         return destination
 
-    def test_e01_e40_each_bind_one_rule_behavior_and_executable_evidence(
+    def test_e01_e43_each_bind_one_rule_behavior_and_executable_evidence(
         self,
     ) -> None:
         report = self.run_audit()
@@ -445,13 +445,13 @@ class Issue15HistoricalExperienceRegressionTest(unittest.TestCase):
         extra = copy.deepcopy(
             matrix[CONTRACT["matrixFields"]["experiences"]][-1]
         )
-        extra[experience_fields["experienceId"]] = "E41"
+        extra[experience_fields["experienceId"]] = "E44"
         matrix[CONTRACT["matrixFields"]["experiences"]].append(extra)
         matrix_path.write_text(json.dumps(matrix), encoding="utf-8")
         report = self.run_audit(runtime, write_report=False)
         summary = report[FIELDS["summary"]]
         summary_fields = CONTRACT["summaryFields"]
-        self.assertEqual(40, summary[summary_fields["total"]])
+        self.assertEqual(43, summary[summary_fields["total"]])
         self.assertEqual(
             summary[summary_fields["total"]],
             summary[summary_fields["passed"]] + summary[summary_fields["failed"]],
