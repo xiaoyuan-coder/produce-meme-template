@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -65,6 +66,26 @@ def _run_batch_item(
             error_code=rules["errorCodes"]["invalidProductionRequest"],
             message="批量中该 Production Item 的输入无法读取或解析。",
         )
+
+
+def _map_batch_items(
+    items: list[dict[str, Any]],
+    operation: Callable[[dict[str, Any]], ProductionResult],
+    rules: dict[str, Any],
+) -> tuple[ProductionResult, ...]:
+    max_workers = min(
+        len(items),
+        rules["batchProductionContract"]["executionPolicy"][
+            "defaultMaxConcurrency"
+        ],
+    )
+    if max_workers <= 1:
+        return tuple(operation(item) for item in items)
+    with ThreadPoolExecutor(
+        max_workers=max_workers,
+        thread_name_prefix="meme-production",
+    ) as executor:
+        return tuple(executor.map(operation, items))
 
 def run_production(
     request: Any,
@@ -153,15 +174,16 @@ def run_production(
         )
     shared_policy = request.get(shared_policy_field)
     if shared_policy is None:
-        results = tuple(
-            _run_batch_item(
+        results = _map_batch_items(
+            raw_items,
+            lambda item: _run_batch_item(
                 item,
                 output_root,
                 adapters,
                 clock=clock,
                 target_stage=target_stage,
-            )
-            for item in raw_items
+            ),
+            rules,
         )
         return BatchProductionResult(
             batch_id=batch_id,
@@ -216,64 +238,53 @@ def run_production(
     scope = set(
         normalized_policy[contract["sharedPolicyFields"]["scope"]]
     )
-    item_results: list[ProductionResult] = []
-    for item in raw_items:
+    def run_resolved_item(item: dict[str, Any]) -> ProductionResult:
         item_id = item["productionItemId"]
         if item_id not in scope:
-            item_results.append(
-                _run_batch_item(
-                    item,
-                    output_root,
-                    adapters,
-                    clock=clock,
-                    target_stage=target_stage,
-                )
-            )
-            continue
-        if item_id in preparation_failures:
-            failed_request = effective_requests.get(item_id, item)
-            item_results.append(
-                _run_batch_item(
-                    failed_request,
-                    output_root,
-                    adapters,
-                    clock=clock,
-                    preparation_stop=preparation_failures[item_id],
-                    target_stage=target_stage,
-                )
-            )
-            continue
-        if item_id not in effective_requests or item_id not in resolutions:
-            item_results.append(
-                _run_batch_item(
-                    item,
-                    output_root,
-                    adapters,
-                    clock=clock,
-                    preparation_stop=_stop(
-                        rules,
-                        "blocked",
-                        "noCompatibleReplacement",
-                        "共享批次策略没有为该生产项分配兼容值。",
-                        {"productionItemId": item_id},
-                    ),
-                    target_stage=target_stage,
-                )
-            )
-            continue
-        item_results.append(
-            _run_batch_item(
-                effective_requests[item_id],
+            return _run_batch_item(
+                item,
                 output_root,
                 adapters,
                 clock=clock,
-                prepared_source_analysis=analyses.get(item_id),
-                shared_policy_resolution=resolutions[item_id],
                 target_stage=target_stage,
             )
+        if item_id in preparation_failures:
+            failed_request = effective_requests.get(item_id, item)
+            return _run_batch_item(
+                failed_request,
+                output_root,
+                adapters,
+                clock=clock,
+                preparation_stop=preparation_failures[item_id],
+                target_stage=target_stage,
+            )
+        if item_id not in effective_requests or item_id not in resolutions:
+            return _run_batch_item(
+                item,
+                output_root,
+                adapters,
+                clock=clock,
+                preparation_stop=_stop(
+                    rules,
+                    "blocked",
+                    "noCompatibleReplacement",
+                    "共享批次策略没有为该生产项分配兼容值。",
+                    {"productionItemId": item_id},
+                ),
+                target_stage=target_stage,
+            )
+        return _run_batch_item(
+            effective_requests[item_id],
+            output_root,
+            adapters,
+            clock=clock,
+            prepared_source_analysis=analyses.get(item_id),
+            shared_policy_resolution=resolutions[item_id],
+            target_stage=target_stage,
         )
+    item_results = _map_batch_items(raw_items, run_resolved_item, rules)
     return BatchProductionResult(
         batch_id=batch_id,
-        items=tuple(item_results),
+        items=item_results,
         shared_policy_applied=True,
     )

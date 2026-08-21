@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.22.0",
+  "schemaVersion": "0.23.0",
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -487,7 +487,95 @@
     ],
     "minimumItems": 1,
     "maximumItems": 100,
-    "maximumReplacementPoolItems": 100
+    "maximumReplacementPoolItems": 100,
+    "executionPolicy": {
+      "defaultMaxConcurrency": 4,
+      "preserveResultOrder": true,
+      "adapterCallsMayOverlapAcrossItems": true
+    }
+  },
+  "authoringHandoffContract": {
+    "artifactNames": {
+      "intent": "authoring-intent.json",
+      "handoff": "authoring-handoff.json"
+    },
+    "artifactTypes": {
+      "intent": "template-authoring-intent",
+      "handoff": "template-authoring-handoff"
+    },
+    "authoringModes": {
+      "incrementalDelta": "approved_image_delta"
+    },
+    "requiredDigestFields": [
+      "sourceImageSha256",
+      "sourceAnalysisSha256",
+      "replacementPlanSha256",
+      "generationPackageSha256",
+      "authoringIntentSha256",
+      "visualReviewSha256",
+      "approvedImageSha256"
+    ],
+    "promptTemplateForbiddenHiddenFragments": [
+      "混合媒介",
+      "媒介体系",
+      "画风约束",
+      "渲染体系",
+      "保留原构图",
+      "保持原构图",
+      "材质纪律",
+      "清洁要求",
+      "清除水印",
+      "参考图风格",
+      "确认模板图"
+    ],
+    "subjectOmissionContract": {
+      "requiredFields": [
+        "reviewed",
+        "valueGates",
+        "uploadReplacementFeasible",
+        "blockerCode",
+        "evidence"
+      ],
+      "allowedBlockerCodes": [
+        "no_stable_subject_boundary",
+        "inseparable_multi_identity_unit",
+        "fixed_identity_is_mechanism_anchor",
+        "safety_or_rights_block"
+      ]
+    }
+  },
+  "sourceAuthoringContextContract": {
+    "culturalReferenceField": "culturalReferenceDiscovery",
+    "culturalReferenceFields": {
+      "assessed": "assessed",
+      "status": "status",
+      "checkedSignals": "checkedSignals",
+      "references": "references",
+      "candidates": "candidates",
+      "evidence": "evidence"
+    },
+    "culturalReferenceStatuses": {
+      "identified": "identified",
+      "notDetected": "not_detected",
+      "uncertain": "uncertain"
+    },
+    "referenceFields": {
+      "name": "name",
+      "type": "type",
+      "role": "role",
+      "evidence": "evidence"
+    },
+    "subjectContinuityField": "subjectContinuity",
+    "subjectContinuityFields": {
+      "subjectCount": "subjectCount",
+      "speciesOrType": "speciesOrType",
+      "genderPresentation": "genderPresentation",
+      "apparentAge": "apparentAge",
+      "outfitRole": "outfitRole",
+      "contrastMechanism": "contrastMechanism",
+      "preserveTraits": "preserveTraits",
+      "evidence": "evidence"
+    }
   },
   "visualDimensions": ["medium", "form", "edge", "colorAndShading", "surface", "composition"],
   "visualReviewContract": {
@@ -1783,12 +1871,14 @@
       "sourceImage": "evidence/source-image",
       "sourceAnalysis": "source-analysis.json",
       "replacementPlan": "replacement-plan.json",
+      "authoringIntent": "authoring-intent.json",
       "generationRequest": "generation-package.json",
       "generationTask": "generation-task.json",
       "generationWal": "generation-wal.json",
       "generatedCandidate": "evidence/generated-candidate-image",
       "visualReview": "visual-review.json",
       "approvedTemplateImage": "evidence/approved-template-image.png",
+      "authoringHandoff": "authoring-handoff.json",
       "approvedAnalysis": "template-analysis.json",
       "editableSpec": "editable-template-spec.json",
       "validationReport": "validation-report.json",

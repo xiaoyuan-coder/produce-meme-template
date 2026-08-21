@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "1.7.0",
-  "updated_at": "2026-08-20",
-  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，以逐图事实编译正式模板，并按 development、compatible minor 或 live external 风险分级发布。",
+  "version": "2.0.0",
+  "updated_at": "2026-08-21",
+  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，用 Authoring Handoff 连接换图意图与 Approved Image 增量编译，并以四路并发生产独立模板。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -40,6 +40,7 @@
     "docs/adr/0022-正式JSON采用runtimeSemantics-v2合同.md",
     "docs/adr/0023-用四个可恢复大阶段聚合P0-P8.md",
     "docs/adr/0024-稳定版按发布风险分级验收.md",
+    "docs/adr/0025-用Authoring-Handoff连接替换分析与模板编译.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",
@@ -150,6 +151,7 @@
     "scripts/produce_meme_template/__init__.py",
     "scripts/produce_meme_template/adapters.py",
     "scripts/produce_meme_template/artifacts.py",
+    "scripts/produce_meme_template/authoring_handoff.py",
     "scripts/produce_meme_template/batch_policy.py",
     "scripts/produce_meme_template/delivery_runtime.py",
     "scripts/produce_meme_template/experience_regression.py",
@@ -193,6 +195,7 @@
     "tests/test_issue_15_historical_experience_regression.py",
     "tests/test_issue_16_shadow_release_readiness.py",
     "tests/test_issue_17_major_stages.py",
+    "tests/test_issue_25_authoring_handoff.py",
     "tests/test_repository_contract.py"
   ]
 }

@@ -591,6 +591,16 @@ class _LiveReviewWorkflowDelegate:
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         return self.review_delegate.analyze_approved(approved_image)
 
+    def analyze_approved_with_handoff(
+        self, approved_image: Path, authoring_handoff: dict[str, Any]
+    ) -> dict[str, Any]:
+        method = getattr(
+            self.review_delegate, "analyze_approved_with_handoff", None
+        )
+        if callable(method):
+            return method(approved_image, authoring_handoff)
+        return self.review_delegate.analyze_approved(approved_image)
+
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.review_delegate.audit_semantics(content)
 

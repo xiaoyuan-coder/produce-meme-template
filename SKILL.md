@@ -24,12 +24,12 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 
 ## 调用边界
 
-- **第一阶段**：执行 P0–P1，输出 `replacement-package.json`；其中绑定 `source-analysis.json`、`replacement-plan.json` 和可供第二阶段冻结任务的 `generation-package.json`，不提交生图 API。
-- **第二阶段**：执行 P2，必须通过生成 adapter 调用图片 API。真实生产使用 `FalQueueWorkflowAdapters` 提交、轮询并下载候选图；候选图通过视觉门禁后才输出 Approved Template Image。
-- **第三阶段**：执行 P3–P6，输出状态为 `awaiting_oss_finalization` 的 `template-data-package.json`；其中绑定正式 draft、runtimeSemantics、语义审计和四层验证，不上传 OSS、不冒充最终正式 JSON。
+- **第一阶段**：执行 P0–P1，输出 `replacement-package.json`；其中绑定来源分析、替换计划、生图包与 `authoring-intent.json`。本阶段必须完成 IP/文化身份发现、主体连续性和玩法机制冻结，不提交生图 API。
+- **第二阶段**：执行 P2，必须通过生成 adapter 调用图片 API。真实生产使用 `FalQueueWorkflowAdapters` 提交、轮询并下载候选图；候选图通过视觉门禁后输出 Approved Template Image 和绑定当前图片摘要的 `authoring-handoff.json`。
+- **第三阶段**：执行 P3–P6，P3 使用 Approved Image 与只读 Authoring Handoff 做增量分析，输出状态为 `awaiting_oss_finalization` 的 `template-data-package.json`；其中绑定正式 draft、runtimeSemantics、语义审计和四层验证。
 - **第四阶段**：执行 P7–P8，上传当前 Approved Template Image，回填同一 OSS URL，输出最终 `gallery-template.json`。
 - **完整生产**：省略阶段参数或指定第四阶段，依次执行四个大阶段。四次分段调用和一次完整调用使用同一个 Production Item、revision、pin 与产物谱系。
-- **批量提交**：把多张来源网图拆成相互独立的 Production Item；仅在用户显式提供共享批次策略时建立跨图约束。
+- **批量提交**：把多张来源网图拆成相互独立的 Production Item，默认四路并发并按输入顺序归集；仅在用户显式提供共享批次策略时建立跨图约束。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
 - **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；生产 sidecar 留在 Production workspace，交付清单位于单模板数据目录之外，OSS 与正式记录内容不因拆分再次生成。
 
@@ -54,6 +54,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 ## 事实源
 
 - 来源网图只决定换图机制、组件关系和来源风险。
+- `authoring-intent.json` 传递 P1 已冻结的玩法、IP/文化身份、主体连续性和组件结构；`authoring-handoff.json` 将它们与 P2 确认结果绑定。
 - Approved Template Image 决定最终标题、描述、槽位默认值、Prompt Template 和视觉约束。
 - 正式合同决定允许写入 `gallery-template.json` 的字段与类型。
 

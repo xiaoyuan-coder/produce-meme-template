@@ -2,15 +2,15 @@
 
 ## 1. 公共工作流
 
-正式生产只通过 `run_production(request, output_root, adapters, stage=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认不共享业务事实，显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+正式生产只通过 `run_production(request, output_root, adapters, stage=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认四路并发、不共享业务事实，并按输入顺序归集结果。显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
 四个用户大阶段只聚合 P0–P8，不创建平行状态机：
 
 | 大阶段 | 内部边界 | 主产物 | 外部副作用 |
 | --- | --- | --- | --- |
-| 第一阶段：换图执行 | P0–P1 | `replacement-package.json`，绑定 Replacement Plan 与 Generation Package | 不提交图片生成、不上传 OSS |
-| 第二阶段：模板图生成与确认 | P2 | 当前 revision 的 Approved Template Image | 调用图片生成 API；真实适配器为 Fal 队列 |
-| 第三阶段：模板数据编译 | P3–P6 | `template-data-package.json` | 不重复生图、不上传 OSS |
+| 第一阶段：换图执行 | P0–P1 | `replacement-package.json`，绑定 Replacement Plan、Generation Package 与 Authoring Intent | 不提交图片生成、不上传 OSS |
+| 第二阶段：模板图生成与确认 | P2 | 当前 revision 的 Approved Template Image 与 Authoring Handoff | 调用图片生成 API；真实适配器为 Fal 队列 |
+| 第三阶段：模板数据编译 | P3–P6 | `template-data-package.json` | 通过 Approved Image + Handoff 做增量分析，不重复生图、不上传 OSS |
 | 第四阶段：OSS 最终化 | P7–P8 | `gallery-template.json` | 上传当前 Approved Template Image 并回填 URL |
 
 每次分段调用先重放 Production Item 身份、pin、revision、产物 SHA 和依赖摘要。请求到达已完成边界时幂等返回该阶段主产物；请求后续阶段时从当前边界继续。上游变化继续按原依赖图失效下游。第三阶段数据包明确标记 `awaiting_oss_finalization`，其中的 `gallery-template.draft.json` 只用于第四阶段正式投影。
@@ -24,8 +24,8 @@
 | 阶段 | 状态 | 主要产物 |
 | --- | --- | --- |
 | P0 | `INGESTED` | source evidence、`source-analysis.json`、`production-pin.json` |
-| P1 | `REPLACEMENT_PLANNED` | `replacement-plan.json`、`generation-package.json`、`replacement-package.json` |
-| P2 | `TEMPLATE_IMAGE_APPROVED` | `generation-task.json`、`generation-wal.json`、Generated Candidate Image、Approved Template Image、`visual-review.json` |
+| P1 | `REPLACEMENT_PLANNED` | `replacement-plan.json`、`generation-package.json`、`authoring-intent.json`、`replacement-package.json` |
+| P2 | `TEMPLATE_IMAGE_APPROVED` | `generation-task.json`、`generation-wal.json`、Generated Candidate Image、Approved Template Image、`visual-review.json`、`authoring-handoff.json` |
 | P3 | `TEMPLATE_ANALYZED` | `template-analysis.json` |
 | P4 | `EDITABLE_SPEC_COMPILED` | `editable-template-spec.json` |
 | P5 | `TEMPLATE_COMPILED` | `hidden-template-spec.json`、`gallery-template.draft.json` |
@@ -38,6 +38,7 @@
 ## 3. 适配器门禁
 
 - 来源分析证据必须绑定 Source Web Image SHA。
+- 来源分析必须提供类型化 `culturalReferenceDiscovery` 和 `subjectContinuity`；前者覆盖 IP/文化身份发现，后者冻结主体数量、物种/类型、性别呈现、年龄、服装角色、反差机制和保留特征。两者同时进入 Generation Package 和 Authoring Intent。
 - 来源分析 adapter 同时接收规范化后单图策略的隔离副本，不能修改工作流用于身份摘要与规划的原始快照。指定值通过独立 `explicitReplacementEvaluation` 证据执行同类、语义、视觉、权利与安全硬过滤，无需进入自主替换池。
 - 文字与自主场景目标必须提供 `targetEligibility` 前置条件证据；显式场景值依据策略优先级直接进入硬过滤。冻结项通过绑定策略值和变更组件 ID 的 `preserveConflictEvaluations` 做语义冲突判定，与主要目标或依赖闭包重叠时在 P1 前阻断。
 - 权利或安全证据仍为 `review` 的显式值，以及没有 pass 候选但存在 review 候选的自主路由，统一返回 `needs_input / NEEDS_REVIEW`，不与确定不兼容混为同一阻断结果。
@@ -45,7 +46,7 @@
 - 来源组件图和图片操作必须使用机器合同中的完整字段形状。具名依赖闭包与操作目标精确一致；接触和遮挡关系显式进入保持列表。P2 对每个操作检查目标清除、稳定锚点、关系保持和非目标漂移，任一失败都不创建确认图。详细规则读取 `multi-instance-image-operations.md`。
 - 普通真人、公众人物和知名 IP 额外提供具名身份路由、完整重绘依据、双向绑定的 distinctIdentity 证据、带组件 ID 的身份拓扑、身份文字决策和自主冻结项冲突证据。公众人物与知名 IP 的同类候选必须带身份锚点、反锚点和玩法融合要求；空身份、同值/同义身份、缺少 full-body、拓扑/闭包不完全相等、文字组件类型错绑或互斥冻结命令都在生图前停止。同步文字通过具名关系类型绑定新身份，可使用英文名、团名、称谓、号码、识别色或徽标。
 - P2 的 `identityTextEvidence` 必须与当前身份路由适用性一致；旧身份残留或新身份文字不同步都派生为视觉硬失败。subject 上传 type 与 primary-subject role 双向配对，并作为身份是否开放的判定事实。主体开放时，具体新身份只能出现在主体槽默认态；标题、描述、非主体槽完整文案、自由内容、固定 Prompt 片段和隐藏层均保持中性，并接受内容摘要绑定的独立语义审计。主体固定且身份文字同步时，描述和固定 Prompt 可以使用新身份。
-- 视觉审核必须绑定当前 Generation Package SHA、生成图 SHA、完整证据 SHA、检查方法版本和时间；模板分析必须绑定当前 Approved Template Image SHA。详细规则读取 `template-image-gate.md`。
+- 视觉审核必须绑定当前 Generation Package SHA、生成图 SHA、完整证据 SHA、检查方法版本和时间；模板分析必须绑定当前 Approved Template Image SHA 和同摘要 Authoring Handoff。Handoff 与图片快照均为只读，详细规则读取 `template-image-gate.md`。
 - 语义审计必须绑定标题、Prompt、隐藏层、自由内容和全部槽位值的规范摘要，并通过机器规则声明的完整审计项；推荐项的同轴、同颗粒度和可生成性属于该独立语义审计。adapter 只接收隔离的只读快照；返回后请求摘要或核心编译摘要发生变化时返回稳定外部失败，P4/P5 产物不能与 P8 投影分叉。
 - Generation Package 与审核绑定由工作流核心保留不可变快照；生成 adapter 接收隔离的 Generation Package，视觉审核 adapter 接收当前摘要与 `imageOperations` 隔离副本，按动态 operation ID 逐项返回证据。返回结果必须重新绑定核心持有的 request ID 与摘要；adapter 改写审核请求会使证据失效。
 - 生成数量默认为 1；显式选项与主输出索引经预检后进入 Production Item 身份。核心在 submit 前冻结 generation task 并落盘 prepared WAL，submit 后先持久化 provider request ID 再轮询。恢复、失败分类和完成态语义对账读取 `generation-execution-and-recovery.md`。

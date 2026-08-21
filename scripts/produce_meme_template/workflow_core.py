@@ -76,6 +76,9 @@ class WorkflowAdapters(Protocol):
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]: ...
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]: ...
+    def analyze_approved_with_handoff(
+        self, approved_image: Path, authoring_handoff: dict[str, Any]
+    ) -> dict[str, Any]: ...
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]: ...
     def audit_visual_contract(
         self, approved_image: Path, review_request: dict[str, Any]
@@ -608,6 +611,7 @@ def _current_p2_artifact_errors(manifest: dict[str, Any]) -> list[str]:
         return []
     errors: list[str] = []
     for name in (
+        MACHINE_RULES["authoringHandoffContract"]["artifactNames"]["handoff"],
         _revisioned_name("generation-package.json", revision),
         _revisioned_name("generation-task.json", revision),
         _revisioned_name("generation-wal.json", revision),

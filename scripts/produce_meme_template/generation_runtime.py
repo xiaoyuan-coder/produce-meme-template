@@ -47,6 +47,37 @@ def _compile_generation_package(
         "spatialRelations": "；".join(source_analysis["spatialRelations"]),
         "output": "保持完整画布与原比例，清晰输出，不新增文字。",
     }
+    context_contract = rules["sourceAuthoringContextContract"]
+    cultural = source_analysis[context_contract["culturalReferenceField"]]
+    continuity = source_analysis[context_contract["subjectContinuityField"]]
+    cultural_fields = context_contract["culturalReferenceFields"]
+    reference_fields = context_contract["referenceFields"]
+    references = cultural[cultural_fields["references"]]
+    cultural_values = [
+        f"{reference[reference_fields['name']]}({reference[reference_fields['role']]})"
+        for reference in references
+    ]
+    sections["culturalReference"] = (
+        "IP/文化身份结论: "
+        + cultural[cultural_fields["status"]]
+        + "；已确认锚点: "
+        + ("、".join(cultural_values) if cultural_values else "无")
+        + "；候选: "
+        + ("、".join(cultural[cultural_fields["candidates"]]) or "无")
+    )
+    continuity_fields = context_contract["subjectContinuityFields"]
+    sections["subjectContinuity"] = "；".join(
+        [
+            f"主体数量: {continuity[continuity_fields['subjectCount']]}",
+            f"物种/类型: {continuity[continuity_fields['speciesOrType']]}",
+            f"性别呈现: {continuity[continuity_fields['genderPresentation']]}",
+            f"年龄阶段: {continuity[continuity_fields['apparentAge']]}",
+            f"服装角色: {continuity[continuity_fields['outfitRole']]}",
+            f"反差机制: {continuity[continuity_fields['contrastMechanism']]}",
+            "必须保持: "
+            + "、".join(continuity[continuity_fields["preserveTraits"]]),
+        ]
+    )
     identity_contract = rules["identityReplacementContract"]
     plan_fields = identity_contract["planFields"]
     if plan_fields["route"] in plan:

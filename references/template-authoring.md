@@ -2,7 +2,7 @@
 
 ## 1. 适用范围与完成标准
 
-P3–P6 只依据当前 Production Item 的 Approved Template Image 编写标题、描述、槽位、Prompt Template 和 `runtimeSemantics`。本规范统一回答五个问题：模板身份由什么构成，哪些内容开放为槽位，哪些内容保留为全文自由编辑，正式槽位属性如何填写，以及运行视觉合同如何逐图约束画风。
+P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA 绑定的只读 Authoring Handoff。Approved Image 决定最终可见事实；Handoff 提供 P1 已冻结的玩法、IP/文化身份、主体连续性、组件拓扑和替换边界。P3 围绕两者差量编写标题、描述、槽位、Prompt Template 和 `runtimeSemantics`，不重复从零发现上述语义事实。
 
 完成一次编写前，逐项确认：每个用户可见字面都能追溯到当前确认图或用户对该图的显式要求；每个槽位都通过四道价值门禁并绑定当前组件；Prompt 完整表达开放内容；`runtimeSemantics` 精确定位目标并使用可观察的画风事实；当前 Production Item 没有读取兄弟项的标题、默认值、槽位、Prompt 或视觉合同。
 
@@ -31,6 +31,8 @@ P3–P6 只依据当前 Production Item 的 Approved Template Image 编写标题
 4. 具有编辑价值但不值得占用独立控件时，进入 Prompt Template 的全文自由编辑内容。
 5. 缺少独立编辑价值且承担版式或语境职责时，作为固定视觉内容保留。
 6. 水印、来源标记和失效身份依赖执行清理；事实歧义进入人工复核。
+
+主体槽采用强制优先级：当前图存在明显主体，且用户上传图能在保持机制的前提下接管该主体时，必须开放 `subject`。“当前 v2 不支持”、“为了简化控件”或自由文本理由不能省略主体。省略时必须提供 `uploadReplacementFeasible=false` 和机器合同允许的类型化 blocker；明显猫、狗、人物、单个道具等可分离主体通常不满足省略条件。
 
 结构化槽位的四道门禁固定为：
 
@@ -152,6 +154,8 @@ P3–P6 只依据当前 Production Item 的 Approved Template Image 编写标题
 ## 8. Prompt Template 编译规范
 
 Prompt Template 是用户可见且可全文替换的完整自然语言画面描述。按当前确认图的阅读顺序编写：主要目标与动作、容器和关系、其他开放内容、具有编辑价值的自由内容。每个结构化槽恰好以 `{{ id | "默认值" }}` 出现，所有 `freeEditableContent` 原样出现。
+
+Prompt Template 的每个字面都应是用户可编辑的内容或它们之间的自然关系。“保留宠物照片剪贴与扁平应援图形的混合媒介”这类媒介、画风、渲染、固定构图、材质纪律、水印清理或内部审核指令统一进入 `runtimeSemantics.visualContract` 或生产 sidecar；机器合同在 `editable-template-spec.json` 写入前拦截泄漏片段。
 
 默认值和每条推荐项逐项代入后都必须得到无残留 placeholder、语法完整、关系清楚的自然句。Prompt Template 只表达用户有权修改的画面内容及其自然关系；媒介、画风、固定构图、材质纪律、清洁要求和内部冲突说明进入 `runtimeSemantics.visualContract` 或生产 sidecar。
 

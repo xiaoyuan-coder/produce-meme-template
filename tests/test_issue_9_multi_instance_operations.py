@@ -274,7 +274,9 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
                     "modelControllable": True,
                     "mechanismPreserved": False,
                 },
-                "reason": "v2 将四个独立身份位作为有序内容组编辑，不合并为单主体上传。",
+                "uploadReplacementFeasible": False,
+                "blockerCode": "inseparable_multi_identity_unit",
+                "evidence": "v2 将四个独立身份位作为有序内容组编辑，不合并为单主体上传。",
             }
         replacement_slot = analysis["slotCandidates"][2] if scene_replacement else subject_slot
         replacement_slot["defaultValue"] = self.scenario["replacementValue"]
@@ -295,7 +297,9 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
                     "modelControllable": True,
                     "mechanismPreserved": False,
                 },
-                "reason": "当前机制仅替换场景，主体作为稳定锚点不开放。",
+                "uploadReplacementFeasible": False,
+                "blockerCode": "fixed_identity_is_mechanism_anchor",
+                "evidence": "当前机制仅替换场景，主体作为稳定锚点不开放。",
             }
             analysis["promptTemplate"] = (
                 f'保留{{{{ cushion_look | "{container_default}" }}}}的层次，'

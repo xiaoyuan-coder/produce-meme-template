@@ -22,9 +22,9 @@ def stage_rows(rules: dict[str, Any]) -> str:
     contract = rules["majorStageContract"]
     artifact_names = contract["artifactNames"]
     descriptions = {
-        "replacement": "冻结换图计划与生图任务；不调用图片 API",
-        "template_image": "调用 Fal API 生成候选图，通过视觉审核后确认模板图",
-        "template_data": "编译并校验待 OSS 的 v2 模板数据包",
+        "replacement": "冻结换图计划、生图任务和 Authoring Intent；不调用图片 API",
+        "template_image": "调用 Fal API 生成候选图，确认模板图并编译 Authoring Handoff",
+        "template_data": "通过 Approved Image + Handoff 增量编译并校验待 OSS 数据包",
         "final": "上传确认模板图到 OSS，回填并交付正式模板 JSON",
     }
     display_names = {
@@ -95,7 +95,11 @@ def render() -> str:
 ## 核心合同
 
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
+- P1 必须完成 IP/文化身份发现和主体连续性冻结；`authoring-intent.json` 与 `authoring-handoff.json` 将这些事实注入 P3。
+- 默认批次使用 `{rules['batchProductionContract']['executionPolicy']['defaultMaxConcurrency']}` 路并发，结果仍按输入顺序归集。
 - 高价值内容进入 `inputSchema`；可全文编辑且无需主动开槽的内容保留在 `promptTemplate`。
+- 明显主体只要能通过用户上传图实现替换，就必须开放 subject 槽；自由文本理由不能作为省略证据。
+- `promptTemplate` 只承载用户可编辑内容；媒介、画风、固定构图和清理指令进入隐藏视觉合同。
 - subject 图片默认继承用户上传图的清晰可见身份特征；只有核心玩法特征沿用模板值。
 - 纯色铺底默认留在 Prompt 或色光事实中；缺少独立高价值编辑动机时不建立槽位。
 - subject 可采用混合服装权限：上传图提供身份、配色和局部细节，模板只固定承担动作与构图机制的轮廓或体积。

@@ -435,6 +435,23 @@ def _compile_editable_spec(
     analysis: dict[str, Any], rules: dict[str, Any], plan: dict[str, Any]
 ) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
+    prompt_template = analysis.get("promptTemplate")
+    hidden_prompt_fragments = rules["authoringHandoffContract"][
+        "promptTemplateForbiddenHiddenFragments"
+    ]
+    leaked_hidden_fragments = [
+        fragment
+        for fragment in hidden_prompt_fragments
+        if isinstance(prompt_template, str) and fragment in prompt_template
+    ]
+    if leaked_hidden_fragments:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "Prompt Template 含有只应进入隐藏视觉合同的媒介、画风、构图或清理指令。",
+            {"forbiddenFragments": leaked_hidden_fragments},
+        )
     title_contract = rules["titleAuthoringContract"]
     title_gate_fields = set(title_contract["gateFields"].values())
     title_evidence = analysis.get(title_contract["analysisField"])
@@ -644,22 +661,29 @@ def _compile_editable_spec(
         )
     if has_primary_subject and not any(slot["semanticRole"] == subject_role for slot in slots):
         omission = analysis.get("subjectSlotOmissionEvidence")
+        omission_contract = rules["authoringHandoffContract"][
+            "subjectOmissionContract"
+        ]
         omission_valid = bool(
             isinstance(omission, dict)
+            and set(omission) == set(omission_contract["requiredFields"])
             and omission.get("reviewed") is True
             and isinstance(omission.get("valueGates"), dict)
             and set(omission["valueGates"]) == set(value_gate_roles)
             and all(isinstance(value, bool) for value in omission["valueGates"].values())
             and not all(omission["valueGates"].values())
-            and isinstance(omission.get("reason"), str)
-            and omission["reason"].strip()
+            and omission.get("uploadReplacementFeasible") is False
+            and omission.get("blockerCode")
+            in set(omission_contract["allowedBlockerCodes"])
+            and isinstance(omission.get("evidence"), str)
+            and omission["evidence"].strip()
         )
         if not omission_valid:
             raise _stop(
                 rules,
                 "blocked",
                 "contractFailure",
-                "画面存在明显主体，但高价值槽位没有主体入口或省略证据无效。",
+                "画面存在明显主体：只要上传替换可实现就必须开放 subject 槽；省略时需要类型化的不可实现证据。",
                 {},
             )
     if subject_kind == person_kind:

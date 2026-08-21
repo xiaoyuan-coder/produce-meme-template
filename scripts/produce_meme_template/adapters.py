@@ -150,12 +150,64 @@ class DeterministicFixtureAdapters:
         self.submission_calls: list[dict[str, Any]] = []
         self.poll_calls: list[dict[str, Any]] = []
         self.upload_calls: list[dict[str, Any]] = []
+        self.authoring_handoffs: list[dict[str, Any]] = []
 
     def analyze_source(
         self, source_image: Path, replacement_strategy: dict[str, Any] | None
     ) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "source-analysis.json")
+        result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
         result["sourceImageSha256"] = hashlib.sha256(source_image.read_bytes()).hexdigest()
+        rules = _read_json(RULES_PATH)
+        context_contract = rules["sourceAuthoringContextContract"]
+        cultural_field = context_contract["culturalReferenceField"]
+        continuity_field = context_contract["subjectContinuityField"]
+        target = result["target"]
+        known_ip = target["category"] == rules["sourceCategories"][
+            "knownCharacterIp"
+        ]
+        if cultural_field not in result:
+            result[cultural_field] = {
+                "assessed": True,
+                "status": "identified" if known_ip else "not_detected",
+                "checkedSignals": [
+                    "角色造型与配色",
+                    "服装、道具与身份符号",
+                    "画面中可辨识的系列元素",
+                ],
+                "references": (
+                    [
+                        {
+                            "name": target["identity"],
+                            "type": "known_character_ip",
+                            "role": target["role"],
+                            "evidence": "fixture 已将主要目标确认为具名角色 IP",
+                        }
+                    ]
+                    if known_ip
+                    else []
+                ),
+                "candidates": [],
+                "evidence": (
+                    "已核对主体设计、标志性服装道具与系列符号"
+                ),
+            }
+        if continuity_field not in result:
+            mechanism = result["mechanism"]
+            result[continuity_field] = {
+                "subjectCount": 1,
+                "speciesOrType": target["category"],
+                "genderPresentation": "当前画面未显示可靠性别线索",
+                "apparentAge": "保持当前主体的年龄阶段",
+                "outfitRole": "保持服装在当前玩法中的角色",
+                "contrastMechanism": mechanism["payoff"],
+                "preserveTraits": [
+                    mechanism["setup"],
+                    mechanism["turn"],
+                    mechanism["payoff"],
+                ],
+                "evidence": "fixture 从来源机制中冻结主体连续性下界",
+            }
         if replacement_strategy and replacement_strategy.get("replacementValue") is not None:
             requested_value = replacement_strategy["replacementValue"]
             requested_category = replacement_strategy["replacementCategory"]
@@ -336,6 +388,7 @@ class DeterministicFixtureAdapters:
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "visual-review.json")
+        result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
         contract = _read_json(RULES_PATH)["visualReviewContract"]
         result["bindings"] = {
             **review_request["bindings"],
@@ -346,6 +399,17 @@ class DeterministicFixtureAdapters:
 
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "approved-analysis.json")
+        result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
+        omission = result.get("subjectSlotOmissionEvidence")
+        if isinstance(omission, dict) and "reason" in omission:
+            evidence = omission.pop("reason")
+            omission.update(
+                {
+                    "uploadReplacementFeasible": False,
+                    "blockerCode": "inseparable_multi_identity_unit",
+                    "evidence": evidence,
+                }
+            )
         image_sha = hashlib.sha256(approved_image.read_bytes()).hexdigest()
         result["visualFactSourceSha256"] = image_sha
         decision_contract = _read_json(RULES_PATH).get(
@@ -360,8 +424,15 @@ class DeterministicFixtureAdapters:
                 decision[approved_image_field] = image_sha
         return result
 
+    def analyze_approved_with_handoff(
+        self, approved_image: Path, authoring_handoff: dict[str, Any]
+    ) -> dict[str, Any]:
+        self.authoring_handoffs.append(copy.deepcopy(authoring_handoff))
+        return self.analyze_approved(approved_image)
+
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "semantic-audit.json")
+        result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
         rules = _read_json(RULES_PATH)
         roles = rules["semanticAuditChecks"]
         slots = content["slots"]
@@ -943,6 +1014,14 @@ class FalQueueWorkflowAdapters:
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         return self.delegate.analyze_approved(approved_image)
 
+    def analyze_approved_with_handoff(
+        self, approved_image: Path, authoring_handoff: dict[str, Any]
+    ) -> dict[str, Any]:
+        method = getattr(self.delegate, "analyze_approved_with_handoff", None)
+        if callable(method):
+            return method(approved_image, authoring_handoff)
+        return self.delegate.analyze_approved(approved_image)
+
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.delegate.audit_semantics(content)
 
@@ -1188,6 +1267,14 @@ class AliyunOssWorkflowAdapters:
         )
 
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
+        return self.delegate.analyze_approved(approved_image)
+
+    def analyze_approved_with_handoff(
+        self, approved_image: Path, authoring_handoff: dict[str, Any]
+    ) -> dict[str, Any]:
+        method = getattr(self.delegate, "analyze_approved_with_handoff", None)
+        if callable(method):
+            return method(approved_image, authoring_handoff)
         return self.delegate.analyze_approved(approved_image)
 
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:

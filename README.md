@@ -8,21 +8,21 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `1.7.0` | `release.json` |
-| 发布验收 Profile | `compatible_minor` | `release.json` |
-| Artifact Schema | `0.22.0` | `release.json` |
+| Skill 版本 | `2.0.0` | `release.json` |
+| 发布验收 Profile | `live_external` | `release.json` |
+| Artifact Schema | `0.23.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
-| Manifest 更新时间 | `2026-08-20` | `skill-manifest.json` |
-| Manifest 跟踪文件 | `190` 个 | `skill-manifest.json` |
+| Manifest 更新时间 | `2026-08-21` | `skill-manifest.json` |
+| Manifest 跟踪文件 | `193` 个 | `skill-manifest.json` |
 
 ## 四阶段生产 SOP
 
 | 阶段 | selector | 名称 | 工作与边界 | 主要产物 |
 | --- | --- | --- | --- | --- |
-| 1 | `replacement` | 换图执行 | 冻结换图计划与生图任务；不调用图片 API | `replacement-package.json` |
-| 2 | `template_image` | 模板图生成 | 调用 Fal API 生成候选图，通过视觉审核后确认模板图 | `Approved Template Image` |
-| 3 | `template_data` | 模板数据编译 | 编译并校验待 OSS 的 v2 模板数据包 | `template-data-package.json` |
+| 1 | `replacement` | 换图执行 | 冻结换图计划、生图任务和 Authoring Intent；不调用图片 API | `replacement-package.json` |
+| 2 | `template_image` | 模板图生成 | 调用 Fal API 生成候选图，确认模板图并编译 Authoring Handoff | `Approved Template Image` |
+| 3 | `template_data` | 模板数据编译 | 通过 Approved Image + Handoff 增量编译并校验待 OSS 数据包 | `template-data-package.json` |
 | 4 | `final` | OSS 最终化 | 上传确认模板图到 OSS，回填并交付正式模板 JSON | `gallery-template.json` |
 
 省略 `stage` 或指定第四阶段时，工作流依次完成全部四阶段。第二阶段必须通过图片生成 adapter 调用 API；真实生产使用 Fal 队列。第三阶段的产物状态为 `awaiting_oss_finalization`，只有第四阶段完成 OSS 上传与 URL 回填后才会生成正式 `gallery-template.json`。
@@ -30,7 +30,11 @@
 ## 核心合同
 
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
+- P1 必须完成 IP/文化身份发现和主体连续性冻结；`authoring-intent.json` 与 `authoring-handoff.json` 将这些事实注入 P3。
+- 默认批次使用 `4` 路并发，结果仍按输入顺序归集。
 - 高价值内容进入 `inputSchema`；可全文编辑且无需主动开槽的内容保留在 `promptTemplate`。
+- 明显主体只要能通过用户上传图实现替换，就必须开放 subject 槽；自由文本理由不能作为省略证据。
+- `promptTemplate` 只承载用户可编辑内容；媒介、画风、固定构图和清理指令进入隐藏视觉合同。
 - subject 图片默认继承用户上传图的清晰可见身份特征；只有核心玩法特征沿用模板值。
 - 纯色铺底默认留在 Prompt 或色光事实中；缺少独立高价值编辑动机时不建立槽位。
 - subject 可采用混合服装权限：上传图提供身份、配色和局部细节，模板只固定承担动作与构图机制的轮廓或体积。

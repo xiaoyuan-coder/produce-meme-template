@@ -2,13 +2,13 @@
 
 ## 1. 审计结论
 
-本矩阵覆盖《新模板生产 Skill 实施规格》中的 47 条 Implementation Decisions。审计区分三类落点：
+本矩阵覆盖《新模板生产 Skill 实施规格》与当前流程优化中的 48 条 Implementation Decisions。审计区分三类落点：
 
 - **ADR**：难以逆转、脱离上下文会令人意外、存在真实取舍的决定。
 - **可变规则**：由唯一 reference、机器 Schema、compiler 或 fixture 管理，可以版本化演进。
 - **发布配置**：由 release 配置和发布门禁管理，不另设 ADR。
 
-ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0023 中共有 22 份生效决定。47 条实施决策全部获得唯一权威落点，未发现需要重新询问的高风险分支。
+ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0025 中共有 24 份生效决定。48 条实施决策全部获得唯一权威落点，未发现需要重新询问的高风险分支。
 
 “已覆盖”只表示决定和规则所有者已经明确。尚未存在的 Schema、compiler、reference 和 fixture 仍需后续 ticket 实现。
 
@@ -63,6 +63,7 @@ ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0023 中共有 22 份生效�
 | D45 | `0.1.0` 开发，影子运行通过后冻结 `1.0.0` | 发布配置 | `release.json`、发布检查和影子运行验收 | 配置门禁已指定 |
 | D46 | 旧 Unified 与拆分版只作只读迁移事实源 | 仓库与迁移边界 | ADR 0011；历史经验迁移矩阵 | 复合覆盖 |
 | D47 | 四个可恢复用户大阶段聚合 P0–P8，第二阶段调用 Fal API | 公共工作流与外部副作用 | ADR 0023；`references/vertical-slice-runtime.md` | 复合覆盖 |
+| D48 | P1 语义/结构经验通过 Authoring Handoff 注入 P3，P3 以 Approved Image 做增量分析；默认批次四路并发 | 阶段事实边界与性能架构 | ADR 0025；`references/template-image-gate.md`；`references/shared-batch-policy.md` | 复合覆盖 |
 
 ## 3. ADR 边界检查
 

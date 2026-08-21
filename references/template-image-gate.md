@@ -12,6 +12,8 @@ P2 必须逐项验证主要目标替换、依赖闭包、非目标保持、画�
 
 P3 模板分析只接收与 Approved Template Image 字节一致的只读临时快照，核心产物路径不暴露给 adapter。工作流在调用前保存 P2 已审核摘要，调用后验证快照与正式 Approved Image 未变、分析证据仍绑定调用前摘要；快照被改写、删除或替换类型也统一返回稳定外部失败并停止上传。P7 上传使用同一快照边界，上传凭证继续绑定调用前摘要。
 
+P2 通过后还要编译 `authoring-handoff.json`：它绑定 P1 `authoring-intent.json`、当前 Generation Package、Visual Review 和 Approved Image SHA，并保留机制、IP/文化身份、主体连续性、替换拓扑与审批增量。P3 adapter 同时接收只读图片快照和只读 Handoff；任一对象在调用中变化都使证据失效。
+
 任一硬门禁或六维事实失败时，工作流将审核决定派生为 `rejected`，返回机器规则中的视觉硬失败并停止在 P2。请求中的人工决定和 adapter 自报决定都不能覆盖硬失败。
 
 ## 3. 自主确认与风险升级

@@ -14,6 +14,12 @@ from .artifacts import (
     sha256_bytes as _sha_bytes,
     sha256_file as _sha_file,
 )
+from .authoring_handoff import (
+    authoring_handoff_valid,
+    compile_authoring_handoff,
+    compile_authoring_intent,
+    source_authoring_context_errors,
+)
 from .release_management import doctor
 from .batch_policy import (
     _isolated_output_dir,
@@ -167,19 +173,74 @@ def _run_template_data_stage(
     approved_rel = approved_names[0]
     approved_path = output_dir / approved_rel
     approved_sha = _sha_file(approved_path)
-    analysis = _adapter_snapshot_image_object_call(
-        rules,
-        "analyze_approved",
-        adapters.analyze_approved,
-        approved_path,
-        approved_sha,
+    handoff_name = rules["authoringHandoffContract"]["artifactNames"]["handoff"]
+    handoff_path = output_dir / handoff_name
+    if not handoff_path.is_file():
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "第三阶段缺少与 Approved Template Image 绑定的 Authoring Handoff。",
+            {"artifact": handoff_name},
+        )
+    authoring_handoff = _load_json(handoff_path)
+    intent_name = rules["authoringHandoffContract"]["artifactNames"]["intent"]
+    generation_package_name = _revisioned_name(
+        "generation-package.json", revision
     )
-    if analysis.get("visualFactSourceSha256") != approved_sha:
+    authoring_intent = _load_json(output_dir / intent_name)
+    generation_package = _load_json(output_dir / generation_package_name)
+    review = _load_json(output_dir / review_name)
+    expected_handoff_bindings = {
+        "sourceImageSha256": source_analysis["sourceImageSha256"],
+        "sourceAnalysisSha256": _sha_bytes(_canonical_bytes(source_analysis)),
+        "replacementPlanSha256": _sha_bytes(_canonical_bytes(plan)),
+        "generationPackageSha256": _sha_bytes(
+            _canonical_bytes(generation_package)
+        ),
+        "authoringIntentSha256": _sha_bytes(_canonical_bytes(authoring_intent)),
+        "visualReviewSha256": _sha_bytes(_canonical_bytes(review)),
+        "approvedImageSha256": approved_sha,
+    }
+    if (
+        not authoring_handoff_valid(authoring_handoff, approved_sha, rules)
+        or authoring_handoff.get("bindings") != expected_handoff_bindings
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "Authoring Handoff 的结构或 Approved Image 绑定无效。",
+            {"artifact": handoff_name},
+        )
+    handoff_request = copy.deepcopy(authoring_handoff)
+    handoff_sha = _sha_bytes(_canonical_bytes(handoff_request))
+    analyze_with_handoff = getattr(adapters, "analyze_approved_with_handoff", None)
+    if not callable(analyze_with_handoff):
         raise _stop(
             rules,
             "failed",
             "externalFailure",
-            "模板分析修改了确认模板图或未绑定视觉审核通过的图片摘要。",
+            "模板分析 adapter 缺少 Authoring Handoff seam。",
+            {"operation": "analyze_approved_with_handoff"},
+        )
+    analysis = _adapter_snapshot_image_object_call(
+        rules,
+        "analyze_approved_with_handoff",
+        analyze_with_handoff,
+        approved_path,
+        approved_sha,
+        handoff_request,
+    )
+    if (
+        analysis.get("visualFactSourceSha256") != approved_sha
+        or _sha_bytes(_canonical_bytes(handoff_request)) != handoff_sha
+    ):
+        raise _stop(
+            rules,
+            "failed",
+            "externalFailure",
+            "模板分析修改了确认图或 Authoring Handoff，或未绑定当前图片摘要。",
             {"approvedImageSha256": approved_sha},
         )
     _atomic_write_new(output_dir / "template-analysis.json", _json_bytes(analysis))
@@ -188,7 +249,7 @@ def _run_template_data_stage(
         output_dir,
         "template-analysis.json",
         p3,
-        [approved_rel, review_name],
+        [approved_rel, review_name, handoff_name],
     )
     _advance(manifest, rules, p3, timestamp)
     _persist_manifest(output_dir, manifest)
@@ -356,6 +417,7 @@ def _run_template_data_stage(
     ]
     data_roles = {
         "approvedTemplateImage": approved_rel,
+        "authoringHandoff": handoff_name,
         "templateAnalysis": "template-analysis.json",
         "editableTemplateSpec": "editable-template-spec.json",
         "runtimeSemanticsSpec": "hidden-template-spec.json",
@@ -496,6 +558,7 @@ def _run_single_production(
     source_analysis: dict[str, Any]
     plan: dict[str, Any]
     generation_package: dict[str, Any]
+    authoring_intent: dict[str, Any]
     generation_task: dict[str, Any]
     generation_wal: dict[str, Any]
     generation_submission: dict[str, Any]
@@ -805,6 +868,7 @@ def _run_single_production(
                     "source-analysis.json",
                     "replacement-plan.json",
                     generation_package_name,
+                    rules["authoringHandoffContract"]["artifactNames"]["intent"],
                     replacement_name,
                 ),
                 2: (
@@ -812,6 +876,8 @@ def _run_single_production(
                     "source-analysis.json",
                     "replacement-plan.json",
                     generation_package_name,
+                    rules["authoringHandoffContract"]["artifactNames"]["intent"],
+                    rules["authoringHandoffContract"]["artifactNames"]["handoff"],
                     replacement_name,
                 ),
                 3: (
@@ -819,6 +885,8 @@ def _run_single_production(
                     "source-analysis.json",
                     "replacement-plan.json",
                     generation_package_name,
+                    rules["authoringHandoffContract"]["artifactNames"]["intent"],
+                    rules["authoringHandoffContract"]["artifactNames"]["handoff"],
                     replacement_name,
                     "gallery-template.draft.json",
                     "validation-report.json",
@@ -1372,6 +1440,17 @@ def _run_single_production(
                     "来源分析证据与输入图片或主体身份不一致。",
                     {},
                 )
+            authoring_context_errors = source_authoring_context_errors(
+                source_analysis, rules
+            )
+            if authoring_context_errors:
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "来源分析没有完成 IP/文化身份发现或主体连续性冻结。",
+                    {"errors": authoring_context_errors},
+                )
             _atomic_write_new(output_dir / "source-analysis.json", _json_bytes(source_analysis))
             _record_artifact(manifest, output_dir, "source-analysis.json", p0, [str(evidence_source.relative_to(output_dir))])
             plan_dependencies = ["source-analysis.json"]
@@ -1413,6 +1492,9 @@ def _run_single_production(
             _persist_manifest(output_dir, manifest)
 
             generation_package = _compile_generation_package(plan, source_analysis, rules)
+            authoring_intent = compile_authoring_intent(
+                source_analysis, plan, rules
+            )
         execution_contract = rules["generationExecutionContract"]
         task_fields = execution_contract["taskFields"]
         wal_fields = execution_contract["walFields"]
@@ -1440,6 +1522,17 @@ def _run_single_production(
                 p1,
                 ["replacement-plan.json"],
             )
+            intent_name = rules["authoringHandoffContract"]["artifactNames"]["intent"]
+            _atomic_write_new(
+                output_dir / intent_name, _json_bytes(authoring_intent)
+            )
+            _record_artifact(
+                manifest,
+                output_dir,
+                intent_name,
+                p1,
+                ["source-analysis.json", "replacement-plan.json"],
+            )
             replacement_name = rules["majorStageContract"]["artifactNames"][
                 "replacementPackage"
             ]
@@ -1447,6 +1540,7 @@ def _run_single_production(
                 "sourceAnalysis": "source-analysis.json",
                 "replacementPlan": "replacement-plan.json",
                 "generationPackage": generation_package_name,
+                "authoringIntent": intent_name,
             }
             replacement_package = _stage_package(
                 manifest,
@@ -1894,6 +1988,24 @@ def _run_single_production(
         approved_path = output_dir / approved_rel
         _atomic_write_new(approved_path, candidate_path.read_bytes())
         _record_artifact(manifest, output_dir, approved_rel, p2, [candidate_rel, review_name])
+        intent_name = rules["authoringHandoffContract"]["artifactNames"]["intent"]
+        authoring_intent = _load_json(output_dir / intent_name)
+        authoring_handoff = compile_authoring_handoff(
+            authoring_intent,
+            review,
+            generation_package,
+            _sha_file(approved_path),
+            rules,
+        )
+        handoff_name = rules["authoringHandoffContract"]["artifactNames"]["handoff"]
+        _atomic_write_new(output_dir / handoff_name, _json_bytes(authoring_handoff))
+        _record_artifact(
+            manifest,
+            output_dir,
+            handoff_name,
+            p2,
+            [intent_name, generation_package_name, review_name, approved_rel],
+        )
         _advance(manifest, rules, p2, timestamp)
         _persist_manifest(output_dir, manifest)
         if target_stage == 2:

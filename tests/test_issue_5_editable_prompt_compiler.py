@@ -166,7 +166,9 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                     role: role != VALUE_GATE_ROLES["mechanismPreservation"]
                     for role in VALUE_GATE_ROLES.values()
                 },
-                "reason": "主体替换会破坏唯一的伏卧接触机制",
+                "uploadReplacementFeasible": False,
+                "blockerCode": "fixed_identity_is_mechanism_anchor",
+                "evidence": "主体替换会破坏唯一的伏卧接触机制",
             }
             analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]] = 2
             analysis["assetUnitAnalysis"][ASSET_COUNT_FIELDS["uploads"]] = 0
@@ -178,7 +180,10 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["completed"], result.state)
         editable = load_json(result.output_dir / "editable-template-spec.json")
         self.assertEqual(2, len(editable["slots"]))
-        self.assertEqual("主体替换会破坏唯一的伏卧接触机制", editable["subjectSlotOmissionEvidence"]["reason"])
+        self.assertEqual(
+            "主体替换会破坏唯一的伏卧接触机制",
+            editable["subjectSlotOmissionEvidence"]["evidence"],
+        )
 
     def test_exhaustive_single_slot_exception_is_allowed_and_preserved_as_evidence(self) -> None:
         reviewed_axes = list(SINGLE_SLOT_REVIEW_AXES)

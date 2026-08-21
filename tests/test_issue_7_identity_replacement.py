@@ -295,7 +295,9 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                     gate: gate != VALUE_GATES["userDemand"]
                     for gate in VALUE_GATES.values()
                 },
-                "reason": "当前公众人物与已同步身份文字共同构成固定玩法，本次不开放主体",
+                "uploadReplacementFeasible": False,
+                "blockerCode": "fixed_identity_is_mechanism_anchor",
+                "evidence": "当前公众人物与已同步身份文字共同构成固定玩法，本次不开放主体",
             }
             analysis["assetUnitAnalysis"][COUNT_FIELDS["uploads"]] = 0
             analysis["assetUnitAnalysis"][COUNT_FIELDS["controls"]] = 2
