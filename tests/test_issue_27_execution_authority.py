@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
-from unittest import mock
 
 from scripts.export_gallery_templates import ExportError, export_gallery_templates
 from scripts.produce_meme_template import (
@@ -14,6 +13,7 @@ from scripts.produce_meme_template import (
     run_production,
 )
 from tests.live_production_support import build_live_test_adapters
+from scripts.produce_meme_template.workflow import validate_production_manifest_lineage
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,12 +28,39 @@ def load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def installed_runtime_preflight(_production_pin=None) -> dict:
+    fields = RULES["releaseManagementContract"]["diagnosticFields"]
+    return {
+        "pass": True,
+        fields["installSource"]: "/verified-install/4.0.0",
+        fields["errorCodes"]: [],
+    }
+
+
 class BatchSelfCertifyingAdapters(DeterministicFixtureAdapters):
     """Models the 1376–1382 script: fixture generation plus copied reviews."""
 
     live_review_method_id = "codex-local-visual-inspection"
     live_authoring_analysis_method_id = "batch-copied-authoring-analysis"
     live_authoring_audit_method_id = "batch-copied-authoring-analysis"
+
+
+class UploadTamperingAdapters(DeterministicFixtureAdapters):
+    """Changes an upstream fact after P6 and before P8 qualification."""
+
+    def __init__(self, fixture_dir: Path, audit_path: Path) -> None:
+        super().__init__(fixture_dir)
+        self.audit_path = audit_path
+
+    def upload(self, approved_image: Path, object_key: str) -> dict:
+        result = super().upload(approved_image, object_key)
+        audit = load_json(self.audit_path)
+        audit["pass"] = False
+        self.audit_path.write_text(
+            json.dumps(audit, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return result
 
 
 class RoleAdapter:
@@ -124,11 +151,27 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
             ],
             clock=lambda: FIXED_TIME,
         )
+        resumed = run_production(
+            {**self.request, "productionItemId": "live-readiness-evidence"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"][
+                "liveReadinessExecutionMode"
+            ],
+            clock=lambda: FIXED_TIME,
+        )
 
         self.assertEqual("completed", result.outcome)
+        self.assertEqual("completed", resumed.outcome)
+        self.assertTrue(resumed.resumed)
         self.assertEqual(1, len(fal_client.submit_calls))
         self.assertEqual(1, len(bucket.put_calls))
         profile = load_json(result.output_dir / "production-execution-profile.json")
+        manifest = load_json(result.output_dir / "production-manifest.json")
+        self.assertEqual(
+            [],
+            validate_production_manifest_lineage(result.output_dir, manifest),
+        )
         fields = RULES["productionExecutionContract"]["profileFields"]
         self.assertEqual(
             RULES["productionExecutionContract"]["liveReadinessExecutionMode"],
@@ -199,27 +242,17 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
 
     def test_live_stage_one_requires_and_records_installed_runtime_authority(self) -> None:
         adapters, fal_client, bucket = build_live_test_adapters(FIXTURE)
-        diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
-        diagnosis = {
-            "pass": True,
-            diagnostic_fields["installSource"]: "/verified-install/4.0.0",
-            diagnostic_fields["errorCodes"]: [],
-        }
-
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value=diagnosis,
-        ):
-            result = run_production(
-                {**self.request, "productionItemId": "installed-live-stage-one"},
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                stage=1,
-                clock=lambda: FIXED_TIME,
-            )
+        result = run_production(
+            {**self.request, "productionItemId": "installed-live-stage-one"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"][
+                "executionModes"
+            ]["liveExternal"],
+            stage=1,
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
 
         self.assertEqual("completed", result.outcome)
         profile = load_json(result.output_dir / "production-execution-profile.json")
@@ -254,26 +287,25 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
     def test_live_stage_one_rejects_blank_install_source_before_p0(self) -> None:
         adapters, fal_client, bucket = build_live_test_adapters(FIXTURE)
         diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
-        diagnosis = {
-            "pass": True,
-            diagnostic_fields["installSource"]: "   ",
-            diagnostic_fields["errorCodes"]: [],
-        }
 
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value=diagnosis,
-        ):
-            result = run_production(
-                {**self.request, "productionItemId": "blank-install-source-live"},
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                stage=1,
-                clock=lambda: FIXED_TIME,
-            )
+        def blank_runtime_preflight(_production_pin=None) -> dict:
+            return {
+                "pass": True,
+                diagnostic_fields["installSource"]: "   ",
+                diagnostic_fields["errorCodes"]: [],
+            }
+
+        result = run_production(
+            {**self.request, "productionItemId": "blank-install-source-live"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"][
+                "executionModes"
+            ]["liveExternal"],
+            stage=1,
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=blank_runtime_preflight,
+        )
 
         self.assertEqual("blocked", result.outcome)
         self.assertEqual(
@@ -369,27 +401,26 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
             },
         }
 
-        diagnostic_fields = RULES["releaseManagementContract"][
-            "diagnosticFields"
-        ]
-        with mock.patch(
-            "scripts.produce_meme_template.workflow.doctor",
-            return_value={
+        diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
+
+        def source_worktree_preflight(_production_pin=None) -> dict:
+            return {
                 "pass": True,
                 diagnostic_fields["installSource"]: "source-worktree",
                 diagnostic_fields["errorCodes"]: [],
-            },
-        ):
-            result = run_production(
-                request,
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                stage=1,
-                clock=lambda: FIXED_TIME,
-            )
+            }
+
+        result = run_production(
+            request,
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"][
+                "executionModes"
+            ]["liveExternal"],
+            stage=1,
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=source_worktree_preflight,
+        )
 
         self.assertEqual(
             RULES["errorCodes"]["untrustedProductionExecution"],
@@ -434,6 +465,35 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
             ),
         )
 
+    def test_first_p8_completion_replays_all_persisted_qualification_facts(
+        self,
+    ) -> None:
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "p8-upstream-tamper-during-upload",
+            },
+            self.output_root,
+            UploadTamperingAdapters(
+                FIXTURE,
+                self.output_root
+                / "p8-upstream-tamper-during-upload"
+                / "authoring-contract-audit.json",
+            ),
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "recordedReplay"
+            ],
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual("blocked", result.outcome)
+        self.assertEqual(
+            RULES["errorCodes"]["productionItemIntegrityFailure"],
+            result.error_code,
+        )
+        manifest = load_json(result.output_dir / "production-manifest.json")
+        self.assertNotEqual("completed", manifest.get("outcome"))
+
     def test_execution_mode_cannot_change_when_resuming_an_item(self) -> None:
         request = {**self.request, "productionItemId": "material-1382-mode-drift"}
         replay = run_production(
@@ -463,39 +523,31 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
         self,
     ) -> None:
         adapters, fal_client, bucket = build_live_test_adapters(FIXTURE)
-        diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
-        diagnosis = {
-            "pass": True,
-            diagnostic_fields["installSource"]: "/verified-install/4.0.0",
-            diagnostic_fields["errorCodes"]: [],
-        }
         request = {
             **self.request,
             "productionItemId": "live-full-lineage",
         }
 
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value=diagnosis,
-        ):
-            first = run_production(
-                request,
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                clock=lambda: FIXED_TIME,
-            )
-            second = run_production(
-                request,
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                clock=lambda: FIXED_TIME,
-            )
+        first = run_production(
+            request,
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
+        second = run_production(
+            request,
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
 
         self.assertEqual("completed", first.outcome)
         self.assertEqual("completed", second.outcome)
@@ -526,33 +578,26 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
             return submission
 
         adapters.submit_generation = submit_with_wrong_provider
-        diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value={
-                "pass": True,
-                diagnostic_fields["installSource"]: "/verified-install/4.0.0",
-                diagnostic_fields["errorCodes"]: [],
-            },
-        ):
-            result = run_production(
-                {**self.request, "productionItemId": "live-wrong-generation-provider"},
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                clock=lambda: FIXED_TIME,
-            )
-            resumed = run_production(
-                {**self.request, "productionItemId": "live-wrong-generation-provider"},
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                clock=lambda: FIXED_TIME,
-            )
+        result = run_production(
+            {**self.request, "productionItemId": "live-wrong-generation-provider"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
+        resumed = run_production(
+            {**self.request, "productionItemId": "live-wrong-generation-provider"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
 
         self.assertEqual("blocked", result.outcome)
         self.assertEqual("blocked", resumed.outcome)
@@ -568,24 +613,16 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
             FIXTURE,
             emitted_review_method_id="different-live-reviewer",
         )
-        diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value={
-                "pass": True,
-                diagnostic_fields["installSource"]: "/verified-install/4.0.0",
-                diagnostic_fields["errorCodes"]: [],
-            },
-        ):
-            result = run_production(
-                {**self.request, "productionItemId": "live-wrong-review-method"},
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                clock=lambda: FIXED_TIME,
-            )
+        result = run_production(
+            {**self.request, "productionItemId": "live-wrong-review-method"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
 
         self.assertEqual("blocked", result.outcome)
         self.assertEqual(
@@ -609,24 +646,16 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
             return upload
 
         adapters.upload = upload_with_wrong_provider
-        diagnostic_fields = RULES["releaseManagementContract"]["diagnosticFields"]
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value={
-                "pass": True,
-                diagnostic_fields["installSource"]: "/verified-install/4.0.0",
-                diagnostic_fields["errorCodes"]: [],
-            },
-        ):
-            result = run_production(
-                {**self.request, "productionItemId": "live-wrong-storage-provider"},
-                self.output_root,
-                adapters,
-                execution_mode=RULES["productionExecutionContract"][
-                    "executionModes"
-                ]["liveExternal"],
-                clock=lambda: FIXED_TIME,
-            )
+        result = run_production(
+            {**self.request, "productionItemId": "live-wrong-storage-provider"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
 
         self.assertEqual("blocked", result.outcome)
         self.assertEqual(

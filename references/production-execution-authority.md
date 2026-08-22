@@ -22,7 +22,7 @@
 - doctor 表明运行目录是 source worktree；
 - 恢复时执行模式或画像摘要发生变化。
 
-P2 再核 generation WAL/provider 和视觉审核 method ID；P7/P8 再核 Asset Receipt provider。预检负责节省外部费用，阶段后置复核负责防止 adapter 返回值或持久化证据漂移。
+P2 再核 generation WAL/provider 和视觉审核 method ID；P7 再核 Asset Receipt provider；P8 首次完成前调用与导出共用的全链路资格重放。预检负责节省外部费用，阶段后置复核负责防止 adapter 返回值或持久化证据漂移。runtime doctor、安装来源绑定和执行画像校验由同一预检 seam 组合；正式调用使用默认 doctor 边界，工作流合同测试可注入无外部副作用的诊断 adapter。
 
 ## 3. 交付门禁
 

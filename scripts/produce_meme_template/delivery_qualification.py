@@ -10,31 +10,34 @@ from .artifacts import (
     sha256_bytes,
 )
 from .delivery_runtime import (
-    _current_finalization_errors,
-    _current_item_fact_errors,
-    _current_template_data_errors,
+    current_delivery_fact_qualification_errors,
 )
-from .execution_authority import delivery_execution_profile_errors
-from .generation_runtime import _current_generation_execution_errors
+from .execution_authority import (
+    delivery_execution_profile_errors,
+    production_execution_profile_errors,
+)
+from .generation_runtime import current_generation_qualification_errors
 from .workflow_core import (
-    _current_p2_artifact_errors,
-    _revisioned_name,
-    validate_production_manifest_lineage,
+    current_workflow_qualification_errors,
+    revisioned_artifact_name,
 )
 
 
-def completed_delivery_qualification_errors(
+def _production_qualification_errors(
     output_dir: Path,
     manifest: Any,
     expected_record: dict[str, Any],
     rules: dict[str, Any],
+    *,
+    require_completed: bool,
+    require_delivery: bool,
 ) -> list[str]:
-    """Replay every persisted fact required to export a completed template."""
+    """Replay all persisted production facts through the formal projection."""
 
     if not isinstance(manifest, dict):
         return ["production manifest must be an object"]
-    errors = validate_production_manifest_lineage(output_dir, manifest)
-    if (
+    errors = current_workflow_qualification_errors(output_dir, manifest)
+    if require_completed and (
         manifest.get("state") != rules["resultStates"]["completed"]
         or manifest.get("outcome") != "completed"
     ):
@@ -61,14 +64,18 @@ def completed_delivery_qualification_errors(
         sha256_bytes(pretty_json_bytes(profile)) if profile is not None else None
     )
     if (
-        manifest.get(manifest_fields["executionMode"])
-        != execution["executionModes"]["liveExternal"]
-        or not isinstance(profile_record, dict)
+        not isinstance(profile_record, dict)
         or profile_record.get("sha256") != profile_sha
         or manifest.get(manifest_fields["executionProfileSha256"]) != profile_sha
+        or not isinstance(profile, dict)
+        or profile.get(execution["profileFields"]["executionMode"])
+        != manifest.get(manifest_fields["executionMode"])
     ):
         errors.append("production execution profile lineage is invalid")
-    errors.extend(delivery_execution_profile_errors(profile, rules))
+    if require_delivery:
+        errors.extend(delivery_execution_profile_errors(profile, rules))
+    else:
+        errors.extend(production_execution_profile_errors(profile, rules))
     if (
         not isinstance(formal_record, dict)
         or formal_record.get("sha256")
@@ -79,7 +86,7 @@ def completed_delivery_qualification_errors(
     revision = manifest.get("revision")
     try:
         task = load_json(
-            output_dir / _revisioned_name("generation-task.json", revision)
+            output_dir / revisioned_artifact_name("generation-task.json", revision)
         )
         generation = rules["generationExecutionContract"]
         task_fields = generation["taskFields"]
@@ -96,10 +103,9 @@ def completed_delivery_qualification_errors(
         generation_options = None
         errors.append("generation options cannot be recovered from current task")
 
-    errors.extend(_current_p2_artifact_errors(manifest))
     if generation_options is not None:
         errors.extend(
-            _current_generation_execution_errors(
+            current_generation_qualification_errors(
                 output_dir,
                 manifest,
                 manifest.get("sourceImageSha256"),
@@ -107,7 +113,43 @@ def completed_delivery_qualification_errors(
                 rules,
             )
         )
-    errors.extend(_current_item_fact_errors(output_dir, manifest, rules))
-    errors.extend(_current_template_data_errors(output_dir, manifest, rules))
-    errors.extend(_current_finalization_errors(output_dir, manifest, rules))
+    errors.extend(
+        current_delivery_fact_qualification_errors(output_dir, manifest, rules)
+    )
     return errors
+
+
+def p8_completion_qualification_errors(
+    output_dir: Path,
+    manifest: Any,
+    expected_record: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    """Replay every production fact before the first P8 completion transition."""
+
+    return _production_qualification_errors(
+        output_dir,
+        manifest,
+        expected_record,
+        rules,
+        require_completed=False,
+        require_delivery=False,
+    )
+
+
+def completed_delivery_qualification_errors(
+    output_dir: Path,
+    manifest: Any,
+    expected_record: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    """Replay every persisted fact required to export a completed template."""
+
+    return _production_qualification_errors(
+        output_dir,
+        manifest,
+        expected_record,
+        rules,
+        require_completed=True,
+        require_delivery=True,
+    )

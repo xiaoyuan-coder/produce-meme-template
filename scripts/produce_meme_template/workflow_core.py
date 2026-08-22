@@ -55,6 +55,17 @@ PLACEHOLDER_WITH_DEFAULT = re.compile(
 )
 
 
+def accepted_production_execution_modes(
+    rules: dict[str, Any] = MACHINE_RULES,
+) -> frozenset[str]:
+    """Return every mode that carries a current execution identity."""
+
+    contract = rules["productionExecutionContract"]
+    return frozenset(
+        (*contract["executionModes"].values(), contract["liveReadinessExecutionMode"])
+    )
+
+
 class WorkflowAdapters(Protocol):
     def resolve_template_identity(
         self, source_image: Path, request: dict[str, Any]
@@ -429,8 +440,7 @@ def validate_production_manifest_lineage(
     )
     legacy_execution_identity = execution_mode is None and execution_sha is None
     current_execution_identity = bool(
-        execution_mode
-        in MACHINE_RULES["productionExecutionContract"]["executionModes"].values()
+        execution_mode in accepted_production_execution_modes()
         and isinstance(execution_sha, str)
         and re.fullmatch(r"[0-9a-f]{64}", execution_sha)
     )
@@ -553,6 +563,20 @@ def _revision_integrity_errors(manifest: dict[str, Any]) -> list[str]:
     if artifact_revisions and max(artifact_revisions) != revision:
         errors.append("manifest revision does not match artifact lineage")
     return errors
+
+
+def current_workflow_qualification_errors(
+    output_dir: Path,
+    manifest: Any,
+) -> list[str]:
+    """Replay manifest lineage and current P2 artifact bindings."""
+
+    if not isinstance(manifest, dict):
+        return ["production manifest must be an object"]
+    return [
+        *validate_production_manifest_lineage(output_dir, manifest),
+        *_current_p2_artifact_errors(manifest),
+    ]
 
 
 def _record_artifact(
@@ -736,6 +760,12 @@ def _revisioned_name(name: str, revision: int) -> str:
         return name
     path = Path(name)
     return str(path.with_name(f"{path.stem}-r{revision}{path.suffix}"))
+
+
+def revisioned_artifact_name(name: str, revision: int) -> str:
+    """Return the workflow-owned filename for an artifact revision."""
+
+    return _revisioned_name(name, revision)
 
 
 def _advance(manifest: dict[str, Any], rules: dict[str, Any], phase: str, timestamp: str) -> None:

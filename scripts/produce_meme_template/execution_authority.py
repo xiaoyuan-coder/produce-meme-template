@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import re
 import weakref
-from typing import Any
+from typing import Any, Callable
 
 from .adapters import (
     AliyunOssWorkflowAdapters,
     DeterministicFixtureAdapters,
     FalQueueWorkflowAdapters,
 )
+from .workflow_core import accepted_production_execution_modes
 
 
 _TRUSTED_LIVE_ADAPTERS: weakref.WeakKeyDictionary[Any, dict[str, str]] = (
     weakref.WeakKeyDictionary()
 )
+RuntimePreflight = Callable[[dict[str, Any] | None], dict[str, Any]]
 
 
 class _IndependentProductionDelegate:
@@ -199,7 +201,7 @@ def resolve_execution_profile(
     modes = contract["executionModes"]
     fields = contract["profileFields"]
     mode = modes["recordedReplay"] if execution_mode is None else execution_mode
-    accepted_modes = { *modes.values(), contract["liveReadinessExecutionMode"] }
+    accepted_modes = accepted_production_execution_modes(rules)
     if type(mode) is not str or mode not in accepted_modes:
         return None, ["execution mode is missing or unknown"]
 
@@ -329,6 +331,46 @@ def bind_runtime_install_source(
     return bound, []
 
 
+def qualify_runtime_execution_profile(
+    profile: dict[str, Any],
+    rules: dict[str, Any],
+    *,
+    production_pin: dict[str, Any] | None = None,
+    runtime_preflight: RuntimePreflight | None = None,
+) -> tuple[dict[str, Any], list[str], list[str]]:
+    """Run doctor and bind its authority result through one workflow seam."""
+
+    if runtime_preflight is None:
+        from .release_management import doctor
+        from .workflow_core import REPO_ROOT
+
+        diagnosis = doctor(REPO_ROOT, production_pin=production_pin)
+    else:
+        diagnosis = runtime_preflight(production_pin)
+    diagnostics = rules["releaseManagementContract"]["diagnosticFields"]
+    if not isinstance(diagnosis, dict):
+        return profile, ["INVALID_RUNTIME_DIAGNOSIS"], []
+    raw_codes = diagnosis.get(diagnostics["errorCodes"])
+    diagnostic_errors = (
+        []
+        if diagnosis.get("pass") is True
+        else (
+            list(raw_codes)
+            if isinstance(raw_codes, list)
+            and all(isinstance(code, str) for code in raw_codes)
+            else ["INVALID_RUNTIME_DIAGNOSIS"]
+        )
+    )
+    if diagnostic_errors:
+        return profile, diagnostic_errors, []
+    bound, execution_errors = bind_runtime_install_source(
+        profile,
+        diagnosis,
+        rules,
+    )
+    return bound, [], execution_errors
+
+
 def delivery_execution_profile_errors(
     profile: Any,
     rules: dict[str, Any],
@@ -383,4 +425,72 @@ def delivery_execution_profile_errors(
         or install_source.startswith(contract["uninstalledReleasePackagePrefix"])
     ):
         errors.append("live production must run from a verified installed release")
+    return errors
+
+
+def production_execution_profile_errors(
+    profile: Any,
+    rules: dict[str, Any],
+) -> list[str]:
+    """Validate the workflow-owned profile for every supported execution mode."""
+
+    contract = rules["productionExecutionContract"]
+    fields = contract["profileFields"]
+    if not isinstance(profile, dict) or set(profile) != set(fields.values()):
+        return ["production execution profile shape is invalid"]
+    mode = profile.get(fields["executionMode"])
+    if mode not in accepted_production_execution_modes(rules):
+        return ["production execution profile mode is invalid"]
+    if (
+        profile.get(fields["artifactType"]) != contract["artifactType"]
+        or profile.get(fields["schemaVersion"]) != rules["schemaVersion"]
+    ):
+        return ["production execution profile identity is invalid"]
+    if mode == contract["executionModes"]["liveExternal"]:
+        return delivery_execution_profile_errors(profile, rules)
+
+    recorded = mode == contract["executionModes"]["recordedReplay"]
+    expected_topology = contract["adapterTopologies"][
+        "recordedReplay" if recorded else "liveReadiness"
+    ]
+    expected_generation_provider = (
+        contract["recordedProvider"]
+        if recorded
+        else rules["generationExecutionContract"]["providerRoles"]["fal"]
+    )
+    expected_storage_provider = (
+        contract["recordedProvider"]
+        if recorded
+        else rules["objectStorageContract"]["providerRoles"]["aliyunOss"]
+    )
+    errors: list[str] = []
+    if (
+        profile.get(fields["deliveryEligible"]) is not False
+        or profile.get(fields["adapterTopology"]) != expected_topology
+        or profile.get(fields["generationProvider"])
+        != expected_generation_provider
+        or profile.get(fields["storageProvider"]) != expected_storage_provider
+    ):
+        errors.append("production execution profile topology is invalid")
+    if recorded:
+        identity_roles = (
+            "templateIdentityMethodIdentity",
+            "visualReviewMethodIdentity",
+            "authoringAnalysisMethodIdentity",
+            "authoringAuditMethodIdentity",
+        )
+        if any(profile.get(fields[role]) is not None for role in identity_roles):
+            errors.append("recorded replay cannot claim live method identities")
+    else:
+        if profile.get(fields["visualReviewMethodIdentity"]) not in set(
+            contract["liveReviewMethodIds"]
+        ):
+            errors.append("live readiness visual review method is invalid")
+        identity_roles = (
+            "templateIdentityMethodIdentity",
+            "authoringAnalysisMethodIdentity",
+            "authoringAuditMethodIdentity",
+        )
+        if any(profile.get(fields[role]) is not None for role in identity_roles):
+            errors.append("live readiness cannot claim delivery method identities")
     return errors

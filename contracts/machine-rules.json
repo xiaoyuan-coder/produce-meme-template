@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.26.0",
+  "schemaVersion": "0.27.0",
   "productionExecutionContract": {
     "artifactName": "production-execution-profile.json",
     "artifactType": "production-execution-profile",
@@ -580,6 +580,7 @@
       "promptTemplate": "promptTemplate",
       "freeEditableContent": "freeEditableContent",
       "slotCandidates": "slotCandidates",
+      "visibleTextRegions": "visibleTextRegions",
       "componentGraph": "componentGraph",
       "visualContract": "visualContract"
     },
@@ -606,7 +607,8 @@
     },
     "promptResponsibilities": {
       "userEditableContent": "user_editable_content",
-      "productionConstraint": "production_constraint"
+      "productionConstraint": "production_constraint",
+      "unclassified": "unclassified"
     },
     "slotReviewFields": {
       "slotIdentity": "slotId",

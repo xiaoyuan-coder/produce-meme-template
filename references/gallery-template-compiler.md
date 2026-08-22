@@ -82,4 +82,4 @@ python3 scripts/export_gallery_templates.py \
 
 导出器要求显式提供目录外的 `--manifest`，对每条记录重新执行当前 Gallery Schema、最终业务合同和执行资格重放，要求 key 唯一且合法，并把每条对象单独写为 `<key>.json`。单工作区来源自动发现相邻 Production Manifest；正式记录数组逐条重复提供 `--production-manifest`。单模板目录不接受汇总数组、交付清单、生产 sidecar、点文件或其他范围外内容。相同内容可幂等重跑；同名文件内容不同默认阻断，只有人工确认后显式使用 `--overwrite`。
 
-拆分导出只改变本地交付布局，不修改记录字段、模板图、OSS 对象或 URL。交付清单位于单模板目录之外，记录来源摘要、key 集合和每个文件摘要。Artifact Schema `0.26.0` 起，导出逐条重放完成态 Production Manifest 与 `production-execution-profile.json`；只有已安装 runtime 产生的 `live_external`、Fal、独立审核和 Aliyun OSS 证据具备交付资格，回放 JSON 保留给 T1 与回归。Artifact Schema `0.25.0` 起，P0 必须先写入 `template-key-resolution.json`，完成存量来源查询、语义 key 审核和冲突审核。Schema 正则继续只负责字符形状；缺失注册表证据或使用素材追踪号作为新 key 时，公共生产 seam 在 P1 前停止。
+拆分导出只改变本地交付布局，不修改记录字段、模板图、OSS 对象或 URL。交付清单位于单模板目录之外，记录来源摘要、key 集合和每个文件摘要。Artifact Schema `0.27.0` 起，P8 首次进入完成态前与导出前共用全链路资格重放；导出还要求已安装 runtime 产生的 `live_external`、Fal、独立审核和 Aliyun OSS 证据，回放 JSON 保留给 T1 与回归。Artifact Schema `0.25.0` 起，P0 必须先写入 `template-key-resolution.json`，完成存量来源查询、语义 key 审核和冲突审核。Schema 正则继续只负责字符形状；缺失注册表证据或使用素材追踪号作为新 key 时，公共生产 seam 在 P1 前停止。

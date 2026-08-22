@@ -164,7 +164,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 Prompt Template 是用户可见且可全文替换的完整自然语言画面描述。按当前确认图的阅读顺序编写：主要目标与动作、容器和关系、其他开放内容、具有编辑价值的自由内容。每个结构化槽恰好以 `{{ id | "默认值" }}` 出现，所有 `freeEditableContent` 原样出现。
 
-Prompt Template 的每个字面都应是用户可编辑的内容或它们之间的自然关系。媒介、画风、稳定构图、裁切、重复实例和装饰层级以正向可观察事实进入 `runtimeSemantics.visualContract`。“最终只输出平面图案”、“不出现领口、袖子、衣服轮廓、褶皱、商品背景、阴影或透视”这类生产、清理、商品展示与输出禁止项进入生产 sidecar。P4 的独立作者合同审计逐句分类 Prompt 职责，固定片段扫描作为辅助防线。
+Prompt Template 的每个字面都应是用户可编辑的内容或它们之间的自然关系。媒介、画风、稳定构图、裁切、重复实例和装饰层级以正向可观察事实进入 `runtimeSemantics.visualContract`。“最终只输出平面图案”、“不出现领口、袖子、衣服轮廓、褶皱、商品背景、阴影或透视”这类生产、清理、商品展示与输出禁止项进入生产 sidecar。P4 的独立作者合同审计逐句分类 Prompt 职责：固定片段扫描只作为辅助防线，每个未命中的子句仍须由真实槽位或 `freeEditableContent` 证明用户可编辑来源；无法证明时标记为 `unclassified` 并 fail-closed。
 
 默认值和每条推荐项逐项代入后都必须得到无残留 placeholder、语法完整、关系清楚的自然句。Prompt Template 只表达用户有权修改的画面内容及其自然关系；媒介、画风、固定构图、材质纪律、清洁要求和内部冲突说明进入 `runtimeSemantics.visualContract` 或生产 sidecar。
 

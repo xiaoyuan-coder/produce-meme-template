@@ -5,7 +5,6 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
-from unittest import mock
 
 from scripts.export_gallery_templates import ExportError, export_gallery_templates
 from scripts.produce_meme_template.artifacts import pretty_json_bytes, sha256_bytes
@@ -29,42 +28,40 @@ class GalleryTemplateExportTest(unittest.TestCase):
         self.root = Path(self.temporary.name)
         rules = load(ROOT / "contracts" / "machine-rules.json")
         diagnostic_fields = rules["releaseManagementContract"]["diagnosticFields"]
-        diagnosis = {
-            "pass": True,
-            diagnostic_fields["installSource"]: "/verified-install/4.0.0",
-            diagnostic_fields["errorCodes"]: [],
-        }
+        def installed_runtime_preflight(_production_pin=None) -> dict:
+            return {
+                "pass": True,
+                diagnostic_fields["installSource"]: "/verified-install/4.0.0",
+                diagnostic_fields["errorCodes"]: [],
+            }
         base_request = load(FIXTURE / "request.json")
         base_request["sourceImage"] = str(
             (FIXTURE / base_request["sourceImage"]).resolve()
         )
         self.records = []
         self.production_manifests = []
-        with mock.patch(
-            "scripts.produce_meme_template.production_runtime.doctor",
-            return_value=diagnosis,
-        ):
-            for index in range(2):
-                adapters, _client, _bucket = build_live_test_adapters(FIXTURE)
-                result = run_production(
-                    {
-                        **base_request,
-                        "productionItemId": f"export-live-item-{index}",
-                        "templateKey": f"sleepy-cat-office-meme-{index}",
-                    },
-                    self.root / "production",
-                    adapters,
-                    execution_mode=rules["productionExecutionContract"][
-                        "executionModes"
-                    ]["liveExternal"],
-                    clock=lambda: FIXED_TIME,
-                )
-                if result.outcome != "completed":
-                    raise AssertionError(result.as_dict())
-                self.records.append(load(result.output_dir / "gallery-template.json"))
-                self.production_manifests.append(
-                    result.output_dir / "production-manifest.json"
-                )
+        for index in range(2):
+            adapters, _client, _bucket = build_live_test_adapters(FIXTURE)
+            result = run_production(
+                {
+                    **base_request,
+                    "productionItemId": f"export-live-item-{index}",
+                    "templateKey": f"sleepy-cat-office-meme-{index}",
+                },
+                self.root / "production",
+                adapters,
+                execution_mode=rules["productionExecutionContract"][
+                    "executionModes"
+                ]["liveExternal"],
+                clock=lambda: FIXED_TIME,
+                runtime_preflight=installed_runtime_preflight,
+            )
+            if result.outcome != "completed":
+                raise AssertionError(result.as_dict())
+            self.records.append(load(result.output_dir / "gallery-template.json"))
+            self.production_manifests.append(
+                result.output_dir / "production-manifest.json"
+            )
         self.source = self.root / "gallery-template.json"
         self.source.write_text(
             json.dumps(self.records, ensure_ascii=False, indent=2) + "\n",

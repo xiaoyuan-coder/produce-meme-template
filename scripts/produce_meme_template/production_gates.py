@@ -110,6 +110,7 @@ def compile_authoring_review_request(
     fields = contract["requestFields"]
     approved_fields = rules["multiInstanceContract"]["approvedFields"]
     runtime_fields = rules["runtimeSemanticsContract"]["fields"]
+    visible_text_fields = rules["visibleTextContract"]["analysisFields"]
     runtime = analysis.get("runtimeSemantics", {})
     return {
         fields["approvedImageSha256"]: approved_sha256,
@@ -118,6 +119,9 @@ def compile_authoring_review_request(
             analysis.get("freeEditableContent")
         ),
         fields["slotCandidates"]: copy.deepcopy(analysis.get("slotCandidates")),
+        fields["visibleTextRegions"]: copy.deepcopy(
+            analysis.get(visible_text_fields["regions"], [])
+        ),
         fields["componentGraph"]: copy.deepcopy(
             analysis.get(approved_fields["componentGraph"])
         ),
@@ -127,45 +131,134 @@ def compile_authoring_review_request(
     }
 
 
+def _prompt_clauses(prompt: str) -> list[str]:
+    return [
+        clause.strip()
+        for clause in re.split(r"(?<=[。！？!?;；,，])", prompt)
+        if clause.strip() and re.search(r"\w|[\u3400-\u4dbf\u4e00-\u9fff]", clause)
+    ]
+
+
+def _deep_text_values(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [text for item in value for text in _deep_text_values(item)]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _deep_text_values(item)]
+    return []
+
+
+def _cjk_bigrams(value: str) -> set[str]:
+    runs = re.findall(r"[\u3400-\u4dbf\u4e00-\u9fff]+", value)
+    ignored = {
+        "保持",
+        "保留",
+        "使用",
+        "原有",
+        "画面",
+        "当前",
+        "模板",
+        "主体",
+        "人物",
+        "内容",
+    }
+    return {
+        run[index : index + 2]
+        for run in runs
+        for index in range(len(run) - 1)
+        if run[index : index + 2] not in ignored
+    }
+
+
 def _production_prompt_clauses(prompt: str, rules: dict[str, Any]) -> list[str]:
     patterns = [
         re.compile(pattern, flags=re.IGNORECASE)
         for pattern in rules["authoringContractAudit"]["productionClausePatterns"]
     ]
-    clauses = [
-        clause.strip()
-        for clause in re.split(r"(?<=[。！？!?;])|\n+", prompt)
-        if clause.strip()
-    ]
+    clauses = _prompt_clauses(prompt)
     return [clause for clause in clauses if any(pattern.search(clause) for pattern in patterns)]
 
 
 def _prompt_clause_classifications(
-    prompt: str, rules: dict[str, Any]
+    prompt: str,
+    review_request: dict[str, Any],
+    rules: dict[str, Any],
 ) -> list[dict[str, str]]:
     contract = rules["authoringContractAudit"]
+    request_fields = contract["requestFields"]
     fields = contract["promptClauseFields"]
     responsibilities = contract["promptResponsibilities"]
     leaked = set(_production_prompt_clauses(prompt, rules))
-    clauses = [
-        clause.strip()
-        for clause in re.split(r"(?<=[。！？!?;])|\n+", prompt)
-        if clause.strip()
+    slots = review_request.get(request_fields["slotCandidates"])
+    slot_ids = {
+        item.get("id")
+        for item in slots
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    } if isinstance(slots, list) else set()
+    free_content = review_request.get(request_fields["freeEditableContent"])
+    free_values = {
+        value.strip()
+        for value in free_content
+        if isinstance(value, str) and value.strip()
+    } if isinstance(free_content, list) else set()
+    visible_text = review_request.get(request_fields["visibleTextRegions"])
+    visible_text_field = rules["visibleTextContract"]["regionFields"][
+        "selectedText"
     ]
-    return [
-        {
-            fields["clause"]: clause,
-            fields["responsibility"]: (
-                responsibilities["productionConstraint"]
-                if clause in leaked
-                else responsibilities["userEditableContent"]
-            ),
-            fields["evidence"]: (
-                "句子职责已分类并绑定原始 promptTemplate 文本"
-            ),
-        }
-        for clause in clauses
-    ]
+    approved_visible_values = {
+        region.get(visible_text_field).strip()
+        for region in visible_text
+        if isinstance(region, dict)
+        and isinstance(region.get(visible_text_field), str)
+        and region[visible_text_field].strip()
+    } if isinstance(visible_text, list) else set()
+    visual_contract = review_request.get(request_fields["visualContract"])
+    visual_contract_bigrams = set().union(
+        *(_cjk_bigrams(value) for value in _deep_text_values(visual_contract))
+    )
+    classifications: list[dict[str, str]] = []
+    for clause in _prompt_clauses(prompt):
+        placeholder_ids = set(re.findall(r"\{\{\s*([a-z][a-z0-9_]*)", clause))
+        matched_free_values = sorted(
+            value for value in free_values if value in clause
+        )
+        matched_visible_values = sorted(
+            value for value in approved_visible_values if value in clause
+        )
+        matched_visual_bigrams = sorted(
+            _cjk_bigrams(clause) & visual_contract_bigrams
+        )
+        if clause in leaked:
+            responsibility = responsibilities["productionConstraint"]
+            evidence = "短语扫描命中生产、输出或商品展示约束"
+        elif (
+            placeholder_ids
+            and placeholder_ids <= slot_ids
+        ) or matched_free_values or matched_visible_values or len(
+            matched_visual_bigrams
+        ) >= 2:
+            responsibility = responsibilities["userEditableContent"]
+            evidence = (
+                f"可编辑来源：slots={sorted(placeholder_ids)}; "
+                f"freeEditableContent={matched_free_values}; "
+                f"approvedVisibleText={matched_visible_values}; "
+                f"visualContractBigrams={matched_visual_bigrams}"
+            )
+        else:
+            responsibility = responsibilities["unclassified"]
+            evidence = (
+                "未能由槽位、freeEditableContent、Approved 可见文字"
+                "或 visualContract 证明该子句的用户可编辑来源"
+            )
+        classifications.append(
+            {
+                fields["clause"]: clause,
+                fields["responsibility"]: responsibility,
+                fields["evidence"]: evidence,
+            }
+        )
+    return classifications
 
 
 def deterministic_authoring_contract_audit(
@@ -181,7 +274,12 @@ def deterministic_authoring_contract_audit(
     prompt = review_request[request_fields["promptTemplate"]]
     leaked = _production_prompt_clauses(prompt if isinstance(prompt, str) else "", rules)
     clause_classifications = _prompt_clause_classifications(
-        prompt if isinstance(prompt, str) else "", rules
+        prompt if isinstance(prompt, str) else "", review_request, rules
+    )
+    user_editable_only = all(
+        item[contract["promptClauseFields"]["responsibility"]]
+        == contract["promptResponsibilities"]["userEditableContent"]
+        for item in clause_classifications
     )
     graph = review_request[request_fields["componentGraph"]]
     graph_fields = rules["multiInstanceContract"]["graphFields"]
@@ -231,7 +329,7 @@ def deterministic_authoring_contract_audit(
         "modelControllable",
         "mechanismPreserved",
     )
-    passed = not leaked and all(
+    passed = user_editable_only and all(
         all(review[slot_fields[role]] is True for role in gate_roles)
         for review in slot_reviews
     )
@@ -243,7 +341,7 @@ def deterministic_authoring_contract_audit(
         ).hexdigest(),
         review_fields["reviewRequestSha256"]: _sha256(review_request),
         review_fields["promptReview"]: {
-            prompt_fields["userEditableOnly"]: not leaked,
+            prompt_fields["userEditableOnly"]: user_editable_only,
             prompt_fields["leakedProductionClauses"]: leaked,
             prompt_fields["clauseClassifications"]: clause_classifications,
             prompt_fields["evidence"]: (
@@ -290,14 +388,7 @@ def authoring_contract_audit_errors(
         if isinstance(prompt_review, dict)
         else None
     )
-    expected_clauses = [
-        clause.strip()
-        for clause in re.split(
-            r"(?<=[。！？!?;])|\n+",
-            prompt if isinstance(prompt, str) else "",
-        )
-        if clause.strip()
-    ]
+    expected_clauses = _prompt_clauses(prompt if isinstance(prompt, str) else "")
     clause_reviews_valid = bool(
         isinstance(clause_reviews, list)
         and len(clause_reviews) == len(expected_clauses)

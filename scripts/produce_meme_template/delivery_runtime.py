@@ -491,6 +491,20 @@ def _current_template_data_errors(
             return ["visual review method does not match execution profile"]
     return []
 
+
+def current_delivery_fact_qualification_errors(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    """Replay compiled item, P6 validation, receipt, and final projection facts."""
+
+    return [
+        *_current_item_fact_errors(output_dir, manifest, rules),
+        *_current_template_data_errors(output_dir, manifest, rules),
+        *_current_finalization_errors(output_dir, manifest, rules),
+    ]
+
 def _current_shared_policy_resolution_errors(
     output_dir: Path,
     expected_resolution: dict[str, Any],
@@ -512,6 +526,9 @@ def _finalize_uploaded_item(
     manifest: dict[str, Any],
     rules: dict[str, Any],
     timestamp: str,
+    qualification: Callable[
+        [Path, Any, dict[str, Any], dict[str, Any]], list[str]
+    ],
     *,
     resumed: bool = True,
 ) -> ProductionResult:
@@ -588,6 +605,20 @@ def _finalize_uploaded_item(
         final_phase,
         ["gallery-template.draft.json", "asset-receipt.json", "final-validation-report.json"],
     )
+    qualification_errors = qualification(
+        output_dir,
+        manifest,
+        final_record,
+        rules,
+    )
+    if qualification_errors:
+        raise _stop(
+            rules,
+            "blocked",
+            "productionItemIntegrityFailure",
+            "P8 首次完成前的全链路资格复验未通过。",
+            {"errors": qualification_errors},
+        )
     _advance(manifest, rules, final_phase, timestamp)
     manifest["outcome"] = "completed"
     _persist_manifest(output_dir, manifest)
@@ -610,6 +641,9 @@ def _run_finalization_stage(
     adapters: WorkflowAdapters,
     template_key: str,
     timestamp: str,
+    qualification: Callable[
+        [Path, Any, dict[str, Any], dict[str, Any]], list[str]
+    ],
     *,
     resumed: bool,
 ) -> ProductionResult:
@@ -705,5 +739,6 @@ def _run_finalization_stage(
         manifest,
         rules,
         timestamp,
+        qualification,
         resumed=resumed,
     )

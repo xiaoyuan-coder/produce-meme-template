@@ -228,6 +228,67 @@ class ProductionReadinessGateTest(unittest.TestCase):
             )
         )
 
+    def test_unproven_prompt_clause_fails_closed_without_phrase_match(self) -> None:
+        def add_unproven_clause(analysis: dict) -> dict:
+            analysis["promptTemplate"] = analysis["promptTemplate"].removesuffix(
+                "。"
+            ) + (
+                "；成品应适配服装印制环节，交付画面需避开实物载体展示。"
+            )
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "unproven-prompt-clause"},
+            self.output_root,
+            AnalysisTransformAdapters(add_unproven_clause),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        audit = load_json(result.output_dir / "authoring-contract-audit.json")
+        contract = RULES["authoringContractAudit"]
+        classifications = audit[contract["reviewFields"]["promptReview"]][
+            contract["promptReviewFields"]["clauseClassifications"]
+        ]
+        self.assertTrue(
+            any(
+                item[contract["promptClauseFields"]["responsibility"]]
+                == contract["promptResponsibilities"]["unclassified"]
+                for item in classifications
+            )
+        )
+
+    def test_unproven_subclause_cannot_borrow_an_editable_slot_provenance(
+        self,
+    ) -> None:
+        def mix_unproven_content_into_slot_clause(analysis: dict) -> dict:
+            analysis["promptTemplate"] = analysis["promptTemplate"].removesuffix(
+                "。"
+            ) + "，成品应适配服装印制环节。"
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "mixed-unproven-prompt-subclause"},
+            self.output_root,
+            AnalysisTransformAdapters(mix_unproven_content_into_slot_clause),
+            clock=lambda: FIXED_TIME,
+        )
+
+        audit = load_json(result.output_dir / "authoring-contract-audit.json")
+        contract = RULES["authoringContractAudit"]
+        classifications = audit[contract["reviewFields"]["promptReview"]][
+            contract["promptReviewFields"]["clauseClassifications"]
+        ]
+        self.assertTrue(
+            any(
+                item[contract["promptClauseFields"]["responsibility"]]
+                == contract["promptResponsibilities"]["unclassified"]
+                for item in classifications
+            )
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+
     def test_slot_self_certification_cannot_override_independent_review(self) -> None:
         analysis = load_json(FIXTURE / "approved-analysis.json")
         self.assertTrue(

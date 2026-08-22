@@ -855,6 +855,24 @@ def _current_generation_execution_errors(
     return errors
 
 
+def current_generation_qualification_errors(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    source_sha256: Any,
+    generation_options: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    """Replay the current generation task, WAL, provider, and image facts."""
+
+    return _current_generation_execution_errors(
+        output_dir,
+        manifest,
+        source_sha256,
+        generation_options,
+        rules,
+    )
+
+
 def _evaluate_visual_gate(
     review: Any,
     rules: dict[str, Any],

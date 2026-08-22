@@ -20,8 +20,10 @@ from .authoring_handoff import (
     compile_authoring_intent,
     source_authoring_context_errors,
 )
-from .release_management import doctor
-from .execution_authority import bind_runtime_install_source
+from .execution_authority import (
+    RuntimePreflight,
+    qualify_runtime_execution_profile,
+)
 from .batch_policy import (
     _isolated_output_dir,
     _normalize_replacement_strategy,
@@ -37,6 +39,7 @@ from .delivery_runtime import (
     _finalize_uploaded_item,
     _run_finalization_stage,
 )
+from .delivery_qualification import p8_completion_qualification_errors
 from .generation_runtime import (
     _adopt_pre_submit_generation_staging,
     _compile_generation_package,
@@ -524,6 +527,7 @@ def _run_template_data_stage(
         adapters,
         template_key,
         timestamp,
+        p8_completion_qualification_errors,
         resumed=resumed,
     )
 
@@ -539,6 +543,7 @@ def _run_single_production(
     preparation_stop: WorkflowStop | None = None,
     target_stage: int = 4,
     execution_profile: dict[str, Any] | None = None,
+    runtime_preflight: RuntimePreflight | None = None,
 ) -> ProductionResult:
     """Run one Production Item through the requested resumable major stage."""
 
@@ -598,23 +603,6 @@ def _run_single_production(
             raw_pin = None
         if isinstance(raw_pin, dict):
             existing_pin = raw_pin
-    runtime_diagnosis = doctor(REPO_ROOT, production_pin=existing_pin)
-    diagnostic_fields = rules["releaseManagementContract"][
-        "diagnosticFields"
-    ]
-    if not runtime_diagnosis["pass"]:
-        return ProductionResult(
-            "blocked",
-            item_id,
-            rules["resultStates"]["blocked"],
-            output_dir,
-            error_code=rules["errorCodes"]["versionDiagnosticFailure"],
-            message="运行前 doctor 检查未通过："
-            + "、".join(
-                runtime_diagnosis[diagnostic_fields["errorCodes"]]
-            ),
-            resumed=manifest_path.is_file(),
-        )
     if execution_profile is None:
         return ProductionResult(
             "blocked",
@@ -625,9 +613,25 @@ def _run_single_production(
             message="缺少工作流预检生成的正式执行画像。",
             resumed=manifest_path.is_file(),
         )
-    execution_profile, execution_errors = bind_runtime_install_source(
-        execution_profile, runtime_diagnosis, rules
+    execution_profile, diagnostic_errors, execution_errors = (
+        qualify_runtime_execution_profile(
+            execution_profile,
+            rules,
+            production_pin=existing_pin,
+            runtime_preflight=runtime_preflight,
+        )
     )
+    if diagnostic_errors:
+        return ProductionResult(
+            "blocked",
+            item_id,
+            rules["resultStates"]["blocked"],
+            output_dir,
+            error_code=rules["errorCodes"]["versionDiagnosticFailure"],
+            message="运行前 doctor 检查未通过："
+            + "、".join(diagnostic_errors),
+            resumed=manifest_path.is_file(),
+        )
     if execution_errors:
         return ProductionResult(
             "blocked",
@@ -945,7 +949,13 @@ def _run_single_production(
                     resumed=True,
                 )
             try:
-                return _finalize_uploaded_item(output_dir, existing, rules, timestamp)
+                return _finalize_uploaded_item(
+                    output_dir,
+                    existing,
+                    rules,
+                    timestamp,
+                    p8_completion_qualification_errors,
+                )
             except WorkflowStop as stop:
                 existing["state"] = stop.state
                 existing["outcome"] = stop.outcome
@@ -1546,6 +1556,7 @@ def _run_single_production(
                 adapters,
                 template_key,
                 timestamp,
+                p8_completion_qualification_errors,
                 resumed=True,
             )
         if resume_template_data:
