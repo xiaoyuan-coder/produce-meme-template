@@ -1,5 +1,55 @@
 {
-  "schemaVersion": "0.25.0",
+  "schemaVersion": "0.26.0",
+  "productionExecutionContract": {
+    "artifactName": "production-execution-profile.json",
+    "artifactType": "production-execution-profile",
+    "executionModes": {
+      "recordedReplay": "recorded_replay",
+      "liveExternal": "live_external"
+    },
+    "liveReadinessExecutionMode": "live_readiness",
+    "profileFields": {
+      "artifactType": "artifactType",
+      "schemaVersion": "schemaVersion",
+      "executionMode": "executionMode",
+      "deliveryEligible": "deliveryEligible",
+      "adapterTopology": "adapterTopology",
+      "generationProvider": "generationProvider",
+      "storageProvider": "storageProvider",
+      "templateIdentityMethodIdentity": "templateIdentityMethodId",
+      "visualReviewMethodIdentity": "visualReviewMethodId",
+      "authoringAnalysisMethodIdentity": "authoringAnalysisMethodId",
+      "authoringAuditMethodIdentity": "authoringAuditMethodId",
+      "runtimeInstallSource": "runtimeInstallSource"
+    },
+    "manifestFields": {
+      "executionMode": "executionMode",
+      "executionProfileSha256": "executionProfileSha256"
+    },
+    "adapterTopologies": {
+      "recordedReplay": "recorded-or-test-adapters",
+      "liveReadiness": "aliyun-oss(fal(release-readiness-review))",
+      "liveExternal": "aliyun-oss(fal(independent-review-delegate))"
+    },
+    "recordedProvider": "recorded-or-test",
+    "liveReviewMethodIds": [
+      "independent-live-vision-review",
+      "human-approved-live-review"
+    ],
+    "liveTemplateIdentityMethodIds": [
+      "template-registry-semantic-review",
+      "human-approved-template-registry-review"
+    ],
+    "liveAdapterFields": {
+      "templateIdentityMethodIdentity": "live_template_identity_method_id",
+      "visualReviewMethodIdentity": "live_review_method_id",
+      "authoringAnalysisMethodIdentity": "live_authoring_analysis_method_id",
+      "authoringAuditMethodIdentity": "live_authoring_audit_method_id"
+    },
+    "methodIdentityPattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+    "sourceWorktreeInstallSource": "source-worktree",
+    "uninstalledReleasePackagePrefix": "release-package:"
+  },
   "releaseManagementContract": {
     "lockFileName": "release-lock.json",
     "lockArtifactType": "release-lock",
@@ -546,7 +596,17 @@
     "promptReviewFields": {
       "userEditableOnly": "userEditableOnly",
       "leakedProductionClauses": "leakedProductionClauses",
+      "clauseClassifications": "clauseClassifications",
       "evidence": "evidence"
+    },
+    "promptClauseFields": {
+      "clause": "clause",
+      "responsibility": "responsibility",
+      "evidence": "evidence"
+    },
+    "promptResponsibilities": {
+      "userEditableContent": "user_editable_content",
+      "productionConstraint": "production_constraint"
     },
     "slotReviewFields": {
       "slotIdentity": "slotId",
@@ -562,7 +622,9 @@
       "(?:只|仅)(?:需|要)?输出(?:平面)?图案",
       "不(?:要|得|应|可|出现|包含)[^。！？;\n]{0,80}(?:领口|袖子|衣服轮廓|褶皱|商品背景|透视)",
       "(?:保持|保留|维持)[^。！？;\n]{0,80}(?:抠图边缘|重复实例裁切|正视独立印花画布|原有装饰层级|原有贴纸|原有图标)",
-      "(?:生产约束|视觉合同|输出禁止项|商品展示背景|独立印花画布)"
+      "(?:生产约束|视觉合同|输出禁止项|商品展示背景|独立印花画布)",
+      "画面(?:限定|保持|呈现)[^。！？;\n]{0,80}(?:二维|正面稿|平面稿|印花稿)",
+      "(?:排除|移除|去除)[^。！？;\n]{0,80}(?:穿戴|载体|陈列|商品场景|阴影|透视)"
     ]
   },
   "authoringHandoffContract": {
@@ -1766,6 +1828,7 @@
   },
   "errorCodes": {
     "versionDiagnosticFailure": "VERSION_DIAGNOSTIC_FAILURE",
+    "untrustedProductionExecution": "UNTRUSTED_PRODUCTION_EXECUTION",
     "invalidProductionRequest": "INVALID_PRODUCTION_REQUEST",
     "templateKeyRegistryUnavailable": "TEMPLATE_KEY_REGISTRY_UNAVAILABLE",
     "templateKeyExistingMismatch": "TEMPLATE_KEY_EXISTING_MISMATCH",
@@ -1879,10 +1942,6 @@
       "textDense": "textContent",
       "complexMultiInstance": "genericPerson"
     },
-    "executionModes": {
-      "recordedReplay": "recorded_replay",
-      "liveExternal": "live_external"
-    },
     "liveCredentialEnvironment": {
       "falKey": "FAL_KEY",
       "ossEndpoint": "OSS_ENDPOINT",
@@ -1890,13 +1949,6 @@
       "ossAccessKeyId": "OSS_ACCESS_KEY_ID",
       "ossAccessKeySecret": "OSS_ACCESS_KEY_SECRET",
       "ossPublicBaseUrl": "OSS_PUBLIC_BASE_URL"
-    },
-    "liveReviewMethodIds": [
-      "independent-live-vision-review",
-      "human-approved-live-review"
-    ],
-    "liveReviewAdapterFields": {
-      "methodIdentity": "live_review_method_id"
     },
     "liveReviewEvidenceFields": {
       "method": "method",
@@ -2050,7 +2102,7 @@
     "artifactType": "historical-experience-regression",
     "matrixRelativePath": "fixtures/regression/historical-experience-matrix.json",
     "evidenceRunnerRelativePath": "scripts/experience_evidence_runner.py",
-    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43"],
+    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44"],
     "requiredCorpusRoles": {
       "latestHeartInput": "latest-heart-input",
       "latestHeartExpected": "latest-heart-expected",
@@ -2201,7 +2253,11 @@
       ],
       "E41": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/templateKeySemanticInvalid"}],
       "E42": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
-      "E43": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}]
+      "E43": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
+      "E44": [
+        {"polarityRole":"badCase","expectedGateLocator":"/errorCodes/untrustedProductionExecution"},
+        {"polarityRole":"goodCase","expectedGateLocator":null}
+      ]
     },
     "requiredExperienceSha256ById": {
       "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
@@ -2246,7 +2302,8 @@
       "E40": "3ffe9239e58913199911166fa7648d5b8f0e1bcabf389b3f3e5c149ba821efad",
       "E41": "7c1c8e2aab9273c9ae770140b8f02c6357424600a192a3e8014c015507d9f987",
       "E42": "1b027699c2652a50d125ad96fb99f6c5015771de34e59fe9046b45743b4409c4",
-      "E43": "ca4a550ca9da16b1d652b95d189d8cd5b1f578d7055635b3661aa02ad38162d9"
+      "E43": "ca4a550ca9da16b1d652b95d189d8cd5b1f578d7055635b3661aa02ad38162d9",
+      "E44": "f7b14cfbed0c47a023ee9616aaa3eea9de1e74bce21388d65a138e0c862240f9"
     },
     "implementationKinds": {
       "machineRule": "machine-rule",

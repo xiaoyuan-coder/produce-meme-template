@@ -559,9 +559,9 @@ def _matrix_contract_valid(contract: Any) -> bool:
         and _safe_relative_path(contract.get("matrixRelativePath"))
         and _safe_relative_path(contract.get("evidenceRunnerRelativePath"))
         and isinstance(ids, list)
-        and len(ids) == 43
+        and bool(ids)
         and len(ids) == len(set(ids))
-        and ids == [f"E{index:02d}" for index in range(1, 44)]
+        and ids == [f"E{index:02d}" for index in range(1, len(ids) + 1)]
     )
 
 
@@ -909,7 +909,7 @@ def run_experience_regression(
     *,
     adapters: ExperienceRegressionAdapters | None = None,
 ) -> dict[str, Any]:
-    """Compile E01–E43 authority, behavior, fixture and execution evidence."""
+    """Compile every machine-declared authority and execution evidence item."""
 
     runtime_root = runtime_root.resolve()
     adapters = adapters or ExperienceRegressionAdapters()

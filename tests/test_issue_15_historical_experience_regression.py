@@ -451,7 +451,10 @@ class Issue15HistoricalExperienceRegressionTest(unittest.TestCase):
         report = self.run_audit(runtime, write_report=False)
         summary = report[FIELDS["summary"]]
         summary_fields = CONTRACT["summaryFields"]
-        self.assertEqual(43, summary[summary_fields["total"]])
+        self.assertEqual(
+            len(CONTRACT["experienceIds"]),
+            summary[summary_fields["total"]],
+        )
         self.assertEqual(
             summary[summary_fields["total"]],
             summary[summary_fields["passed"]] + summary[summary_fields["failed"]],

@@ -18,6 +18,7 @@ from .template_compiler import (
     _compile_editable_spec,
     _compile_hidden_spec,
     _formal_projection,
+    _validation_report,
     _validate_final,
 )
 from .workflow_core import (
@@ -31,6 +32,7 @@ from .workflow_core import (
     _public_asset_url_valid,
     _record_artifact,
     _revision_image_artifacts,
+    _revisioned_name,
     _stop,
 )
 
@@ -204,8 +206,16 @@ def _asset_receipt_valid(
 ) -> bool:
     contract = rules["objectStorageContract"]
     fields = contract["receiptFields"]
+    execution_contract = rules["productionExecutionContract"]
+    expected_live_provider = contract["providerRoles"]["aliyunOss"]
+    provider_matches_execution = bool(
+        manifest.get(execution_contract["manifestFields"]["executionMode"])
+        != execution_contract["executionModes"]["liveExternal"]
+        or receipt.get(fields["provider"]) == expected_live_provider
+    ) if isinstance(receipt, dict) else False
     return bool(
         isinstance(receipt, dict)
+        and provider_matches_execution
         and set(receipt) == set(fields.values())
         and receipt.get(fields["artifactType"]) == contract["artifactType"]
         and receipt.get(fields["schemaVersion"]) == rules["schemaVersion"]
@@ -415,6 +425,72 @@ def _current_item_fact_errors(
             errors.append("draft does not match current item compilation")
     return errors
 
+
+def _current_template_data_errors(
+    output_dir: Path,
+    manifest: dict[str, Any],
+    rules: dict[str, Any],
+) -> list[str]:
+    """Replay the P6 semantic and visual validation against persisted facts."""
+
+    revision = manifest.get("revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+        return ["template data revision invalid"]
+    review_name = _revisioned_name("visual-review.json", revision)
+    try:
+        draft = _load_json(output_dir / "gallery-template.draft.json")
+        editable = _load_json(output_dir / "editable-template-spec.json")
+        plan = _load_json(output_dir / "replacement-plan.json")
+        source_analysis = _load_json(output_dir / "source-analysis.json")
+        review = _load_json(output_dir / review_name)
+        semantic_audit = _load_json(output_dir / "semantic-audit.json")
+        persisted_validation = _load_json(output_dir / "validation-report.json")
+        execution_contract = rules["productionExecutionContract"]
+        execution_profile = _load_json(
+            output_dir / execution_contract["artifactName"]
+        )
+        expected_validation = _validation_report(
+            draft,
+            editable,
+            plan,
+            source_analysis,
+            review,
+            semantic_audit,
+            rules,
+        )
+    except (
+        AttributeError,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+    ):
+        return ["template data validation evidence unreadable"]
+    if (
+        persisted_validation != expected_validation
+        or expected_validation.get("pass") is not True
+    ):
+        return ["template data validation does not match current facts"]
+    manifest_mode = manifest.get(
+        execution_contract["manifestFields"]["executionMode"]
+    )
+    if manifest_mode == execution_contract["executionModes"]["liveExternal"]:
+        if not isinstance(execution_profile, dict):
+            return ["production execution profile shape invalid"]
+        readiness = rules["releaseReadinessContract"]
+        method_fields = readiness["liveReviewEvidenceFields"]
+        method = review.get(method_fields["method"])
+        expected_method = execution_profile.get(
+            execution_contract["profileFields"]["visualReviewMethodIdentity"]
+        )
+        if (
+            not isinstance(method, dict)
+            or method.get(method_fields["methodIdentity"]) != expected_method
+        ):
+            return ["visual review method does not match execution profile"]
+    return []
+
 def _current_shared_policy_resolution_errors(
     output_dir: Path,
     expected_resolution: dict[str, Any],
@@ -591,6 +667,22 @@ def _run_finalization_stage(
                 "externalFailure",
                 "上传结果未绑定确认模板图、远端对象或请求身份。",
                 {},
+            )
+        storage_contract = rules["objectStorageContract"]
+        provider_field = storage_contract["adapterResultFields"]["provider"]
+        execution_contract = rules["productionExecutionContract"]
+        if (
+            manifest.get(execution_contract["manifestFields"]["executionMode"])
+            == execution_contract["executionModes"]["liveExternal"]
+            and upload_result[provider_field]
+            != storage_contract["providerRoles"]["aliyunOss"]
+        ):
+            raise _stop(
+                rules,
+                "blocked",
+                "untrustedProductionExecution",
+                "P7 上传凭证的 provider 与正式执行画像不一致。",
+                {"provider": upload_result[provider_field]},
             )
         receipt = _build_asset_receipt(
             manifest,

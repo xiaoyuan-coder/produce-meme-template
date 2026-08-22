@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "3.0.0",
-  "updated_at": "2026-08-21",
-  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，P0 先查询模板身份注册表并审核语义 key，P4 用绑定 Approved Image 的独立作者合同审计阻断统一槽位自证和 Prompt 职责泄漏。",
+  "version": "4.0.0",
+  "updated_at": "2026-08-22",
+  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段，使用受信执行画像区分回放与正式生产，并在 P0、P2、P4、P7、P8 和拆分交付重放身份、审核与 provider 证据。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -42,6 +42,7 @@
     "docs/adr/0024-稳定版按发布风险分级验收.md",
     "docs/adr/0025-用Authoring-Handoff连接替换分析与模板编译.md",
     "docs/adr/0026-生产前强制模板身份与独立作者合同审计.md",
+    "docs/adr/0027-正式生产使用受信执行画像与交付资格.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",
@@ -131,6 +132,7 @@
     "references/historical-experience-regression.md",
     "references/multi-instance-image-operations.md",
     "references/oss-finalization.md",
+    "references/production-execution-authority.md",
     "references/release-readiness.md",
     "references/replacement-spec.md",
     "references/release-doctor-install.md",
@@ -154,7 +156,9 @@
     "scripts/produce_meme_template/artifacts.py",
     "scripts/produce_meme_template/authoring_handoff.py",
     "scripts/produce_meme_template/batch_policy.py",
+    "scripts/produce_meme_template/delivery_qualification.py",
     "scripts/produce_meme_template/delivery_runtime.py",
+    "scripts/produce_meme_template/execution_authority.py",
     "scripts/produce_meme_template/experience_regression.py",
     "scripts/produce_meme_template/generation_runtime.py",
     "scripts/produce_meme_template/production_runtime.py",
@@ -181,6 +185,7 @@
     "tests/__init__.py",
     "tests/fixture_contracts.py",
     "tests/test_gallery_template_export.py",
+    "tests/live_production_support.py",
     "tests/test_issue_2_vertical_slice.py",
     "tests/test_issue_3_replacement_strategy.py",
     "tests/test_issue_4_template_image_gate.py",
@@ -199,6 +204,7 @@
     "tests/test_issue_17_major_stages.py",
     "tests/test_issue_25_authoring_handoff.py",
     "tests/test_issue_26_production_readiness_gates.py",
+    "tests/test_issue_27_execution_authority.py",
     "tests/test_repository_contract.py"
   ]
 }

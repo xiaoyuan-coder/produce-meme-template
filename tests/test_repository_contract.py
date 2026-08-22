@@ -20,6 +20,35 @@ def load(path: Path):
 
 
 class RepositoryContractTest(unittest.TestCase):
+    def test_production_execution_contract_is_the_only_execution_mode_source(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["productionExecutionContract"]
+        for mapping_name in (
+            "executionModes",
+            "profileFields",
+            "manifestFields",
+            "adapterTopologies",
+            "liveAdapterFields",
+        ):
+            mapping = contract[mapping_name]
+            self.assertIsInstance(mapping, dict)
+            self.assertEqual(len(mapping), len(set(mapping.values())))
+        self.assertNotIn("executionModes", rules["releaseReadinessContract"])
+        self.assertEqual(
+            len(contract["liveReviewMethodIds"]),
+            len(set(contract["liveReviewMethodIds"])),
+        )
+        self.assertTrue(
+            all(
+                isinstance(value, str) and value
+                for value in contract["liveReviewMethodIds"]
+            )
+        )
+        self.assertEqual(
+            len(contract["liveTemplateIdentityMethodIds"]),
+            len(set(contract["liveTemplateIdentityMethodIds"])),
+        )
+
     def test_generated_readme_is_current(self) -> None:
         completed = subprocess.run(
             [sys.executable, "scripts/update_readme.py", "--check"],
@@ -166,9 +195,7 @@ class RepositoryContractTest(unittest.TestCase):
             "scenarioRoles",
             "scenarioSourceCategoryRoleKeys",
             "fixtureDirectoryByScenarioRoleKey",
-            "executionModes",
             "liveCredentialEnvironment",
-            "liveReviewAdapterFields",
             "liveReviewEvidenceFields",
             "externalExecutionStatuses",
             "externalExecutionFields",
@@ -255,13 +282,13 @@ class RepositoryContractTest(unittest.TestCase):
         self.assertLessEqual(sample_count, len(contract["scenarioRoles"]))
         self.assertTrue(contract["reportFileName"].endswith(".json"))
         self.assertEqual(
-            len(contract["liveReviewMethodIds"]),
-            len(set(contract["liveReviewMethodIds"])),
+            len(rules["productionExecutionContract"]["liveReviewMethodIds"]),
+            len(set(rules["productionExecutionContract"]["liveReviewMethodIds"])),
         )
         self.assertTrue(
             all(
                 isinstance(value, str) and value
-                for value in contract["liveReviewMethodIds"]
+                for value in rules["productionExecutionContract"]["liveReviewMethodIds"]
             )
         )
         corpus = load(ROOT / contract["corpusRelativePath"])
@@ -393,7 +420,7 @@ class RepositoryContractTest(unittest.TestCase):
                 all(isinstance(value, str) and value for value in mapping.values())
             )
         self.assertEqual(
-            [f"E{index:02d}" for index in range(1, 44)],
+            [f"E{index:02d}" for index in range(1, 45)],
             contract["experienceIds"],
         )
         experience_fields = contract["experienceFields"]

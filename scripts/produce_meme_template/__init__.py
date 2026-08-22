@@ -6,6 +6,7 @@ from .adapters import (
     FalQueueWorkflowAdapters,
 )
 from .workflow import BatchProductionResult, ProductionResult, run_production
+from .execution_authority import build_live_production_adapters
 from .template_test import TemplateTestResult, run_template_test
 from .experience_regression import (
     ExperienceRegressionAdapters,
@@ -34,6 +35,7 @@ __all__ = [
     "RecordedShadowReadinessAdapters",
     "TemplateTestResult",
     "build_release",
+    "build_live_production_adapters",
     "live_release_readiness_preflight",
     "live_shadow_request",
     "promote_release",

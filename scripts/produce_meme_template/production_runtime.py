@@ -21,6 +21,7 @@ from .authoring_handoff import (
     source_authoring_context_errors,
 )
 from .release_management import doctor
+from .execution_authority import bind_runtime_install_source
 from .batch_policy import (
     _isolated_output_dir,
     _normalize_replacement_strategy,
@@ -32,6 +33,7 @@ from .delivery_runtime import (
     _current_finalization_errors,
     _current_item_fact_errors,
     _current_shared_policy_resolution_errors,
+    _current_template_data_errors,
     _finalize_uploaded_item,
     _run_finalization_stage,
 )
@@ -536,6 +538,7 @@ def _run_single_production(
     shared_policy_resolution: dict[str, Any] | None = None,
     preparation_stop: WorkflowStop | None = None,
     target_stage: int = 4,
+    execution_profile: dict[str, Any] | None = None,
 ) -> ProductionResult:
     """Run one Production Item through the requested resumable major stage."""
 
@@ -612,6 +615,32 @@ def _run_single_production(
             ),
             resumed=manifest_path.is_file(),
         )
+    if execution_profile is None:
+        return ProductionResult(
+            "blocked",
+            item_id,
+            rules["resultStates"]["blocked"],
+            output_dir,
+            error_code=rules["errorCodes"]["untrustedProductionExecution"],
+            message="缺少工作流预检生成的正式执行画像。",
+            resumed=manifest_path.is_file(),
+        )
+    execution_profile, execution_errors = bind_runtime_install_source(
+        execution_profile, runtime_diagnosis, rules
+    )
+    if execution_errors:
+        return ProductionResult(
+            "blocked",
+            item_id,
+            rules["resultStates"]["blocked"],
+            output_dir,
+            error_code=rules["errorCodes"]["untrustedProductionExecution"],
+            message="正式执行画像未通过运行时校验：" + "；".join(execution_errors),
+            resumed=manifest_path.is_file(),
+        )
+    production_execution_contract = rules["productionExecutionContract"]
+    execution_profile_name = production_execution_contract["artifactName"]
+    execution_profile_sha = _sha_bytes(_json_bytes(execution_profile))
     resume_visual = False
     resume_generation = False
     resume_prepared_generation = False
@@ -644,7 +673,12 @@ def _run_single_production(
                 message="Production Manifest 无法读取或顶层形状无效。",
                 resumed=True,
             )
-        completed_artifacts = ("production-pin.json", "gallery-template.json", "final-validation-report.json")
+        completed_artifacts = (
+            execution_profile_name,
+            "production-pin.json",
+            "gallery-template.json",
+            "final-validation-report.json",
+        )
         identity_errors = _production_item_integrity_errors(
             output_dir,
             existing,
@@ -655,6 +689,32 @@ def _run_single_production(
             generation_options_sha256=generation_options_sha,
             required_artifacts=completed_artifacts if existing.get("state") == rules["resultStates"]["completed"] else (),
         )
+        try:
+            persisted_execution_profile = _load_json(
+                output_dir / execution_profile_name
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            persisted_execution_profile = None
+        if (
+            existing.get(
+                production_execution_contract["manifestFields"]["executionMode"]
+            )
+            != execution_profile[
+                production_execution_contract["profileFields"]["executionMode"]
+            ]
+            or existing.get(
+                production_execution_contract["manifestFields"][
+                    "executionProfileSha256"
+                ]
+            )
+            != execution_profile_sha
+            or persisted_execution_profile != execution_profile
+            or existing.get("artifacts", {})
+            .get(execution_profile_name, {})
+            .get("sha256")
+            != execution_profile_sha
+        ):
+            identity_errors.append("production execution profile mismatch")
         if shared_policy_resolution is not None:
             identity_errors.extend(
                 _current_shared_policy_resolution_errors(
@@ -679,6 +739,9 @@ def _run_single_production(
             )
             identity_errors.extend(
                 _current_item_fact_errors(output_dir, existing, rules)
+            )
+            identity_errors.extend(
+                _current_template_data_errors(output_dir, existing, rules)
             )
         existing_revision_for_wal = existing.get("revision")
         if (
@@ -826,6 +889,7 @@ def _run_single_production(
                 replacement_strategy_sha256=replacement_strategy_sha,
                 generation_options_sha256=generation_options_sha,
                 required_artifacts=(
+                    execution_profile_name,
                     "production-pin.json",
                     "gallery-template.draft.json",
                     "validation-report.json",
@@ -844,6 +908,9 @@ def _run_single_production(
             )
             recovery_errors.extend(
                 _current_item_fact_errors(output_dir, existing, rules)
+            )
+            recovery_errors.extend(
+                _current_template_data_errors(output_dir, existing, rules)
             )
             if recovery_errors:
                 return ProductionResult(
@@ -929,6 +996,7 @@ def _run_single_production(
             ]
             required_by_stage = {
                 1: (
+                    execution_profile_name,
                     "production-pin.json",
                     "source-analysis.json",
                     "replacement-plan.json",
@@ -937,6 +1005,7 @@ def _run_single_production(
                     replacement_name,
                 ),
                 2: (
+                    execution_profile_name,
                     "production-pin.json",
                     "source-analysis.json",
                     "replacement-plan.json",
@@ -946,6 +1015,7 @@ def _run_single_production(
                     replacement_name,
                 ),
                 3: (
+                    execution_profile_name,
                     "production-pin.json",
                     "source-analysis.json",
                     "replacement-plan.json",
@@ -1053,6 +1123,7 @@ def _run_single_production(
                         replacement_strategy_sha256=replacement_strategy_sha,
                         generation_options_sha256=generation_options_sha,
                         required_artifacts=(
+                            execution_profile_name,
                             "production-pin.json",
                             "source-analysis.json",
                             "replacement-plan.json",
@@ -1095,6 +1166,7 @@ def _run_single_production(
                     replacement_strategy_sha256=replacement_strategy_sha,
                     generation_options_sha256=generation_options_sha,
                     required_artifacts=(
+                        execution_profile_name,
                         "production-pin.json",
                         "source-analysis.json",
                         "replacement-plan.json",
@@ -1367,6 +1439,7 @@ def _run_single_production(
                     replacement_strategy_sha256=replacement_strategy_sha,
                     generation_options_sha256=generation_options_sha,
                     required_artifacts=(
+                        execution_profile_name,
                         "production-pin.json",
                         "source-analysis.json",
                         "replacement-plan.json",
@@ -1448,6 +1521,12 @@ def _run_single_production(
             "sourceImageSha256": source_sha,
             "replacementStrategySha256": replacement_strategy_sha,
             "generationOptionsSha256": generation_options_sha,
+            production_execution_contract["manifestFields"]["executionMode"]: execution_profile[
+                production_execution_contract["profileFields"]["executionMode"]
+            ],
+            production_execution_contract["manifestFields"][
+                "executionProfileSha256"
+            ]: execution_profile_sha,
             "phase": None,
             "state": rules["initialState"],
             "outcome": None,
@@ -1490,6 +1569,17 @@ def _run_single_production(
                 resume_from_stage_one,
             )
         ):
+            _atomic_write_new(
+                output_dir / execution_profile_name,
+                _json_bytes(execution_profile),
+            )
+            _record_artifact(
+                manifest,
+                output_dir,
+                execution_profile_name,
+                p0,
+                [],
+            )
             identity_contract = rules["templateIdentityContract"]
             identity_name = identity_contract["artifactName"]
             resolve_template_identity = getattr(
@@ -1561,7 +1651,7 @@ def _run_single_production(
                 output_dir,
                 "production-pin.json",
                 p0,
-                [identity_name],
+                [execution_profile_name, identity_name],
             )
             evidence_source = output_dir / "evidence" / f"source-image{source_image.suffix.lower()}"
             _atomic_write_new(evidence_source, source_image.read_bytes())
@@ -1835,6 +1925,55 @@ def _run_single_production(
                     "生成提交结果未绑定冻结任务，或 adapter 修改了提交请求。",
                     {},
                 )
+            execution_fields = rules["productionExecutionContract"][
+                "profileFields"
+            ]
+            if (
+                manifest[
+                    rules["productionExecutionContract"]["manifestFields"][
+                        "executionMode"
+                    ]
+                ]
+                == rules["productionExecutionContract"]["executionModes"][
+                    "liveExternal"
+                ]
+                and generation_submission[submission_fields["provider"]]
+                != execution_profile[execution_fields["generationProvider"]]
+            ):
+                generation_wal[wal_fields["status"]] = execution_contract[
+                    "walStatuses"
+                ]["failed"]
+                for role in ("provider", "model", "providerRequestIdentity"):
+                    generation_wal[wal_fields[role]] = generation_submission[
+                        submission_fields[role]
+                    ]
+                generation_wal[wal_fields["failureClass"]] = execution_contract[
+                    "failureClasses"
+                ]["submissionUnknown"]
+                generation_wal[wal_fields["failureReason"]] = (
+                    "provider identity does not match the trusted execution profile"
+                )
+                generation_wal[wal_fields["updatedAt"]] = timestamp
+                _write_generation_wal(generation_wal_path, generation_wal, rules)
+                _record_artifact(
+                    manifest,
+                    output_dir,
+                    generation_wal_name,
+                    p2,
+                    [generation_task_name],
+                )
+                _persist_manifest(output_dir, manifest)
+                raise _stop(
+                    rules,
+                    "blocked",
+                    "untrustedProductionExecution",
+                    "P2 生成凭证的 provider 与正式执行画像不一致。",
+                    {
+                        "provider": generation_submission[
+                            submission_fields["provider"]
+                        ]
+                    },
+                )
             submission_status = generation_submission[submission_fields["status"]]
             if submission_status == execution_contract["submissionStatuses"]["failed"]:
                 failure_class = generation_submission[
@@ -2101,6 +2240,37 @@ def _run_single_production(
             review_bindings["generatedImageSha256"],
             review_request,
         )
+        if manifest[
+            rules["productionExecutionContract"]["manifestFields"][
+                "executionMode"
+            ]
+        ] == rules["productionExecutionContract"]["executionModes"][
+            "liveExternal"
+        ]:
+            readiness = rules["releaseReadinessContract"]
+            method = review.get(
+                readiness["liveReviewEvidenceFields"]["method"]
+            )
+            method_identity = (
+                method.get(
+                    readiness["liveReviewEvidenceFields"]["methodIdentity"]
+                )
+                if isinstance(method, dict)
+                else None
+            )
+            expected_method = execution_profile[
+                rules["productionExecutionContract"]["profileFields"][
+                    "visualReviewMethodIdentity"
+                ]
+            ]
+            if method_identity != expected_method:
+                raise _stop(
+                    rules,
+                    "blocked",
+                    "untrustedProductionExecution",
+                    "P2 视觉审核证据的方法身份与正式执行画像不一致。",
+                    {"methodIdentity": method_identity},
+                )
         candidate_unchanged = _sha_file(candidate_path) == review_bindings["generatedImageSha256"]
         review_request_unchanged = review_request == review_request_snapshot
         gate_stop = _evaluate_visual_gate(

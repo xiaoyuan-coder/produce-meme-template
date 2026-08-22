@@ -14,11 +14,12 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 
 ## 公共入口
 
-- Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters, stage=<1|2|3|4>)`；省略 `stage` 时执行完整第四阶段。
+- Python seam：`scripts.produce_meme_template.run_production(request, output_root, adapters, stage=<1|2|3|4>, execution_mode=<recorded_replay|live_external>)`；省略 `stage` 时执行完整第四阶段，省略执行模式时只获得回放资格。
+- 正式 adapter 工厂：`scripts.produce_meme_template.build_live_production_adapters(...)`；按职责注入来源、视觉审核、作者分析、作者审计、语义审计和视觉合同审计 adapter，并由核心登记 Fal/OSS 拓扑。
 - 确定性演示：`python3 scripts/produce.py --request <request.json> --deterministic-fixture <fixture-dir> --output <output-dir> --stage <1|2|3|4>`。
 - 发布候选、readiness 晋升、安装、诊断与显式 pin 迁移：`python3 scripts/release_tool.py <build|stage|promote|install|doctor|migrate-pin> ...`。
 - 历史经验回归：`python3 scripts/experience_regression.py --runtime <runtime> --output <outside-runtime.json>`。
-- 正式记录拆分交付：`python3 scripts/export_gallery_templates.py --source <gallery-template.json> --output-dir <单模板JSON目录> --manifest <目录外交付清单.json>`；输出目录内只保留按 `key` 命名的正式 JSON。
+- 正式记录拆分交付：`python3 scripts/export_gallery_templates.py --source <gallery-template.json> --production-manifest <production-manifest.json> --output-dir <单模板JSON目录> --manifest <目录外交付清单.json>`；单工作区来源可自动发现 Manifest，批量数组逐条重复传入，输出目录内只保留按 `key` 命名的正式 JSON。
 - 影子批次与 1.0 准备：`scripts.produce_meme_template.run_release_readiness(request, output_root, adapters)`。
 - 单项请求包含一个 `templateKey` 和一张 `sourceImage`；批量请求使用机器合同声明的信封字段包含多个同形单项请求。每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
 
@@ -32,6 +33,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - **批量提交**：把多张来源网图拆成相互独立的 Production Item，默认五路并发并按输入顺序归集；批次先完成全部 P1 与 Prompt 检查，再并发提交 P2；仅在用户显式提供共享批次策略时建立跨图约束。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
 - **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；生产 sidecar 留在 Production workspace，交付清单位于单模板数据目录之外，OSS 与正式记录内容不因拆分再次生成。
+- **正式执行资格**：fixture、录制回放和 source worktree 只生成不可交付证据；正式业务生产显式使用 `live_external`，从 doctor 验证的安装发布包运行，并通过 Fal、独立审核与 Aliyun OSS 拓扑门禁。
 
 ## 规则路由
 
@@ -43,8 +45,9 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - P7–P8 的 Approved Image 上传、远端对象对账、Asset Receipt 恢复和双 URL 回填读取 [OSS 幂等终结合同](references/oss-finalization.md)。
 - 四个用户大阶段、P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - 三线版本、发布风险分级、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
+- 正式/回放模式、adapter 拓扑、执行画像、阶段 provider 对账、交付资格和零重复外部调用读取 [正式执行画像与交付资格合同](references/production-execution-authority.md)。
 - T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
-- E01–E43 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
+- E01–E44 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
 - 首稳、major 或显式外部风险候选的六类影子样本、未见图前向、四场景 live 和 readiness 报告读取 [真实影子批次与稳定版发布准备合同](references/release-readiness.md)。
 - 创建、迁移、审查或独立测试 Gallery Template JSON，以及 P3–P8 的槽位、Prompt Template、runtimeSemantics 和正式投影，完整读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 判断模板身份、编辑权限、subject 身份特征继承范围，或编写标题、槽位全部属性、Prompt Template、target/binding 与逐图画风约束时，完整读取 [模板身份、编辑权限与正式字段编写规范](references/template-authoring.md)。
@@ -60,4 +63,4 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 
 ## 完成条件
 
-实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E43 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。发布按候选锁中的 profile 验收；首稳、major 和显式外部风险要求真实外部 readiness，兼容 minor/patch 要求全量验证、双轴 clean review、全新安装和 doctor。
+实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E44 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、执行画像具备交付资格、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。发布按候选锁中的 profile 验收；首稳、major 和显式外部风险要求真实外部 readiness，兼容 minor/patch 要求全量验证、双轴 clean review、全新安装和 doctor。

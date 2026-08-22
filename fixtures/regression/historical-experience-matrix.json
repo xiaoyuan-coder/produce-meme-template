@@ -450,6 +450,40 @@
           "expectedGateLocator": "/resultStates/blocked"
         }
       ]
+    },
+    {
+      "experienceId": "E44",
+      "topic": "正式执行资格必须由工作流核验",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "fixture 生图、批量复制审核和 source worktree 只具备回放资格；正式生产与拆分交付必须重放受信执行画像。",
+      "authority": {
+        "path": "docs/adr/0027-正式生产使用受信执行画像与交付资格.md",
+        "anchor": "### 正式执行画像"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/productionExecutionContract"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_27_execution_authority.ProductionExecutionAuthorityTest.test_live_production_rejects_the_batch_fixture_topology_before_p0",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/request.json",
+            "tests/test_issue_27_execution_authority.py"
+          ],
+          "expectedGateLocator": "/errorCodes/untrustedProductionExecution"
+        },
+        {
+          "testId": "tests.test_issue_27_execution_authority.ProductionExecutionAuthorityTest.test_live_full_production_replays_lineage_and_reuses_external_calls",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/request.json",
+            "tests/test_issue_27_execution_authority.py"
+          ]
+        }
+      ]
     }
   ],
   "corpus": {

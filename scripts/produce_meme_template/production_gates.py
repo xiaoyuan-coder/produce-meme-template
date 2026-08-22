@@ -140,6 +140,34 @@ def _production_prompt_clauses(prompt: str, rules: dict[str, Any]) -> list[str]:
     return [clause for clause in clauses if any(pattern.search(clause) for pattern in patterns)]
 
 
+def _prompt_clause_classifications(
+    prompt: str, rules: dict[str, Any]
+) -> list[dict[str, str]]:
+    contract = rules["authoringContractAudit"]
+    fields = contract["promptClauseFields"]
+    responsibilities = contract["promptResponsibilities"]
+    leaked = set(_production_prompt_clauses(prompt, rules))
+    clauses = [
+        clause.strip()
+        for clause in re.split(r"(?<=[。！？!?;])|\n+", prompt)
+        if clause.strip()
+    ]
+    return [
+        {
+            fields["clause"]: clause,
+            fields["responsibility"]: (
+                responsibilities["productionConstraint"]
+                if clause in leaked
+                else responsibilities["userEditableContent"]
+            ),
+            fields["evidence"]: (
+                "句子职责已分类并绑定原始 promptTemplate 文本"
+            ),
+        }
+        for clause in clauses
+    ]
+
+
 def deterministic_authoring_contract_audit(
     approved_image: Path,
     review_request: dict[str, Any],
@@ -152,6 +180,9 @@ def deterministic_authoring_contract_audit(
     slot_fields = contract["slotReviewFields"]
     prompt = review_request[request_fields["promptTemplate"]]
     leaked = _production_prompt_clauses(prompt if isinstance(prompt, str) else "", rules)
+    clause_classifications = _prompt_clause_classifications(
+        prompt if isinstance(prompt, str) else "", rules
+    )
     graph = review_request[request_fields["componentGraph"]]
     graph_fields = rules["multiInstanceContract"]["graphFields"]
     component_fields = rules["multiInstanceContract"]["componentFields"]
@@ -214,6 +245,7 @@ def deterministic_authoring_contract_audit(
         review_fields["promptReview"]: {
             prompt_fields["userEditableOnly"]: not leaked,
             prompt_fields["leakedProductionClauses"]: leaked,
+            prompt_fields["clauseClassifications"]: clause_classifications,
             prompt_fields["evidence"]: (
                 "逐句分类 Prompt 内容为用户可替换画面内容或生产/输出约束"
             ),
@@ -250,11 +282,44 @@ def authoring_contract_audit_errors(
     if audit[review_fields["reviewRequestSha256"]] != _sha256(review_request):
         errors.append("作者合同审计未绑定当前只读请求")
     prompt_review = audit[review_fields["promptReview"]]
+    prompt = review_request[request_fields["promptTemplate"]]
+    clause_fields = contract["promptClauseFields"]
+    responsibilities = contract["promptResponsibilities"]
+    clause_reviews = (
+        prompt_review.get(prompt_fields["clauseClassifications"])
+        if isinstance(prompt_review, dict)
+        else None
+    )
+    expected_clauses = [
+        clause.strip()
+        for clause in re.split(
+            r"(?<=[。！？!?;])|\n+",
+            prompt if isinstance(prompt, str) else "",
+        )
+        if clause.strip()
+    ]
+    clause_reviews_valid = bool(
+        isinstance(clause_reviews, list)
+        and len(clause_reviews) == len(expected_clauses)
+        and all(
+            isinstance(item, dict)
+            and set(item) == set(clause_fields.values())
+            and item[clause_fields["clause"]] == expected_clause
+            and item[clause_fields["responsibility"]]
+            == responsibilities["userEditableContent"]
+            and isinstance(item[clause_fields["evidence"]], str)
+            and item[clause_fields["evidence"]].strip()
+            for item, expected_clause in zip(
+                clause_reviews, expected_clauses, strict=True
+            )
+        )
+    )
     if not (
         isinstance(prompt_review, dict)
         and set(prompt_review) == set(prompt_fields.values())
         and prompt_review[prompt_fields["userEditableOnly"]] is True
         and prompt_review[prompt_fields["leakedProductionClauses"]] == []
+        and clause_reviews_valid
         and isinstance(prompt_review[prompt_fields["evidence"]], str)
         and prompt_review[prompt_fields["evidence"]].strip()
     ):
@@ -314,4 +379,3 @@ def authoring_contract_audit_errors(
     ):
         errors.append("作者合同审计总证据缺失")
     return errors
-

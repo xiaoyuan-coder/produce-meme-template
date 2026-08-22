@@ -51,6 +51,9 @@ def _rules() -> dict[str, Any]:
     return value
 
 
+EXECUTION_MODES = _rules()["productionExecutionContract"]["executionModes"]
+
+
 def _json_bytes(value: Any) -> bytes:
     return _pretty_json_bytes(value, sort_keys=True)
 
@@ -380,7 +383,7 @@ def _corpus_by_role(
         and set(corpus) == expected_corpus_fields
         and corpus.get(fields["artifactType"]) == contract["corpusArtifactType"]
         and corpus.get(fields["executionMode"])
-        == contract["executionModes"]["recordedReplay"]
+        == EXECUTION_MODES["recordedReplay"]
         and corpus.get(fields["generator"]) == contract["recordedCorpusGenerator"]
         and isinstance(scenarios, list)
         and all(isinstance(item, dict) for item in scenarios)
@@ -478,7 +481,7 @@ def _scenario_roles_for_execution(
         isinstance(role, str) for role in observed_roles
     ):
         return None
-    if execution_mode == contract["executionModes"]["recordedReplay"]:
+    if execution_mode == EXECUTION_MODES["recordedReplay"]:
         expected = [
             role_by_key[key]
             for key in contract["recordedReplayScenarioRoleKeys"]
@@ -486,7 +489,7 @@ def _scenario_roles_for_execution(
         if observed_roles is None or set(observed_roles) == set(expected):
             return expected
         return None
-    if execution_mode != contract["executionModes"]["liveExternal"]:
+    if execution_mode != EXECUTION_MODES["liveExternal"]:
         return None
     mandatory = [
         role_by_key[key] for key in contract["liveMandatoryScenarioRoleKeys"]
@@ -519,9 +522,7 @@ class RecordedShadowReadinessAdapters:
         default_root = (ROOT / rules["releaseReadinessContract"]["corpusRelativePath"]).parent
         self.corpus_root = Path(corpus_root or default_root).resolve()
         self.scenario_adapters: dict[str, DeterministicFixtureAdapters] = {}
-        self.execution_mode = rules["releaseReadinessContract"]["executionModes"][
-            "recordedReplay"
-        ]
+        self.execution_mode = EXECUTION_MODES["recordedReplay"]
 
     def workflow_adapters_for_scenario(
         self, scenario: dict[str, Any]
@@ -565,6 +566,7 @@ class _LiveReviewWorkflowDelegate:
     def __init__(self, source_delegate: Any, review_delegate: Any) -> None:
         self.source_delegate = source_delegate
         self.review_delegate = review_delegate
+        self.live_review_method_id = review_delegate.live_review_method_id
 
     @property
     def generate_calls(self) -> list[dict[str, Any]]:
@@ -616,6 +618,13 @@ class _LiveReviewWorkflowDelegate:
     def audit_semantics(self, content: dict[str, Any]) -> dict[str, Any]:
         return self.review_delegate.audit_semantics(content)
 
+    def audit_visual_contract(
+        self, approved_image: Path, review_request: dict[str, Any]
+    ) -> dict[str, Any]:
+        return self.review_delegate.audit_visual_contract(
+            approved_image, review_request
+        )
+
     def inspect_template_test(
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
@@ -647,7 +656,7 @@ class LiveShadowReadinessAdapters(RecordedShadowReadinessAdapters):
         )
         live_roles = _scenario_roles_for_execution(
             contract,
-            contract["executionModes"]["liveExternal"],
+            EXECUTION_MODES["liveExternal"],
             [
                 role
                 for role in supplied_roles
@@ -664,10 +673,12 @@ class LiveShadowReadinessAdapters(RecordedShadowReadinessAdapters):
                 not isinstance(adapter, DeterministicFixtureAdapters)
                 and getattr(
                     adapter,
-                    contract["liveReviewAdapterFields"]["methodIdentity"],
+                    rules["productionExecutionContract"]["liveAdapterFields"][
+                        "visualReviewMethodIdentity"
+                    ],
                     None,
                 )
-                in set(contract["liveReviewMethodIds"])
+                in set(rules["productionExecutionContract"]["liveReviewMethodIds"])
                 for adapter in live_review_adapters_by_role.values()
             )
         ):
@@ -675,7 +686,7 @@ class LiveShadowReadinessAdapters(RecordedShadowReadinessAdapters):
                 "live release readiness requires an independent reviewer for every role"
             )
         super().__init__(corpus_root)
-        self.execution_mode = contract["executionModes"]["liveExternal"]
+        self.execution_mode = EXECUTION_MODES["liveExternal"]
         _LIVE_ADAPTER_CONTEXTS[self] = {
             "corpusRoot": self.corpus_root,
             "reviewers": dict(live_review_adapters_by_role),
@@ -816,7 +827,7 @@ def _installed_forward_report(
         report_fields["productionItemId"]: production[
             production_fields["productionItemIdentity"]
         ],
-        report_fields["executionMode"]: contract["executionModes"][
+        report_fields["executionMode"]: EXECUTION_MODES[
             "liveExternal"
         ],
         report_fields["pass"]: True,
@@ -862,7 +873,7 @@ def recorded_shadow_request() -> dict[str, Any]:
             {
                 scenario_fields["role"]: role,
                 scenario_fields["productionRequest"]: request,
-                scenario_fields["executionMode"]: contract["executionModes"][
+                scenario_fields["executionMode"]: EXECUTION_MODES[
                     "recordedReplay"
                 ],
                 scenario_fields["sourceProvenance"]: {
@@ -888,7 +899,7 @@ def recorded_shadow_request() -> dict[str, Any]:
     forward_scenario = {
         scenario_fields["role"]: forward_role,
         scenario_fields["productionRequest"]: forward_request,
-        scenario_fields["executionMode"]: contract["executionModes"][
+        scenario_fields["executionMode"]: EXECUTION_MODES[
             "recordedReplay"
         ],
         scenario_fields["sourceProvenance"]: {
@@ -926,7 +937,7 @@ def live_shadow_request(
         raise ValueError("live supplement role is not allowed")
     selected_roles = _scenario_roles_for_execution(
         contract,
-        contract["executionModes"]["liveExternal"],
+        EXECUTION_MODES["liveExternal"],
         [
             *(
                 contract["scenarioRoles"][key]
@@ -947,7 +958,7 @@ def live_shadow_request(
         *request[request_fields["scenarios"]],
         request[request_fields["forwardScenario"]],
     ]:
-        scenario[scenario_fields["executionMode"]] = contract["executionModes"][
+        scenario[scenario_fields["executionMode"]] = EXECUTION_MODES[
             "liveExternal"
         ]
     request[request_fields["releaseGateEvidence"]] = copy.deepcopy(
@@ -1111,7 +1122,7 @@ def _scenario_evidence_error(
         and lineage.get("sourceImage") == source_sha
         and isinstance(approved_sha, str)
         and (
-            execution_mode == contract["executionModes"]["liveExternal"]
+            execution_mode == EXECUTION_MODES["liveExternal"]
             or lineage.get("approvedTemplateImage") == approved_sha
         )
         and corpus_item.get(corpus_fields["expectedSourceCategoryRole"])
@@ -1227,14 +1238,35 @@ def _live_execution_evidence_valid(
     visual_review = _load_object(
         _lineage_artifact_path(output_dir, "visualReview", readiness)
     )
+    execution_contract = rules["productionExecutionContract"]
+    execution_profile = _load_object(
+        output_dir / execution_contract["artifactName"]
+    )
+    manifest = _load_object(output_dir / "production-manifest.json")
     candidate_sha = lineage.get("generatedCandidate")
     approved_sha = lineage.get("approvedTemplateImage")
-    if wal is None or receipt is None or visual_review is None:
+    if (
+        wal is None
+        or receipt is None
+        or visual_review is None
+        or execution_profile is None
+        or manifest is None
+    ):
         return False
+    profile_fields = execution_contract["profileFields"]
+    manifest_fields = execution_contract["manifestFields"]
     live_evidence_fields = readiness["liveReviewEvidenceFields"]
     method = visual_review.get(live_evidence_fields["method"])
     return bool(
-        wal.get(wal_fields["status"]) == generation["walStatuses"]["succeeded"]
+        execution_profile.get(profile_fields["executionMode"])
+        == execution_contract["liveReadinessExecutionMode"]
+        and execution_profile.get(profile_fields["deliveryEligible"]) is False
+        and manifest.get(manifest_fields["executionMode"])
+        == execution_contract["liveReadinessExecutionMode"]
+        and manifest.get(manifest_fields["executionProfileSha256"])
+        == _sha_json(execution_profile)
+        and wal.get(wal_fields["status"])
+        == generation["walStatuses"]["succeeded"]
         and wal.get(wal_fields["provider"])
         == generation["providerRoles"]["fal"]
         and isinstance(wal.get(wal_fields["providerRequestIdentity"]), str)
@@ -1254,7 +1286,7 @@ def _live_execution_evidence_valid(
         in set(storage["uploadStatuses"].values())
         and isinstance(method, dict)
         and method.get(live_evidence_fields["methodIdentity"])
-        in set(readiness["liveReviewMethodIds"])
+        == execution_profile.get(profile_fields["visualReviewMethodIdentity"])
     )
 
 
@@ -1650,7 +1682,7 @@ def _successful_report_artifacts_valid(
     expected_all = [*expected_scenarios, expected_forward]
     all_live = all(
         item.get(scenario_fields["executionMode"])
-        == contract["executionModes"]["liveExternal"]
+        == EXECUTION_MODES["liveExternal"]
         for item in expected_all
     )
     gate_evidence = normalized_request[request_fields["releaseGateEvidence"]]
@@ -1768,7 +1800,7 @@ def _successful_report_artifacts_valid(
             return False
         if (
             expected_scenario[scenario_fields["executionMode"]]
-            == contract["executionModes"]["liveExternal"]
+            == EXECUTION_MODES["liveExternal"]
             and not _live_execution_evidence_valid(output_directory, lineage, rules)
         ):
             return False
@@ -2012,7 +2044,7 @@ def verify_release_readiness_completion(
     }
     required_roles = _scenario_roles_for_execution(
         contract,
-        contract["executionModes"]["liveExternal"],
+        EXECUTION_MODES["liveExternal"],
         list(by_role),
     )
     if required_roles is None:
@@ -2038,7 +2070,7 @@ def verify_release_readiness_completion(
                 item,
                 expected_role=role,
                 contract=contract,
-                adapter_mode=contract["executionModes"]["liveExternal"],
+                adapter_mode=EXECUTION_MODES["liveExternal"],
             )
             and _request_scenario_matches_corpus(
                 item,
@@ -2178,7 +2210,7 @@ def run_release_readiness(
     except (AttributeError, TypeError, ValueError, KeyError):
         adapter_mode = None
     mode_role_by_value = {
-        value: role for role, value in contract["executionModes"].items()
+        value: role for role, value in EXECUTION_MODES.items()
     }
     adapter_mode_role = (
         mode_role_by_value.get(adapter_mode)
@@ -2211,13 +2243,13 @@ def run_release_readiness(
     elif adapter_mode_role is None and (
         _scenario_roles_for_execution(
             contract,
-            contract["executionModes"]["recordedReplay"],
+            EXECUTION_MODES["recordedReplay"],
             observed_roles,
         )
         is not None
         or _scenario_roles_for_execution(
             contract,
-            contract["executionModes"]["liveExternal"],
+            EXECUTION_MODES["liveExternal"],
             observed_roles,
         )
         is not None
@@ -2226,17 +2258,17 @@ def run_release_readiness(
     elif not complete:
         error_code = errors["coverageMissing"]
     elif (
-        adapter_mode == contract["executionModes"]["liveExternal"]
+        adapter_mode == EXECUTION_MODES["liveExternal"]
         and not _core_constructed_live_adapter(adapters)
     ):
         error_code = errors["liveEvidenceMismatch"]
     elif (
-        adapter_mode == contract["executionModes"]["liveExternal"]
+        adapter_mode == EXECUTION_MODES["liveExternal"]
         and _core_live_reviewer_roles(adapters) != required_roles
     ):
         error_code = errors["liveEvidenceMismatch"]
     elif (
-        adapter_mode == contract["executionModes"]["liveExternal"]
+        adapter_mode == EXECUTION_MODES["liveExternal"]
         and release_gate_evidence is None
     ):
         error_code = errors["releaseGateIncomplete"]
@@ -2303,7 +2335,7 @@ def run_release_readiness(
         ):
             error_code = errors["invalidRequest"]
         elif release_gate_evidence is not None:
-            if adapter_mode != contract["executionModes"]["liveExternal"]:
+            if adapter_mode != EXECUTION_MODES["liveExternal"]:
                 error_code = errors["invalidRequest"]
             else:
                 verified_release_gates = _verified_release_gates(
@@ -2345,7 +2377,7 @@ def run_release_readiness(
             release_gate_evidence
         ),
     }
-    mode_directory = contract["executionModes"][adapter_mode_role].replace(
+    mode_directory = EXECUTION_MODES[adapter_mode_role].replace(
         "_", "-"
     )
     production_root = _safe_workspace(production_base, mode_directory)
@@ -2402,13 +2434,13 @@ def run_release_readiness(
             rules=rules,
             contract=contract,
         )
-        if adapter_mode == contract["executionModes"]["liveExternal"]
+        if adapter_mode == EXECUTION_MODES["liveExternal"]
         and isinstance(release_gate_evidence, dict)
         else None
     )
     overall_error: str | None = None
     if (
-        adapter_mode == contract["executionModes"]["liveExternal"]
+        adapter_mode == EXECUTION_MODES["liveExternal"]
         and forward_report is None
     ):
         overall_error = errors["releaseGateIncomplete"]
@@ -2416,7 +2448,7 @@ def run_release_readiness(
         *ordered_scenarios,
         *(
             [forward_scenario]
-            if adapter_mode == contract["executionModes"]["recordedReplay"]
+            if adapter_mode == EXECUTION_MODES["recordedReplay"]
             else []
         ),
     ]
@@ -2425,7 +2457,7 @@ def run_release_readiness(
         production_request = scenario.get(scenario_fields["productionRequest"])
         execution_mode = scenario.get(scenario_fields["executionMode"])
         if not isinstance(production_request, dict) or execution_mode not in set(
-            contract["executionModes"].values()
+            EXECUTION_MODES.values()
         ):
             result: ProductionResult | None = None
             lineage = None
@@ -2435,13 +2467,22 @@ def run_release_readiness(
                 workflow_adapters = (
                     _core_live_workflow_adapter(adapters, scenario, contract)
                     if execution_mode
-                    == contract["executionModes"]["liveExternal"]
+                    == EXECUTION_MODES["liveExternal"]
                     else adapters.workflow_adapters_for_scenario(
                         copy.deepcopy(scenario)
                     )
                 )
                 candidate = run_production(
-                    copy.deepcopy(production_request), production_root, workflow_adapters
+                    copy.deepcopy(production_request),
+                    production_root,
+                    workflow_adapters,
+                    execution_mode=(
+                        rules["productionExecutionContract"][
+                            "liveReadinessExecutionMode"
+                        ]
+                        if execution_mode == EXECUTION_MODES["liveExternal"]
+                        else execution_mode
+                    ),
                 )
             except Exception:
                 candidate = None
@@ -2477,7 +2518,7 @@ def run_release_readiness(
             if (
                 scenario_error is None
                 and execution_mode
-                == contract["executionModes"]["liveExternal"]
+                == EXECUTION_MODES["liveExternal"]
                 and not _live_execution_evidence_valid(
                     result.output_dir, lineage, rules
                 )
@@ -2511,7 +2552,7 @@ def run_release_readiness(
                         test_adapters = (
                             _core_live_workflow_adapter(adapters, scenario, contract)
                             if execution_mode
-                            == contract["executionModes"]["liveExternal"]
+                            == EXECUTION_MODES["liveExternal"]
                             else adapters.template_test_adapters_for_scenario(
                                 copy.deepcopy(scenario)
                             )
@@ -2625,7 +2666,7 @@ def run_release_readiness(
     external_fields = contract["externalExecutionFields"]
     external_statuses = contract["externalExecutionStatuses"]
     all_live = all(
-        mode == contract["executionModes"]["liveExternal"] for mode in live_modes
+        mode == EXECUTION_MODES["liveExternal"] for mode in live_modes
     )
     if all_live:
         external_execution = copy.deepcopy(preflight)

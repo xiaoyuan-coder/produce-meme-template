@@ -21,6 +21,9 @@ from produce_meme_template.artifacts import (  # noqa: E402
     sha256_bytes,
     sha256_file,
 )
+from produce_meme_template.delivery_qualification import (  # noqa: E402
+    completed_delivery_qualification_errors,
+)
 from produce_meme_template.template_compiler import (  # noqa: E402
     formal_template_contract_valid,
 )
@@ -71,6 +74,49 @@ def _load_records(source: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _validate_delivery_provenance(
+    source: Path,
+    records: list[dict[str, Any]],
+    production_manifests: list[Path] | None,
+) -> None:
+    manifest_paths = list(production_manifests or [])
+    sibling_manifest = source.parent / "production-manifest.json"
+    if not manifest_paths and sibling_manifest.is_file():
+        manifest_paths = [sibling_manifest]
+    if len(manifest_paths) != len(records):
+        raise ExportError("每条正式记录都必须提供一份正式生产 Manifest。")
+
+    manifests_by_key: dict[str, tuple[dict[str, Any], Path]] = {}
+    for path in manifest_paths:
+        resolved = path.resolve()
+        try:
+            manifest = json.loads(resolved.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ExportError(f"无法读取正式生产 Manifest：{resolved}") from error
+        key = manifest.get("templateKey") if isinstance(manifest, dict) else None
+        if not isinstance(key, str) or key in manifests_by_key:
+            raise ExportError("正式生产 Manifest 的模板 key 缺失或重复。")
+        manifests_by_key[key] = (manifest, resolved.parent)
+
+    for record in records:
+        key = record["key"]
+        manifest_entry = manifests_by_key.get(key)
+        if manifest_entry is None:
+            raise ExportError(f"模板 {key} 缺少对应的正式生产 Manifest。")
+        manifest, item_dir = manifest_entry
+        qualification_errors = completed_delivery_qualification_errors(
+            item_dir,
+            manifest,
+            record,
+            MACHINE_RULES,
+        )
+        if qualification_errors:
+            raise ExportError(
+                f"模板 {key} 的完整生产谱系不可交付："
+                + "；".join(qualification_errors)
+            )
+
+
 def _atomic_write(path: Path, payload: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
@@ -95,11 +141,13 @@ def export_gallery_templates(
     *,
     manifest_path: Path,
     overwrite: bool = False,
+    production_manifests: list[Path] | None = None,
 ) -> dict[str, Any]:
     """Validate and export one formal record per ``<key>.json`` file."""
     source = source.resolve()
     output_dir = output_dir.resolve()
     records = _load_records(source)
+    _validate_delivery_provenance(source, records, production_manifests)
     expected_names = {f"{record['key']}.json" for record in records}
 
     manifest_path = manifest_path.resolve()
@@ -184,6 +232,13 @@ def main() -> int:
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument(
+        "--production-manifest",
+        action="append",
+        default=[],
+        type=Path,
+        help="每条记录对应的正式生产 Manifest；单工作区来源可自动发现",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="replace conflicting key files and manifest after explicit review",
@@ -195,6 +250,7 @@ def main() -> int:
             args.output_dir,
             manifest_path=args.manifest,
             overwrite=args.overwrite,
+            production_manifests=args.production_manifest,
         )
     except ExportError as error:
         print(f"export blocked: {error}", file=sys.stderr)

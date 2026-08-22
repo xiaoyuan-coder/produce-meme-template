@@ -32,6 +32,7 @@ RULES = json.loads(
     (ROOT / "contracts" / "machine-rules.json").read_text(encoding="utf-8")
 )
 CONTRACT = RULES["releaseReadinessContract"]
+EXECUTION_MODES = RULES["productionExecutionContract"]["executionModes"]
 REPORT_FIELDS = CONTRACT["reportFields"]
 ERROR_CODES = CONTRACT["errorCodes"]
 SCENARIO_FIELDS = CONTRACT["scenarioFields"]
@@ -50,8 +51,10 @@ class NeverCalledLiveReviewer:
     def __init__(self) -> None:
         setattr(
             self,
-            CONTRACT["liveReviewAdapterFields"]["methodIdentity"],
-            CONTRACT["liveReviewMethodIds"][0],
+            RULES["productionExecutionContract"]["liveAdapterFields"][
+                "visualReviewMethodIdentity"
+            ],
+            RULES["productionExecutionContract"]["liveReviewMethodIds"][0],
         )
 
 
@@ -73,7 +76,7 @@ class RaisingPathLike:
 
 
 class AnimalOnlyReadinessAdapters:
-    execution_mode = CONTRACT["executionModes"]["recordedReplay"]
+    execution_mode = EXECUTION_MODES["recordedReplay"]
 
     def workflow_adapters_for_scenario(self, scenario: dict):
         workflow_adapters = DeterministicFixtureAdapters(BASE_FIXTURE)
@@ -106,7 +109,7 @@ class AnimalOnlyReadinessAdapters:
 class RelabeledRecordedReadinessAdapters(RecordedShadowReadinessAdapters):
     def __init__(self) -> None:
         super().__init__()
-        self.execution_mode = CONTRACT["executionModes"]["liveExternal"]
+        self.execution_mode = EXECUTION_MODES["liveExternal"]
 
     def release_gate_evidence(self, **kwargs):
         del kwargs
@@ -856,9 +859,9 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
             *request[CONTRACT["requestFields"]["scenarios"]],
             request[CONTRACT["requestFields"]["forwardScenario"]],
         ]:
-            scenario[SCENARIO_FIELDS["executionMode"]] = CONTRACT[
-                "executionModes"
-            ]["liveExternal"]
+            scenario[SCENARIO_FIELDS["executionMode"]] = EXECUTION_MODES[
+                "liveExternal"
+            ]
         with tempfile.TemporaryDirectory() as temporary:
             output_root = Path(temporary) / "readiness"
             report = run_release_readiness(
@@ -890,7 +893,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
 
     def test_unconstructed_live_adapter_cannot_inject_scenario_factories(self) -> None:
         forged = object.__new__(LiveShadowReadinessAdapters)
-        forged.execution_mode = CONTRACT["executionModes"]["liveExternal"]
+        forged.execution_mode = EXECUTION_MODES["liveExternal"]
         credentials = {
             variable: f"dummy-{role}"
             for role, variable in CONTRACT["liveCredentialEnvironment"].items()
@@ -1235,7 +1238,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
     def test_adapter_mode_must_be_an_exact_machine_string(self) -> None:
         adapters = RecordedShadowReadinessAdapters()
         adapters.execution_mode = RaisingReplaceString(
-            CONTRACT["executionModes"]["recordedReplay"]
+            EXECUTION_MODES["recordedReplay"]
         )
         with tempfile.TemporaryDirectory() as temporary:
             output_root = Path(temporary) / "readiness"

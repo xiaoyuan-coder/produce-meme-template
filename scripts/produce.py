@@ -109,6 +109,9 @@ def main(argv: list[str] | None = None) -> int:
         adapters,
         clock=clock,
         stage=args.stage,
+        execution_mode=rules["productionExecutionContract"]["executionModes"][
+            "recordedReplay"
+        ],
     )
     print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
     if isinstance(result, BatchProductionResult):

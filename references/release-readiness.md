@@ -6,6 +6,8 @@
 
 发布准备使用同一个 `run_release_readiness` 公共 seam，区分两种执行模式：
 
+模式枚举与 live 审核方法集合统一读取 `productionExecutionContract`；本合同只声明影子场景覆盖、报告和候选晋升规则。发布 readiness 的 live 结果属于候选资格证据，不直接赋予其中 Production Item 业务交付资格；正式业务交付仍执行 `production-execution-authority.md` 的已安装 runtime 与导出门禁。
+
 - `recorded_replay`：对真实来源图、已复核 Approved Template Image 和固定分析证据进行公共工作流回放。它验证代码、谱系、正式投影和 T1，不代表外部供应商或 OSS 已执行。
 - `live_external`：使用 Fal 队列生成与阿里云 OSS 上传执行同一批请求，并为每个新生成图注入独立 live 审核 adapter。来源分析可以复用同一来源图的录制证据；视觉硬门禁、Approved 分析、语义审计和 T1 复核必须针对本次 live 图片重新执行。仅该模式全部完成时，报告的 `releaseEligible` 才能为 `true`。
 

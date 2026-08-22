@@ -16,7 +16,7 @@ from produce_meme_template.experience_regression import run_experience_regressio
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="执行 E01–E43 历史经验回归并生成绑定版本 pin 的报告"
+        description="执行机器合同声明的全部历史经验回归并生成绑定版本 pin 的报告"
     )
     parser.add_argument("--runtime", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)

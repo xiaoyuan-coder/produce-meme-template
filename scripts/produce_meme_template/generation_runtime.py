@@ -823,6 +823,14 @@ def _current_generation_execution_errors(
     wal_fields = contract["walFields"]
     if generation_wal[wal_fields["status"]] != contract["walStatuses"]["succeeded"]:
         errors.append("current generation WAL is not succeeded")
+    execution_contract = rules["productionExecutionContract"]
+    if (
+        manifest.get(execution_contract["manifestFields"]["executionMode"])
+        == execution_contract["executionModes"]["liveExternal"]
+        and generation_wal.get(wal_fields["provider"])
+        != contract["providerRoles"]["fal"]
+    ):
+        errors.append("live generation provider is not Fal")
     candidate_sha = _sha_file(required_paths[candidate_names[0]])
     if generation_wal[wal_fields["outputSha256"]] != candidate_sha:
         errors.append("generation WAL candidate digest mismatch")

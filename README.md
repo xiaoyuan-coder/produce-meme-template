@@ -8,13 +8,14 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `3.0.0` | `release.json` |
+| Skill 版本 | `4.0.0` | `release.json` |
 | 发布验收 Profile | `live_external` | `release.json` |
-| Artifact Schema | `0.25.0` | `release.json` |
+| Artifact Schema | `0.26.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
-| Manifest 更新时间 | `2026-08-21` | `skill-manifest.json` |
-| Manifest 跟踪文件 | `196` 个 | `skill-manifest.json` |
+| 正式执行模式 | `live_external` | `contracts/machine-rules.json` |
+| Manifest 更新时间 | `2026-08-22` | `skill-manifest.json` |
+| Manifest 跟踪文件 | `202` 个 | `skill-manifest.json` |
 
 ## 四阶段生产 SOP
 
@@ -25,11 +26,12 @@
 | 3 | `template_data` | 模板数据编译 | 通过 Approved Image + Handoff 增量编译并校验待 OSS 数据包 | `template-data-package.json` |
 | 4 | `final` | OSS 最终化 | 上传确认模板图到 OSS，回填并交付正式模板 JSON | `gallery-template.json` |
 
-省略 `stage` 或指定第四阶段时，工作流依次完成全部四阶段。批量调用在大阶段之间设置屏障：先完成全部 P1 与 Prompt 检查，再并发进入 P2。第二阶段必须通过图片生成 adapter 调用 API；真实生产使用 Fal 队列。第三阶段的产物状态为 `awaiting_oss_finalization`，只有第四阶段完成 OSS 上传与 URL 回填后才会生成正式 `gallery-template.json`。
+省略 `stage` 或指定第四阶段时，工作流依次完成全部四阶段。批量调用在大阶段之间设置屏障：先完成全部 P1 与 Prompt 检查，再并发进入 P2。第二阶段必须通过图片生成 adapter 调用 API；正式生产显式使用 `live_external`，从 doctor 验证的安装包运行，经 Fal 队列和独立审核后进入 Aliyun OSS。省略执行模式时固定为不可交付回放。第三阶段的产物状态为 `awaiting_oss_finalization`，只有第四阶段完成 OSS 上传与 URL 回填后才会生成正式 `gallery-template.json`。
 
 ## 核心合同
 
 - Approved Template Image 是标题、描述、槽位默认值、`referenceImage` 和 `cover` 的视觉事实源。
+- `production-execution-profile.json` 绑定执行模式、adapter 拓扑、审核方法、provider 和 runtime 安装来源；回放结果不能进入拆分交付。
 - P1 必须完成 IP/文化身份发现和主体连续性冻结；`subjectEditIntent` 将身份单元、主体组件和重复实例关系注入 P3。
 - 默认批次使用 `5` 路并发，结果仍按输入顺序归集。
 - 单个 Production Item 默认只创建 `1` 个新供应商请求；视觉重做需要显式设置 `authorizeVisualRedo=true`。
@@ -70,13 +72,24 @@
 Python 公共 seam：
 
 ```python
-from scripts.produce_meme_template import run_production
+from scripts.produce_meme_template import build_live_production_adapters, run_production
+
+adapters = build_live_production_adapters(
+    source_adapter=source_adapter,
+    visual_review_adapter=visual_review_adapter,
+    authoring_analysis_adapter=authoring_analysis_adapter,
+    authoring_audit_adapter=authoring_audit_adapter,
+    semantic_audit_adapter=semantic_audit_adapter,
+    visual_contract_audit_adapter=visual_contract_audit_adapter,
+    oss_options=oss_options,
+)
 
 result = run_production(
     request=request,
     output_root=output_root,
     adapters=adapters,
     stage=2,  # 1、2、3、4；省略时执行完整生产
+    execution_mode="live_external",  # 正式生产必须显式声明
 )
 ```
 
@@ -95,11 +108,12 @@ python3 scripts/produce.py \
 ```bash
 python3 scripts/export_gallery_templates.py \
   --source path/to/gallery-template.json \
+  --production-manifest path/to/production-manifest.json \
   --output-dir path/to/单模板JSON \
   --manifest path/to/交付清单.json
 ```
 
-导出前会重新执行当前正式合同；`--manifest` 必须显式指向单模板目录外；单模板目录只保存 `<key>.json`，点文件和 sidecar 同样会被阻断。每个文件只包含一条正式记录。相同内容可幂等重跑，已有同名文件内容不同则默认阻断。
+导出前会重新执行当前正式合同与执行资格重放；单工作区来源自动发现相邻 Production Manifest，批量数组逐条重复传入 `--production-manifest`。`--manifest` 必须显式指向单模板目录外；单模板目录只保存 `<key>.json`，点文件和 sidecar 同样会被阻断。每个文件只包含一条正式记录。相同内容可幂等重跑，已有同名文件内容不同则默认阻断。
 
 发布、安装与诊断入口：
 
@@ -109,7 +123,7 @@ python3 scripts/release_tool.py --help
 
 稳定版按候选锁中的发布验收 profile 推进。`compatible_minor` 完成 stage 全量验证、双轴 clean review、全新临时安装和 doctor 后晋升，不调用 Fal/OSS；首稳、major 和显式外部风险使用 `live_external`，继续执行未见图前向与四场景 live。
 
-完整的 Agent 路由读取 [`SKILL.md`](SKILL.md)。生产边界读取 [`references/vertical-slice-runtime.md`](references/vertical-slice-runtime.md)，换图与模板图验收读取 [`references/replacement-spec.md`](references/replacement-spec.md)，模板身份、槽位属性、标题、Prompt 和 runtimeSemantics 读取 [`references/template-authoring.md`](references/template-authoring.md)，数据编译读取 [`references/gallery-template-compiler.md`](references/gallery-template-compiler.md)。
+完整的 Agent 路由读取 [`SKILL.md`](SKILL.md)。生产边界读取 [`references/vertical-slice-runtime.md`](references/vertical-slice-runtime.md)，执行授权与交付资格读取 [`references/production-execution-authority.md`](references/production-execution-authority.md)，换图与模板图验收读取 [`references/replacement-spec.md`](references/replacement-spec.md)，模板身份、槽位属性、标题、Prompt 和 runtimeSemantics 读取 [`references/template-authoring.md`](references/template-authoring.md)，数据编译读取 [`references/gallery-template-compiler.md`](references/gallery-template-compiler.md)。
 
 ## 环境与凭证
 

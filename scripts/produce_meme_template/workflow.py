@@ -15,7 +15,12 @@ from .batch_policy import (
     _shared_policy_errors,
 )
 from .generation_runtime import image_bytes_match_output_format
+from .execution_authority import (
+    bind_runtime_install_source,
+    resolve_execution_profile,
+)
 from .production_runtime import _run_single_production
+from .release_management import doctor
 from .template_compiler import (
     _formal_projection,
     _validate_final,
@@ -23,6 +28,7 @@ from .template_compiler import (
 )
 from .workflow_core import (
     GALLERY_SCHEMA_PATH,
+    REPO_ROOT,
     RULES_PATH,
     BatchProductionResult,
     ProductionResult,
@@ -43,6 +49,7 @@ def _run_batch_item(
     shared_policy_resolution: dict[str, Any] | None = None,
     preparation_stop: WorkflowStop | None = None,
     target_stage: int = 4,
+    execution_profile: dict[str, Any] | None = None,
 ) -> ProductionResult:
     try:
         return _run_single_production(
@@ -54,6 +61,7 @@ def _run_batch_item(
             shared_policy_resolution=shared_policy_resolution,
             preparation_stop=preparation_stop,
             target_stage=target_stage,
+            execution_profile=execution_profile,
         )
     except (KeyError, OSError, TypeError, ValueError):
         rules = _load_json(RULES_PATH)
@@ -132,6 +140,7 @@ def run_production(
     *,
     clock: Callable[[], datetime] | None = None,
     stage: int | str = 4,
+    execution_mode: str | None = None,
 ) -> ProductionResult | BatchProductionResult:
     """Run one Production Item or batch through the requested resumable major stage."""
 
@@ -164,6 +173,31 @@ def run_production(
             error_code=rules["errorCodes"]["invalidProductionRequest"],
             message="生产请求必须是对象。",
         )
+    execution_profile, execution_errors = resolve_execution_profile(
+        adapters, execution_mode, rules
+    )
+    if execution_errors or execution_profile is None:
+        item_id = str(request.get("productionItemId", "invalid-production-item"))
+        batch_contract = rules["batchProductionContract"]
+        batch_field = batch_contract["requestFields"]["batchIdentity"]
+        items_field = batch_contract["requestFields"]["items"]
+        if batch_field in request or items_field in request:
+            return BatchProductionResult(
+                batch_id=str(request.get(batch_field, "invalid-batch")),
+                items=(),
+                shared_policy_applied=False,
+                error_code=rules["errorCodes"]["untrustedProductionExecution"],
+                message="正式执行画像预检失败：" + "；".join(execution_errors),
+            )
+        output_dir = _isolated_output_dir(Path(output_root).resolve(), item_id)
+        return ProductionResult(
+            "blocked",
+            item_id,
+            rules["resultStates"]["blocked"],
+            output_dir or Path(output_root).resolve(),
+            error_code=rules["errorCodes"]["untrustedProductionExecution"],
+            message="正式执行画像预检失败：" + "；".join(execution_errors),
+        )
     contract = rules["batchProductionContract"]
     request_fields = contract["requestFields"]
     batch_field = request_fields["batchIdentity"]
@@ -176,6 +210,7 @@ def run_production(
             adapters,
             clock=clock,
             target_stage=target_stage,
+            execution_profile=execution_profile,
         )
     batch_id = request.get(batch_field)
     raw_items = request.get(items_field)
@@ -220,6 +255,7 @@ def run_production(
                 adapters,
                 clock=clock,
                 target_stage=stage_number,
+                execution_profile=execution_profile,
             ),
             rules,
             target_stage,
@@ -239,6 +275,41 @@ def run_production(
             message="共享批次策略预检失败：" + "；".join(policy_errors),
         )
     normalized_policy = _normalize_shared_policy(shared_policy, rules)
+    execution_contract = rules["productionExecutionContract"]
+    execution_fields = execution_contract["profileFields"]
+    if (
+        execution_profile[execution_fields["executionMode"]]
+        == execution_contract["executionModes"]["liveExternal"]
+    ):
+        runtime_diagnosis = doctor(REPO_ROOT)
+        diagnostic_fields = rules["releaseManagementContract"][
+            "diagnosticFields"
+        ]
+        if not runtime_diagnosis["pass"]:
+            return BatchProductionResult(
+                batch_id=batch_id,
+                items=(),
+                shared_policy_applied=True,
+                error_code=rules["errorCodes"]["versionDiagnosticFailure"],
+                message="共享批次预分析前 doctor 未通过："
+                + "、".join(
+                    runtime_diagnosis[diagnostic_fields["errorCodes"]]
+                ),
+            )
+        execution_profile, execution_errors = bind_runtime_install_source(
+            execution_profile,
+            runtime_diagnosis,
+            rules,
+        )
+        if execution_errors:
+            return BatchProductionResult(
+                batch_id=batch_id,
+                items=(),
+                shared_policy_applied=True,
+                error_code=rules["errorCodes"]["untrustedProductionExecution"],
+                message="共享批次预分析前执行画像未通过："
+                + "；".join(execution_errors),
+            )
     output_root_path = Path(output_root).resolve()
     schema = _load_json(GALLERY_SCHEMA_PATH)
     invalid_item_ids = {
@@ -288,6 +359,7 @@ def run_production(
                 adapters,
                 clock=clock,
                 target_stage=stage_number,
+                execution_profile=execution_profile,
             )
         if item_id in preparation_failures:
             failed_request = effective_requests.get(item_id, item)
@@ -298,6 +370,7 @@ def run_production(
                 clock=clock,
                 preparation_stop=preparation_failures[item_id],
                 target_stage=stage_number,
+                execution_profile=execution_profile,
             )
         if item_id not in effective_requests or item_id not in resolutions:
             return _run_batch_item(
@@ -313,6 +386,7 @@ def run_production(
                     {"productionItemId": item_id},
                 ),
                 target_stage=stage_number,
+                execution_profile=execution_profile,
             )
         return _run_batch_item(
             effective_requests[item_id],
@@ -322,6 +396,7 @@ def run_production(
             prepared_source_analysis=analyses.get(item_id),
             shared_policy_resolution=resolutions[item_id],
             target_stage=stage_number,
+            execution_profile=execution_profile,
         )
     item_results = _run_batch_with_stage_barriers(
         raw_items,

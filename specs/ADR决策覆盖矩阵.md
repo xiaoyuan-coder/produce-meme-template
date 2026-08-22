@@ -2,13 +2,13 @@
 
 ## 1. 审计结论
 
-本矩阵覆盖《新模板生产 Skill 实施规格》与当前流程优化中的 48 条 Implementation Decisions。审计区分三类落点：
+本矩阵覆盖《新模板生产 Skill 实施规格》与当前流程优化中的 49 条 Implementation Decisions。审计区分三类落点：
 
 - **ADR**：难以逆转、脱离上下文会令人意外、存在真实取舍的决定。
 - **可变规则**：由唯一 reference、机器 Schema、compiler 或 fixture 管理，可以版本化演进。
 - **发布配置**：由 release 配置和发布门禁管理，不另设 ADR。
 
-ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0025 中共有 24 份生效决定。48 条实施决策全部获得唯一权威落点，未发现需要重新询问的高风险分支。
+ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0027 中共有 26 份生效决定。49 条实施决策全部获得唯一权威落点，未发现需要重新询问的高风险分支。
 
 “已覆盖”只表示决定和规则所有者已经明确。尚未存在的 Schema、compiler、reference 和 fixture 仍需后续 ticket 实现。
 
@@ -64,12 +64,13 @@ ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0025 中共有 24 份生效�
 | D46 | 旧 Unified 与拆分版只作只读迁移事实源 | 仓库与迁移边界 | ADR 0011；历史经验迁移矩阵 | 复合覆盖 |
 | D47 | 四个可恢复用户大阶段聚合 P0–P8，第二阶段调用 Fal API | 公共工作流与外部副作用 | ADR 0023；`references/vertical-slice-runtime.md` | 复合覆盖 |
 | D48 | P1 语义/结构经验通过 Authoring Handoff 注入 P3，P3 以 Approved Image 做增量分析；默认批次五路并发、大阶段屏障与单项一次新请求 | 阶段事实边界与性能架构 | ADR 0025；`references/template-image-gate.md`；`references/shared-batch-policy.md` | 复合覆盖 |
+| D49 | 正式生产与回放使用执行画像分权；正式模式要求已安装 runtime、Fal、独立审核和 Aliyun OSS，拆分导出重放交付资格 | 执行授权与交付门禁 | ADR 0027；`references/production-execution-authority.md` | 复合覆盖 |
 
 ## 3. ADR 边界检查
 
 本轮没有将下列内容提升为 ADR：类别枚举、槽位数量、文字长度、instruction 字数、错误预算、字段必填条件和 fixture 期望。这些内容会随产品合同和模型能力演进，放入版本化 reference、Schema、compiler 或 fixture 更易维护。
 
-本轮新增 ADR 聚焦十个高成本取舍：独立仓库与单 Skill、公共 workflow seam、P7 上传授权、双层状态合同、不可变生产谱系、两类值池、确认模板图事实权威、中性默认态、机器规则单一来源、三类版本与不可变发布。
+当前生效 ADR 已覆盖仓库与公共工作流边界、阶段状态与谱系恢复、模板图事实权威、正式 JSON 合同、Authoring Handoff、生产前身份与作者审计，以及受信执行画像与交付资格。
 
 ## 4. 当前决策前沿
 

@@ -199,6 +199,35 @@ class ProductionReadinessGateTest(unittest.TestCase):
         )
         self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
 
+    def test_paraphrased_product_constraints_are_classified_per_clause(self) -> None:
+        def leak_paraphrased_constraint(analysis: dict) -> dict:
+            analysis["promptTemplate"] += (
+                "。画面限定为单独的二维正面稿，排除所有穿戴载体和陈列场景。"
+            )
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "paraphrased-prompt-duty-leak"},
+            self.output_root,
+            AnalysisTransformAdapters(leak_paraphrased_constraint),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        audit = load_json(result.output_dir / "authoring-contract-audit.json")
+        contract = RULES["authoringContractAudit"]
+        prompt_review = audit[contract["reviewFields"]["promptReview"]]
+        classifications = prompt_review[
+            contract["promptReviewFields"]["clauseClassifications"]
+        ]
+        self.assertTrue(
+            any(
+                item[contract["promptClauseFields"]["responsibility"]]
+                == contract["promptResponsibilities"]["productionConstraint"]
+                for item in classifications
+            )
+        )
+
     def test_slot_self_certification_cannot_override_independent_review(self) -> None:
         analysis = load_json(FIXTURE / "approved-analysis.json")
         self.assertTrue(

@@ -2,7 +2,7 @@
 
 ## 1. 公共工作流
 
-正式生产只通过 `run_production(request, output_root, adapters, stage=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认五路并发、不共享业务事实，并按输入顺序归集结果。批量执行在每个用户大阶段之间设置屏障，所有可执行项先完成 P1 分析和 Prompt 冻结，再并发提交 P2。显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
+正式生产只通过 `run_production(request, output_root, adapters, stage=..., execution_mode=...)` 暴露公共接缝。`stage` 接受 1–4 或机器合同中的语义别名，省略时执行第四阶段。`execution_mode` 读取 [正式执行画像与交付资格合同](production-execution-authority.md)；省略时固定为不可交付回放。单项请求包含一个 `templateKey`、一个 `sourceImage`、可选的单图 `replacementStrategy` 和 `generationOptions`，输出属于一个独立 Production Item。批量信封也进入该入口，由核心拆成相同的单项生命周期；默认五路并发、不共享业务事实，并按输入顺序归集结果。批量执行在每个用户大阶段之间设置屏障，所有可执行项先完成 P1 分析和 Prompt 冻结，再并发提交 P2。显式共享策略的分辨读取 `shared-batch-policy.md`。来源/模板分析、队列生成、视觉证据、独立语义审计和 OSS 由注入式 adapter 提供；阶段推进、门禁、状态、谱系、正式投影和外部副作用授权由工作流核心控制。
 
 四个用户大阶段只聚合 P0–P8，不创建平行状态机：
 
@@ -23,7 +23,7 @@
 
 | 阶段 | 状态 | 主要产物 |
 | --- | --- | --- |
-| P0 | `INGESTED` | source evidence、`source-analysis.json`、`production-pin.json` |
+| P0 | `INGESTED` | `production-execution-profile.json`、source evidence、`source-analysis.json`、`production-pin.json` |
 | P1 | `REPLACEMENT_PLANNED` | `replacement-plan.json`、`generation-package.json`、`authoring-intent.json`、`replacement-package.json` |
 | P2 | `TEMPLATE_IMAGE_APPROVED` | `generation-task.json`、`generation-wal.json`、Generated Candidate Image、Approved Template Image、`visual-review.json`、`authoring-handoff.json` |
 | P3 | `TEMPLATE_ANALYZED` | `template-analysis.json` |
@@ -33,7 +33,7 @@
 | P7 | `ASSET_UPLOADED` | `asset-receipt.json` |
 | P8 | `FINALIZED` | `final-validation-report.json`、`gallery-template.json` |
 
-`production-manifest.json` 记录每个阶段、产物 SHA、依赖、revision 和外部结果，并把规范化单图策略 SHA 纳入 Production Item 身份。显式共享策略还将当前 item 的分辨摘要纳入身份并保存 `shared-policy-resolution.json`。每个不可变产物记录 Production Item scope digest 与不可变依赖摘要，防止跨 item 事实交换。除 manifest 外，revision 产物使用原子排他创建；相同 Production Item 内容不一致时返回稳定的不可变冲突。请求标识符与策略结构在落盘前通过检查，解析后的 Production Item 真实路径还必须是 `output_root` 的直接子目录；预置符号链接不能把写入引向根外。相同来源图、key 和策略已完成后再次调用，需要先验证请求身份、pin 和全部产物摘要，再复用最终产物。
+`production-manifest.json` 记录每个阶段、产物 SHA、依赖、revision、执行模式、执行画像摘要和外部结果，并把规范化单图策略 SHA 纳入 Production Item 身份。显式共享策略还将当前 item 的分辨摘要纳入身份并保存 `shared-policy-resolution.json`。每个不可变产物记录 Production Item scope digest 与不可变依赖摘要，防止跨 item 事实交换。除 manifest 外，revision 产物使用原子排他创建；相同 Production Item 内容不一致时返回稳定的不可变冲突。请求标识符与策略结构在落盘前通过检查，解析后的 Production Item 真实路径还必须是 `output_root` 的直接子目录；预置符号链接不能把写入引向根外。相同来源图、key、策略和执行画像已完成后再次调用，需要先验证请求身份、pin 和全部产物摘要，再复用最终产物。
 
 ## 3. 适配器门禁
 
@@ -66,4 +66,4 @@
 
 ## 5. 迁移证据
 
-确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。E01–E43 的逐条覆盖关系、当前权威规则、实现定位、具体 unittest、fixture 和迁移裁决统一读取 `fixtures/regression/historical-experience-matrix.json`，并按 [历史经验回归门禁](historical-experience-regression.md) 在 release validation 中执行；本运行 reference 不维护第二份经验 ID 清单。
+确定性 tracer fixture 位于 `fixtures/e2e/simple-animal/`，身份路由场景位于 `fixtures/e2e/identity-routes/`，文字卡、长海报和身份界面场景位于 `fixtures/e2e/text-dense/`，多实例与图片操作场景位于 `fixtures/e2e/multi-instance/`。E01–E44 的逐条覆盖关系、当前权威规则、实现定位、具体 unittest、fixture 和迁移裁决统一读取 `fixtures/regression/historical-experience-matrix.json`，并按 [历史经验回归门禁](historical-experience-regression.md) 在 release validation 中执行；本运行 reference 不维护第二份经验 ID 清单。

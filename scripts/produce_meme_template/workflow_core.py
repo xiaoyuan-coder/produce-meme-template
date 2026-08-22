@@ -420,8 +420,23 @@ def validate_production_manifest_lineage(
             "generationOptionsSha256"
         ),
     }
+    execution_manifest_fields = MACHINE_RULES["productionExecutionContract"][
+        "manifestFields"
+    ]
+    execution_mode = manifest.get(execution_manifest_fields["executionMode"])
+    execution_sha = manifest.get(
+        execution_manifest_fields["executionProfileSha256"]
+    )
+    legacy_execution_identity = execution_mode is None and execution_sha is None
+    current_execution_identity = bool(
+        execution_mode
+        in MACHINE_RULES["productionExecutionContract"]["executionModes"].values()
+        and isinstance(execution_sha, str)
+        and re.fullmatch(r"[0-9a-f]{64}", execution_sha)
+    )
     if not (
         manifest.get("artifactType") == "production-manifest"
+        and (legacy_execution_identity or current_execution_identity)
         and all(
             isinstance(value, str) and value.strip()
             for value in identity_fields.values()
@@ -436,6 +451,14 @@ def validate_production_manifest_lineage(
         )
     ):
         return ["production manifest identity invalid"]
+    if current_execution_identity:
+        execution_name = MACHINE_RULES["productionExecutionContract"]["artifactName"]
+        execution_record = manifest.get("artifacts", {}).get(execution_name)
+        if (
+            not isinstance(execution_record, dict)
+            or execution_record.get("sha256") != execution_sha
+        ):
+            return ["production execution profile lineage invalid"]
     phases = {
         item["phase"]: item["state"]
         for item in MACHINE_RULES["productionPhases"]
