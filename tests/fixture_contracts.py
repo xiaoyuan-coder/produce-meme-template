@@ -11,26 +11,31 @@ def author_explicit_slot_suggestion_reviews(
     """Author complete test-only evidence for a deliberately transformed fixture."""
 
     evidence_field = rules["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+    contract = rules["slotSuggestionReviewContract"]
+    slot_fields = contract["slotReviewFields"]
+    suggestion_fields = contract["suggestionReviewFields"]
     audit["evidence"][evidence_field] = [
         {
-            "slotId": slot["id"],
-            "defaultValue": slot["defaultValue"],
-            "axis": slot["label"],
-            "granularity": f"单个{slot['label']}替换值",
-            "suggestionReviews": [
+            slot_fields["slotIdentity"]: slot["id"],
+            slot_fields["defaultValue"]: slot["defaultValue"],
+            slot_fields["axis"]: slot["label"],
+            slot_fields["granularity"]: f"单个{slot['label']}替换值",
+            slot_fields["suggestionReviews"]: [
                 {
-                    "value": suggestion,
-                    "sameAxis": True,
-                    "sameGranularity": True,
-                    "mechanismCompatible": True,
-                    "evidence": (
+                    suggestion_fields["value"]: suggestion,
+                    suggestion_fields["sameAxis"]: True,
+                    suggestion_fields["sameGranularity"]: True,
+                    suggestion_fields["mechanismCompatible"]: True,
+                    suggestion_fields["evidence"]: (
                         f"测试作者逐项核对 {suggestion} 与"
                         f" {slot['defaultValue']} 的语义关系"
                     ),
                 }
                 for suggestion in slot["suggestions"]
             ],
-            "evidence": f"测试作者已独立核对 {slot['id']} 的全部推荐值",
+            slot_fields["evidence"]: (
+                f"测试作者已独立核对 {slot['id']} 的全部推荐值"
+            ),
         }
         for slot in content["slots"]
     ]
