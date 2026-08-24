@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
-from tests.fixture_contracts import rebuild_approved_component_graph
+from tests.fixture_contracts import (
+    author_explicit_slot_suggestion_reviews,
+    rebuild_approved_component_graph,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +55,7 @@ class TextScenarioAdapters(DeterministicFixtureAdapters):
 
     def audit_semantics(self, content: dict) -> dict:
         result = super().audit_semantics(content)
+        author_explicit_slot_suggestion_reviews(result, content, RULES)
         digest = canonical_sha(content)
         result["contentSha256"] = digest
         result["observedContentSha256"] = digest

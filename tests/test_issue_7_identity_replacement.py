@@ -11,6 +11,7 @@ from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
 from tests.fixture_contracts import (
+    author_explicit_slot_suggestion_reviews,
     rebuild_approved_component_graph,
     rebuild_rendering_coherence_decision,
     rebuild_source_component_graph_for_named_closure,
@@ -470,6 +471,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
 
     def audit_semantics(self, content: dict) -> dict:
         audit = super().audit_semantics(content)
+        author_explicit_slot_suggestion_reviews(audit, content, RULES)
         audit_contract = RULES["semanticAuditChecks"]["identityNeutrality"]
         audit_fields = IDENTITY_CONTRACT["neutralityAuditFields"]
         subject_upload_type = SLOT_CONTRACT["slotTypes"]["primarySubjectUpload"]

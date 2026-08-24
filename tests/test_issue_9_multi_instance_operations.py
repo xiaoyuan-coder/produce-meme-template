@@ -11,6 +11,7 @@ from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
 from tests.fixture_contracts import (
+    author_explicit_slot_suggestion_reviews,
     rebuild_rendering_coherence_decision,
     rebuild_runtime_targets,
 )
@@ -361,6 +362,7 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
 
     def audit_semantics(self, content: dict) -> dict:
         audit = super().audit_semantics(content)
+        author_explicit_slot_suggestion_reviews(audit, content, RULES)
         content_sha = canonical_sha(content)
         audit["contentSha256"] = content_sha
         audit["observedContentSha256"] = content_sha

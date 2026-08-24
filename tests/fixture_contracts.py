@@ -3,6 +3,40 @@ from __future__ import annotations
 from typing import Any
 
 
+def author_explicit_slot_suggestion_reviews(
+    audit: dict[str, Any],
+    content: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    """Author complete test-only evidence for a deliberately transformed fixture."""
+
+    evidence_field = rules["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+    audit["evidence"][evidence_field] = [
+        {
+            "slotId": slot["id"],
+            "defaultValue": slot["defaultValue"],
+            "axis": slot["label"],
+            "granularity": f"单个{slot['label']}替换值",
+            "suggestionReviews": [
+                {
+                    "value": suggestion,
+                    "sameAxis": True,
+                    "sameGranularity": True,
+                    "mechanismCompatible": True,
+                    "evidence": (
+                        f"测试作者逐项核对 {suggestion} 与"
+                        f" {slot['defaultValue']} 的语义关系"
+                    ),
+                }
+                for suggestion in slot["suggestions"]
+            ],
+            "evidence": f"测试作者已独立核对 {slot['id']} 的全部推荐值",
+        }
+        for slot in content["slots"]
+    ]
+    return audit
+
+
 def rebuild_rendering_coherence_decision(
     analysis: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
