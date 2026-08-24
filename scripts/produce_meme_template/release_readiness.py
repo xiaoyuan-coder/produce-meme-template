@@ -1239,9 +1239,8 @@ def _live_execution_evidence_valid(
         _lineage_artifact_path(output_dir, "visualReview", readiness)
     )
     execution_contract = rules["productionExecutionContract"]
-    execution_profile = _load_object(
-        output_dir / execution_contract["artifactName"]
-    )
+    execution_profile_path = output_dir / execution_contract["artifactName"]
+    execution_profile = _load_object(execution_profile_path)
     manifest = _load_object(output_dir / "production-manifest.json")
     candidate_sha = lineage.get("generatedCandidate")
     approved_sha = lineage.get("approvedTemplateImage")
@@ -1264,7 +1263,7 @@ def _live_execution_evidence_valid(
         and manifest.get(manifest_fields["executionMode"])
         == execution_contract["liveReadinessExecutionMode"]
         and manifest.get(manifest_fields["executionProfileSha256"])
-        == _sha_json(execution_profile)
+        == _sha_file(execution_profile_path)
         and wal.get(wal_fields["status"])
         == generation["walStatuses"]["succeeded"]
         and wal.get(wal_fields["provider"])

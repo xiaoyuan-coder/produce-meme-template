@@ -8,7 +8,7 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `4.3.1` | `release.json` |
+| Skill 版本 | `4.3.2` | `release.json` |
 | 发布验收 Profile | `live_external` | `release.json` |
 | Artifact Schema | `0.28.0` | `release.json` |
 | Gallery Template 合同 | `runtime-semantics-v2-contract` | `release.json` |

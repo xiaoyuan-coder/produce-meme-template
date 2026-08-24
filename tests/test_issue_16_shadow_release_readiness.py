@@ -278,6 +278,88 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                 runtime_production_pin_sha256(ROOT),
             )
 
+    def test_live_evidence_uses_the_persisted_execution_profile_digest(self) -> None:
+        generation = RULES["generationExecutionContract"]
+        storage = RULES["objectStorageContract"]
+        execution = RULES["productionExecutionContract"]
+        wal_fields = generation["walFields"]
+        receipt_fields = storage["receiptFields"]
+        profile_fields = execution["profileFields"]
+        manifest_fields = execution["manifestFields"]
+        live_fields = CONTRACT["liveReviewEvidenceFields"]
+        image_sha = "a" * 64
+        method_id = execution["liveReviewMethodIds"][0]
+        with tempfile.TemporaryDirectory() as temporary:
+            output_dir = Path(temporary)
+            profile = {
+                profile_fields["visualReviewMethodIdentity"]: method_id,
+                profile_fields["deliveryEligible"]: False,
+                profile_fields["executionMode"]: execution[
+                    "liveReadinessExecutionMode"
+                ],
+            }
+            profile_path = output_dir / execution["artifactName"]
+            profile_path.write_text(
+                json.dumps(profile, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            persisted_sha = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+            self.assertNotEqual(
+                persisted_sha,
+                readiness_module._sha_json(profile),
+            )
+            artifacts = {
+                "generationWal": {
+                    wal_fields["status"]: generation["walStatuses"]["succeeded"],
+                    wal_fields["provider"]: generation["providerRoles"]["fal"],
+                    wal_fields["providerRequestIdentity"]: "fal-request",
+                    wal_fields["providerOutputIdentity"]: "fal-output",
+                    wal_fields["outputSha256"]: image_sha,
+                },
+                "assetReceipt": {
+                    receipt_fields["provider"]: storage["providerRoles"][
+                        "aliyunOss"
+                    ],
+                    receipt_fields["approvedImageSha256"]: image_sha,
+                    receipt_fields["providerRequestIdentity"]: "oss-request",
+                    receipt_fields["uploadStatus"]: next(
+                        iter(storage["uploadStatuses"].values())
+                    ),
+                },
+                "visualReview": {
+                    live_fields["method"]: {
+                        live_fields["methodIdentity"]: method_id,
+                    }
+                },
+            }
+            for role, payload in artifacts.items():
+                path = readiness_module._lineage_artifact_path(
+                    output_dir, role, CONTRACT
+                )
+                path.write_text(json.dumps(payload), encoding="utf-8")
+            (output_dir / "production-manifest.json").write_text(
+                json.dumps(
+                    {
+                        manifest_fields["executionMode"]: execution[
+                            "liveReadinessExecutionMode"
+                        ],
+                        manifest_fields["executionProfileSha256"]: persisted_sha,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertTrue(
+                readiness_module._live_execution_evidence_valid(
+                    output_dir,
+                    {
+                        "generatedCandidate": image_sha,
+                        "approvedTemplateImage": image_sha,
+                    },
+                    RULES,
+                )
+            )
+
     def test_forward_replay_uses_the_verified_installed_runtime_corpus(self) -> None:
         forward = recorded_shadow_request()[CONTRACT["requestFields"]["forwardScenario"]]
         production = forward[SCENARIO_FIELDS["productionRequest"]]

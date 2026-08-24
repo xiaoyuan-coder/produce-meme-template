@@ -1,6 +1,6 @@
 {
   "name": "produce-meme-template",
-  "version": "4.3.1",
+  "version": "4.3.2",
   "updated_at": "2026-08-24",
   "description": "在同一 Production Item 谱系中完成四个可恢复大阶段；新增杨媛个人工作区固定批次根、Production output_root、正式单模板投影路径与数据台资格合同。",
   "tracked_files": [
