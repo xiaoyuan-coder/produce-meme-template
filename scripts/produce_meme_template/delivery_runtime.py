@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlsplit
 
 from .artifacts import load_json as _load_json, pretty_json_bytes as _json_bytes, sha256_file as _sha_file
 from .batch_policy import _shared_policy_plan_valid
+from .execution_authority import registered_live_adapter_authority_errors
 from .production_gates import (
     authoring_contract_audit_errors,
     compile_authoring_review_request,
@@ -534,6 +535,7 @@ def _finalize_uploaded_item(
     output_dir: Path,
     manifest: dict[str, Any],
     rules: dict[str, Any],
+    adapters: WorkflowAdapters,
     timestamp: str,
     qualification: Callable[
         [Path, Any, dict[str, Any], dict[str, Any]], list[str]
@@ -541,6 +543,23 @@ def _finalize_uploaded_item(
     *,
     resumed: bool = True,
 ) -> ProductionResult:
+    execution_contract = rules["productionExecutionContract"]
+    if (
+        manifest.get(execution_contract["manifestFields"]["executionMode"])
+        == execution_contract["executionModes"]["liveExternal"]
+    ):
+        authority_errors = registered_live_adapter_authority_errors(
+            adapters,
+            rules,
+        )
+        if authority_errors:
+            raise _stop(
+                rules,
+                "blocked",
+                "untrustedProductionExecution",
+                "P8 终结前正式 adapter 注册快照复核未通过。",
+                {"errors": authority_errors},
+            )
     stage_contract = rules["majorStageContract"]
     delivery_phases = stage_contract["deliveryPhases"]
     final_stage = _final_stage_definition(rules)
@@ -657,6 +676,23 @@ def _run_finalization_stage(
     resumed: bool,
 ) -> ProductionResult:
     upload_phase = rules["majorStageContract"]["deliveryPhases"]["upload"]
+    execution_contract = rules["productionExecutionContract"]
+    if (
+        manifest.get(execution_contract["manifestFields"]["executionMode"])
+        == execution_contract["executionModes"]["liveExternal"]
+    ):
+        authority_errors = registered_live_adapter_authority_errors(
+            adapters,
+            rules,
+        )
+        if authority_errors:
+            raise _stop(
+                rules,
+                "blocked",
+                "untrustedProductionExecution",
+                "P7 上传前正式 adapter 注册快照复核未通过。",
+                {"errors": authority_errors},
+            )
     delivery_errors, delivery = _delivery_image_context(output_dir, manifest)
     if delivery_errors:
         raise _stop(
@@ -747,6 +783,7 @@ def _run_finalization_stage(
         output_dir,
         manifest,
         rules,
+        adapters,
         timestamp,
         qualification,
         resumed=resumed,

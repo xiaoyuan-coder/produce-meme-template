@@ -21,7 +21,6 @@ from .authoring_handoff import (
     source_authoring_context_errors,
 )
 from .execution_authority import (
-    RuntimePreflight,
     qualify_runtime_execution_profile,
 )
 from .batch_policy import (
@@ -543,7 +542,6 @@ def _run_single_production(
     preparation_stop: WorkflowStop | None = None,
     target_stage: int = 4,
     execution_profile: dict[str, Any] | None = None,
-    runtime_preflight: RuntimePreflight | None = None,
 ) -> ProductionResult:
     """Run one Production Item through the requested resumable major stage."""
 
@@ -618,7 +616,6 @@ def _run_single_production(
             execution_profile,
             rules,
             production_pin=existing_pin,
-            runtime_preflight=runtime_preflight,
         )
     )
     if diagnostic_errors:
@@ -953,6 +950,7 @@ def _run_single_production(
                     output_dir,
                     existing,
                     rules,
+                    adapters,
                     timestamp,
                     p8_completion_qualification_errors,
                 )

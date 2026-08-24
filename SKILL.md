@@ -23,28 +23,6 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - 影子批次与 1.0 准备：`scripts.produce_meme_template.run_release_readiness(request, output_root, adapters)`。
 - 单项请求包含一个 `templateKey` 和一张 `sourceImage`；批量请求使用机器合同声明的信封字段包含多个同形单项请求。每个 Production Item 独立保存 manifest、pin、不可变 revision、产物摘要和依赖。
 
-## 杨媛个人工作区落盘合同
-
-在 `/Users/xiaoyuan/Desktop/杨媛工作总库/01-模板数据生产与评测` 内执行正式业务生产时，先建立唯一批次根目录：
-
-```text
-04-图库模板生产/01-本月生产批次/YYYY-MM-DD-任务名称/
-├── 批次说明.md
-├── requests/                         # 本批输入信封或逐项请求
-├── production/                       # run_production 的 output_root
-│   └── <production-item>/
-│       ├── production-manifest.json
-│       ├── gallery-template.json     # 仅 P8 完成后存在
-│       └── ...                       # pin、revision、证据和回执
-└── work/                             # 不具备正式数据资格的临时编排文件
-```
-
-- `run_production(..., output_root=...)` 的 `output_root` 固定为该批次的 `production/`。禁止把 Production Item 写进 Skill 仓库、桌面临时目录、`.meme-admin/` 或 `05-模板JSON`。
-- 数据台只把通过 Manifest 谱系校验且已完成相应阶段的 Production Item 计入真实生产状态；目录名、自然语言完成声明和散落 JSON 不提供正式资格。
-- 需要一条模板一个文件的业务交付时，使用 `export_gallery_templates.py` 投影到 `04-图库模板生产/05-模板JSON/YYYY-MM-DD-任务名称/单模板JSON/`，并把交付清单写在 `单模板JSON/` 同级。该目录只保存正式投影，生产证据继续留在批次 `production/`。
-- `06-生产批次记录` 保留历史 Skill 直跑数据，不再作为本 Skill 新批次默认工作根。旧数据不移动；数据台继续按证据读取。
-- 每个新批次必须填写 `批次说明.md`，记录输入数、成功数、失败数、待确认数、Skill 版本、验收状态、Production Item 根和正式投影路径。
-
 ## 调用边界
 
 - **第一阶段**：执行 P0–P1，输出 `replacement-package.json`；其中绑定来源分析、替换计划、生图包与 `authoring-intent.json`。本阶段必须完成 IP/文化身份发现、主体连续性和玩法机制冻结，不提交生图 API。
@@ -52,10 +30,10 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - **第三阶段**：执行 P3–P6，P3 使用 Approved Image 与只读 Authoring Handoff 做增量分析，输出状态为 `awaiting_oss_finalization` 的 `template-data-package.json`；其中绑定正式 draft、runtimeSemantics、语义审计和四层验证。
 - **第四阶段**：执行 P7–P8，上传当前 Approved Template Image，回填同一 OSS URL，输出最终 `gallery-template.json`。
 - **完整生产**：省略阶段参数或指定第四阶段，依次执行四个大阶段。四次分段调用和一次完整调用使用同一个 Production Item、revision、pin 与产物谱系。
-- **批量提交**：把多张来源网图拆成相互独立的 Production Item，默认五路并发并按输入顺序归集；批次先完成全部 P1 与 Prompt 检查，再并发提交 P2；仅在用户显式提供共享批次策略时建立跨图约束。
+- **批量提交**：把多张来源网图拆成相互独立的 Production Item；并发、阶段屏障与显式共享策略读取批量合同。
 - **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
-- **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；个人工作区遵循上方固定落盘合同。生产 sidecar 留在 Production workspace，交付清单位于单模板数据目录之外，OSS 与正式记录内容不因拆分再次生成。
-- **正式执行资格**：fixture、录制回放和 source worktree 只生成不可交付证据；正式业务生产显式使用 `live_external`，从 doctor 验证的安装发布包运行，并通过 Fal、独立审核与 Aliyun OSS 拓扑门禁。
+- **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；生产 sidecar、交付清单和 OSS 幂等规则读取正式编译合同。
+- **正式执行资格**：正式/回放模式、安装来源与交付资格读取正式执行画像合同。
 
 ## 规则路由
 
@@ -65,6 +43,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - P2 的视觉硬门禁、证据绑定、自主确认和不可变重做读取 [模板图确认与恢复合同](references/template-image-gate.md)。
 - P2 的生成数量、冻结任务、request ID WAL、失败分类和队列恢复读取 [生成执行与 WAL 恢复合同](references/generation-execution-and-recovery.md)。
 - P7–P8 的 Approved Image 上传、远端对象对账、Asset Receipt 恢复和双 URL 回填读取 [OSS 幂等终结合同](references/oss-finalization.md)。
+- 在杨媛个人工作区执行正式业务生产或拆分交付时读取 [个人工作区落盘与交付合同](references/personal-workspace-delivery.md)。
 - 四个用户大阶段、P0–P8 状态、谱系、适配器与恢复边界读取 [纵向切片运行合同](references/vertical-slice-runtime.md)。
 - 三线版本、发布风险分级、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
 - 正式/回放模式、adapter 拓扑、执行画像、阶段 provider 对账、交付资格和零重复外部调用读取 [正式执行画像与交付资格合同](references/production-execution-authority.md)。

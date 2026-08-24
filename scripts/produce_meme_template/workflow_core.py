@@ -66,6 +66,10 @@ def accepted_production_execution_modes(
     )
 
 
+class LiveAdapterAuthorityError(ValueError):
+    """Signals that a core-registered live adapter changed after registration."""
+
+
 class WorkflowAdapters(Protocol):
     def resolve_template_identity(
         self, source_image: Path, request: dict[str, Any]
@@ -786,6 +790,14 @@ def _adapter_call(rules: dict[str, Any], operation: str, function: Callable[...,
     try:
         return function(*args)
     except Exception as exc:
+        if isinstance(exc, LiveAdapterAuthorityError):
+            raise _stop(
+                rules,
+                "blocked",
+                "untrustedProductionExecution",
+                f"正式 adapter 注册快照复核失败：{operation}",
+                {"operation": operation},
+            ) from exc
         raise _stop(
             rules,
             "failed",

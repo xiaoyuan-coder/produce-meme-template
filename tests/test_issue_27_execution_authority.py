@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 import json
+import inspect
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.export_gallery_templates import ExportError, export_gallery_templates
+from scripts.produce_meme_template import workflow as production_workflow
 from scripts.produce_meme_template import (
     DeterministicFixtureAdapters,
     build_live_production_adapters,
-    run_production,
+    run_production as public_run_production,
 )
 from tests.live_production_support import build_live_test_adapters
-from scripts.produce_meme_template.workflow import validate_production_manifest_lineage
+from scripts.produce_meme_template.workflow import (
+    validate_production_manifest_lineage,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +40,20 @@ def installed_runtime_preflight(_production_pin=None) -> dict:
         fields["installSource"]: "/verified-install/4.0.0",
         fields["errorCodes"]: [],
     }
+
+
+def run_production(*args, runtime_preflight=None, **kwargs):
+    if runtime_preflight is None:
+        return public_run_production(*args, **kwargs)
+
+    def mocked_doctor(_runtime_root, *, production_pin=None):
+        return runtime_preflight(production_pin)
+
+    with patch(
+        "scripts.produce_meme_template.release_management.doctor",
+        side_effect=mocked_doctor,
+    ):
+        return public_run_production(*args, **kwargs)
 
 
 class BatchSelfCertifyingAdapters(DeterministicFixtureAdapters):
@@ -87,6 +106,86 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
+
+    def test_public_workflow_cannot_inject_runtime_preflight(self) -> None:
+        self.assertNotIn(
+            "runtime_preflight",
+            inspect.signature(public_run_production).parameters,
+        )
+        self.assertFalse(
+            hasattr(production_workflow, "_run_production_with_runtime_preflight")
+        )
+
+    def test_live_transport_delegate_chain_is_immutable_after_registration(
+        self,
+    ) -> None:
+        adapters, _fal_client, _bucket = build_live_test_adapters(FIXTURE)
+
+        with self.assertRaisesRegex(AttributeError, "OSS delegate is immutable"):
+            adapters.delegate = object()
+        with self.assertRaisesRegex(AttributeError, "Fal delegate is immutable"):
+            adapters.delegate.delegate = object()
+
+    def test_live_role_identity_mutation_is_rejected_before_p0(self) -> None:
+        adapters, fal_client, bucket = build_live_test_adapters(FIXTURE)
+        adapters.delegate.delegate.roles.visual_review.live_review_method_id = (
+            "mutated-review-method"
+        )
+
+        result = run_production(
+            {**self.request, "productionItemId": "mutated-live-role"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            stage=1,
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
+
+        self.assertEqual("blocked", result.outcome)
+        self.assertEqual(
+            RULES["errorCodes"]["untrustedProductionExecution"],
+            result.error_code,
+        )
+        self.assertFalse(result.output_dir.exists())
+        self.assertEqual([], fal_client.submit_calls)
+        self.assertEqual([], bucket.put_calls)
+
+    def test_live_role_mutation_during_p6_is_blocked_before_upload(self) -> None:
+        adapters, fal_client, bucket = build_live_test_adapters(FIXTURE)
+        delegate = adapters.delegate.delegate
+        visual_contract = delegate.roles.visual_contract_audit
+        original_audit = visual_contract.audit_visual_contract
+
+        def mutating_audit(*args):
+            audit = original_audit(*args)
+            delegate.roles.authoring_audit.live_authoring_audit_method_id = (
+                "mutated-after-authoring-audit"
+            )
+            return audit
+
+        visual_contract.audit_visual_contract = mutating_audit
+
+        result = run_production(
+            {**self.request, "productionItemId": "mutated-during-p6"},
+            self.output_root,
+            adapters,
+            execution_mode=RULES["productionExecutionContract"]["executionModes"][
+                "liveExternal"
+            ],
+            clock=lambda: FIXED_TIME,
+            runtime_preflight=installed_runtime_preflight,
+        )
+
+        self.assertEqual("blocked", result.outcome)
+        self.assertEqual(
+            RULES["errorCodes"]["untrustedProductionExecution"],
+            result.error_code,
+        )
+        self.assertEqual(1, len(fal_client.submit_calls))
+        self.assertEqual([], bucket.put_calls)
 
     def test_live_production_rejects_the_batch_fixture_topology_before_p0(self) -> None:
         adapters = BatchSelfCertifyingAdapters(FIXTURE)
@@ -264,7 +363,7 @@ class ProductionExecutionAuthorityTest(unittest.TestCase):
     def test_live_stage_one_rejects_source_worktree_before_p0(self) -> None:
         adapters, fal_client, bucket = build_live_test_adapters(FIXTURE)
 
-        result = run_production(
+        result = public_run_production(
             {**self.request, "productionItemId": "source-worktree-live"},
             self.output_root,
             adapters,

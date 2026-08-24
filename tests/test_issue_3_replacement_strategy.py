@@ -825,6 +825,37 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
         self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertEqual([], adapters.upload_calls)
 
+    def test_deterministic_adapter_does_not_auto_approve_legacy_fixture_evidence(
+        self,
+    ) -> None:
+        fixture = self.output_root / "legacy-semantic-fixture"
+        shutil.copytree(FIXTURE, fixture)
+        audit_path = fixture / "semantic-audit.json"
+        audit = load_json(audit_path)
+        evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"]["evidence"]
+        audit["evidence"][evidence_field] = [
+            review["slotId"] for review in audit["evidence"][evidence_field]
+        ]
+        audit_path.write_text(
+            json.dumps(audit, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        adapters = DeterministicFixtureAdapters(fixture)
+
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "legacy-fixture-suggestion-reviews",
+            },
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RESULT_BLOCKED, result.outcome)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
     def test_semantic_audit_accepts_structured_per_suggestion_reviews(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)
         request = {
@@ -1433,6 +1464,39 @@ class Issue3ReplacementStrategyTest(unittest.TestCase):
                         RULES["sourceCategories"]["knownCharacterIp"],
                     },
                 )
+                original_audit = adapters.audit_semantics
+                evidence_field = RULES["semanticAuditChecks"]["slotSuggestions"][
+                    "evidence"
+                ]
+
+                def scenario_semantic_audit(content: dict) -> dict:
+                    audit = original_audit(content)
+                    audit["evidence"][evidence_field] = [
+                        {
+                            "slotId": slot["id"],
+                            "defaultValue": slot["defaultValue"],
+                            "axis": slot["label"],
+                            "granularity": f"单个{slot['label']}替换值",
+                            "suggestionReviews": [
+                                {
+                                    "value": suggestion,
+                                    "sameAxis": True,
+                                    "sameGranularity": True,
+                                    "mechanismCompatible": True,
+                                    "evidence": (
+                                        f"测试场景已逐项核对 {suggestion} 与"
+                                        f" {slot['defaultValue']} 的语义关系"
+                                    ),
+                                }
+                                for suggestion in slot["suggestions"]
+                            ],
+                            "evidence": f"测试场景已独立核对 {slot['id']}",
+                        }
+                        for slot in content["slots"]
+                    ]
+                    return audit
+
+                adapters.audit_semantics = scenario_semantic_audit
                 request = {**self.request, "productionItemId": scenario["itemId"]}
 
                 result = run_production(request, self.output_root, adapters, clock=lambda: FIXED_TIME)

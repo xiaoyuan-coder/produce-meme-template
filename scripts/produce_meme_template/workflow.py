@@ -16,7 +16,6 @@ from .batch_policy import (
 )
 from .generation_runtime import image_bytes_match_output_format
 from .execution_authority import (
-    RuntimePreflight,
     qualify_runtime_execution_profile,
     resolve_execution_profile,
 )
@@ -50,7 +49,6 @@ def _run_batch_item(
     preparation_stop: WorkflowStop | None = None,
     target_stage: int = 4,
     execution_profile: dict[str, Any] | None = None,
-    runtime_preflight: RuntimePreflight | None = None,
 ) -> ProductionResult:
     try:
         return _run_single_production(
@@ -63,7 +61,6 @@ def _run_batch_item(
             preparation_stop=preparation_stop,
             target_stage=target_stage,
             execution_profile=execution_profile,
-            runtime_preflight=runtime_preflight,
         )
     except (KeyError, OSError, TypeError, ValueError):
         rules = _load_json(RULES_PATH)
@@ -143,7 +140,6 @@ def run_production(
     clock: Callable[[], datetime] | None = None,
     stage: int | str = 4,
     execution_mode: str | None = None,
-    runtime_preflight: RuntimePreflight | None = None,
 ) -> ProductionResult | BatchProductionResult:
     """Run one Production Item or batch through the requested resumable major stage."""
 
@@ -214,7 +210,6 @@ def run_production(
             clock=clock,
             target_stage=target_stage,
             execution_profile=execution_profile,
-            runtime_preflight=runtime_preflight,
         )
     batch_id = request.get(batch_field)
     raw_items = request.get(items_field)
@@ -260,7 +255,6 @@ def run_production(
                 clock=clock,
                 target_stage=stage_number,
                 execution_profile=execution_profile,
-                runtime_preflight=runtime_preflight,
             ),
             rules,
             target_stage,
@@ -290,7 +284,6 @@ def run_production(
             qualify_runtime_execution_profile(
                 execution_profile,
                 rules,
-                runtime_preflight=runtime_preflight,
             )
         )
         if diagnostic_errors:
@@ -361,7 +354,6 @@ def run_production(
                 clock=clock,
                 target_stage=stage_number,
                 execution_profile=execution_profile,
-                runtime_preflight=runtime_preflight,
             )
         if item_id in preparation_failures:
             failed_request = effective_requests.get(item_id, item)
@@ -373,7 +365,6 @@ def run_production(
                 preparation_stop=preparation_failures[item_id],
                 target_stage=stage_number,
                 execution_profile=execution_profile,
-                runtime_preflight=runtime_preflight,
             )
         if item_id not in effective_requests or item_id not in resolutions:
             return _run_batch_item(
@@ -390,7 +381,6 @@ def run_production(
                 ),
                 target_stage=stage_number,
                 execution_profile=execution_profile,
-                runtime_preflight=runtime_preflight,
             )
         return _run_batch_item(
             effective_requests[item_id],
@@ -401,7 +391,6 @@ def run_production(
             shared_policy_resolution=resolutions[item_id],
             target_stage=stage_number,
             execution_profile=execution_profile,
-            runtime_preflight=runtime_preflight,
         )
     item_results = _run_batch_with_stage_barriers(
         raw_items,

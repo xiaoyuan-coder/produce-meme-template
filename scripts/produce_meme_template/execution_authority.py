@@ -2,87 +2,170 @@ from __future__ import annotations
 
 import re
 import weakref
-from typing import Any, Callable
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any, Mapping
 
 from .adapters import (
     AliyunOssWorkflowAdapters,
     DeterministicFixtureAdapters,
     FalQueueWorkflowAdapters,
 )
-from .workflow_core import accepted_production_execution_modes
+from .workflow_core import (
+    LiveAdapterAuthorityError,
+    accepted_production_execution_modes,
+)
 
 
-_TRUSTED_LIVE_ADAPTERS: weakref.WeakKeyDictionary[Any, dict[str, str]] = (
+_TRUSTED_LIVE_ADAPTERS: weakref.WeakKeyDictionary[Any, dict[str, Any]] = (
     weakref.WeakKeyDictionary()
 )
-RuntimePreflight = Callable[[dict[str, Any] | None], dict[str, Any]]
+@dataclass(frozen=True)
+class _LiveProductionRoles:
+    source: Any
+    visual_review: Any
+    authoring_analysis: Any
+    authoring_audit: Any
+    semantic_audit: Any
+    visual_contract_audit: Any
 
-
-class _IndependentProductionDelegate:
-    def __init__(
-        self,
-        source_adapter: Any,
-        visual_review_adapter: Any,
-        authoring_analysis_adapter: Any,
-        authoring_audit_adapter: Any,
-        semantic_audit_adapter: Any,
-        visual_contract_audit_adapter: Any,
-        identities: dict[str, str],
-    ) -> None:
-        self.source_adapter = source_adapter
-        self.visual_review_adapter = visual_review_adapter
-        self.authoring_analysis_adapter = authoring_analysis_adapter
-        self.authoring_audit_adapter = authoring_audit_adapter
-        self.semantic_audit_adapter = semantic_audit_adapter
-        self.visual_contract_audit_adapter = visual_contract_audit_adapter
-        self.live_review_method_id = identities["visualReviewMethodIdentity"]
-        self.live_template_identity_method_id = identities[
-            "templateIdentityMethodIdentity"
-        ]
-        self.live_authoring_analysis_method_id = identities[
-            "authoringAnalysisMethodIdentity"
-        ]
-        self.live_authoring_audit_method_id = identities[
-            "authoringAuditMethodIdentity"
-        ]
-
-    def resolve_template_identity(self, source_image: Any, request: Any) -> Any:
-        return self.source_adapter.resolve_template_identity(source_image, request)
-
-    def analyze_source(self, source_image: Any, replacement_strategy: Any) -> Any:
-        return self.source_adapter.analyze_source(source_image, replacement_strategy)
-
-    def inspect_generated(self, generated_image: Any, review_request: Any) -> Any:
-        return self.visual_review_adapter.inspect_generated(
-            generated_image, review_request
+    def values(self) -> tuple[Any, ...]:
+        return (
+            self.source,
+            self.visual_review,
+            self.authoring_analysis,
+            self.authoring_audit,
+            self.semantic_audit,
+            self.visual_contract_audit,
         )
 
+
+@dataclass(frozen=True, slots=True)
+class _IndependentProductionDelegate:
+    roles: _LiveProductionRoles
+    identities: Mapping[str, str]
+    terminal_delegates: tuple[Any, ...]
+
+    def _assert_topology_unchanged(self) -> None:
+        current_chains = tuple(
+            _adapter_delegate_chain(adapter) for adapter in self.roles.values()
+        )
+        if (
+            len(current_chains) != len(self.terminal_delegates)
+            or any(
+                chain[-1] is not terminal
+                for chain, terminal in zip(
+                    current_chains, self.terminal_delegates, strict=True
+                )
+            )
+            or len({id(chain[-1]) for chain in current_chains})
+            != len(current_chains)
+            or getattr(
+                self.roles.source,
+                "live_template_identity_method_id",
+                None,
+            )
+            != self.identities["templateIdentityMethodIdentity"]
+            or getattr(
+                self.roles.visual_review,
+                "live_review_method_id",
+                None,
+            )
+            != self.identities["visualReviewMethodIdentity"]
+            or getattr(
+                self.roles.authoring_analysis,
+                "live_authoring_analysis_method_id",
+                None,
+            )
+            != self.identities["authoringAnalysisMethodIdentity"]
+            or getattr(
+                self.roles.authoring_audit,
+                "live_authoring_audit_method_id",
+                None,
+            )
+            != self.identities["authoringAuditMethodIdentity"]
+        ):
+            raise LiveAdapterAuthorityError(
+                "live production adapter topology changed after registration"
+            )
+
+    @property
+    def live_review_method_id(self) -> str:
+        return self.identities["visualReviewMethodIdentity"]
+
+    @property
+    def live_template_identity_method_id(self) -> str:
+        return self.identities["templateIdentityMethodIdentity"]
+
+    @property
+    def live_authoring_analysis_method_id(self) -> str:
+        return self.identities["authoringAnalysisMethodIdentity"]
+
+    @property
+    def live_authoring_audit_method_id(self) -> str:
+        return self.identities["authoringAuditMethodIdentity"]
+
+    def resolve_template_identity(self, source_image: Any, request: Any) -> Any:
+        self._assert_topology_unchanged()
+        result = self.roles.source.resolve_template_identity(source_image, request)
+        self._assert_topology_unchanged()
+        return result
+
+    def analyze_source(self, source_image: Any, replacement_strategy: Any) -> Any:
+        self._assert_topology_unchanged()
+        result = self.roles.source.analyze_source(source_image, replacement_strategy)
+        self._assert_topology_unchanged()
+        return result
+
+    def inspect_generated(self, generated_image: Any, review_request: Any) -> Any:
+        self._assert_topology_unchanged()
+        result = self.roles.visual_review.inspect_generated(
+            generated_image, review_request
+        )
+        self._assert_topology_unchanged()
+        return result
+
     def analyze_approved(self, approved_image: Any) -> Any:
-        return self.authoring_analysis_adapter.analyze_approved(approved_image)
+        self._assert_topology_unchanged()
+        result = self.roles.authoring_analysis.analyze_approved(approved_image)
+        self._assert_topology_unchanged()
+        return result
 
     def analyze_approved_with_handoff(
         self, approved_image: Any, authoring_handoff: Any
     ) -> Any:
-        return self.authoring_analysis_adapter.analyze_approved_with_handoff(
+        self._assert_topology_unchanged()
+        result = self.roles.authoring_analysis.analyze_approved_with_handoff(
             approved_image, authoring_handoff
         )
+        self._assert_topology_unchanged()
+        return result
 
     def audit_authoring_contract(
         self, approved_image: Any, review_request: Any
     ) -> Any:
-        return self.authoring_audit_adapter.audit_authoring_contract(
+        self._assert_topology_unchanged()
+        result = self.roles.authoring_audit.audit_authoring_contract(
             approved_image, review_request
         )
+        self._assert_topology_unchanged()
+        return result
 
     def audit_semantics(self, content: Any) -> Any:
-        return self.semantic_audit_adapter.audit_semantics(content)
+        self._assert_topology_unchanged()
+        result = self.roles.semantic_audit.audit_semantics(content)
+        self._assert_topology_unchanged()
+        return result
 
     def audit_visual_contract(
         self, approved_image: Any, review_request: Any
     ) -> Any:
-        return self.visual_contract_audit_adapter.audit_visual_contract(
+        self._assert_topology_unchanged()
+        result = self.roles.visual_contract_audit.audit_visual_contract(
             approved_image, review_request
         )
+        self._assert_topology_unchanged()
+        return result
 
 
 def _adapter_delegate_chain(adapter: Any) -> tuple[Any, ...]:
@@ -112,14 +195,15 @@ def build_live_production_adapters(
     from .workflow_core import MACHINE_RULES
 
     contract = MACHINE_RULES["productionExecutionContract"]
-    role_adapters = (
-        source_adapter,
-        visual_review_adapter,
-        authoring_analysis_adapter,
-        authoring_audit_adapter,
-        semantic_audit_adapter,
-        visual_contract_audit_adapter,
+    roles = _LiveProductionRoles(
+        source=source_adapter,
+        visual_review=visual_review_adapter,
+        authoring_analysis=authoring_analysis_adapter,
+        authoring_audit=authoring_audit_adapter,
+        semantic_audit=semantic_audit_adapter,
+        visual_contract_audit=visual_contract_audit_adapter,
     )
+    role_adapters = roles.values()
     delegate_chains = tuple(
         _adapter_delegate_chain(adapter) for adapter in role_adapters
     )
@@ -175,19 +259,58 @@ def build_live_production_adapters(
     )
     if not all(callable(getattr(adapter, method, None)) for adapter, method in required_methods):
         raise ValueError("live production adapter role is missing a required method")
+    terminal_delegates = tuple(chain[-1] for chain in delegate_chains)
     delegate = _IndependentProductionDelegate(
-        source_adapter,
-        visual_review_adapter,
-        authoring_analysis_adapter,
-        authoring_audit_adapter,
-        semantic_audit_adapter,
-        visual_contract_audit_adapter,
-        identities,
+        roles,
+        MappingProxyType(dict(identities)),
+        terminal_delegates,
     )
     fal = FalQueueWorkflowAdapters(delegate, **dict(fal_options or {}))
     live = AliyunOssWorkflowAdapters(fal, **dict(oss_options or {}))
-    _TRUSTED_LIVE_ADAPTERS[live] = identities
+    _TRUSTED_LIVE_ADAPTERS[live] = {
+        "identities": dict(identities),
+        "roles": roles,
+        "terminalDelegates": terminal_delegates,
+        "fal": fal,
+        "delegate": delegate,
+    }
     return live
+
+
+def _execution_profile(
+    *,
+    mode: str,
+    delivery_eligible: bool,
+    topology: str,
+    generation_provider: str,
+    storage_provider: str,
+    identities: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    contract = rules["productionExecutionContract"]
+    fields = contract["profileFields"]
+    return {
+        fields["artifactType"]: contract["artifactType"],
+        fields["schemaVersion"]: rules["schemaVersion"],
+        fields["executionMode"]: mode,
+        fields["deliveryEligible"]: delivery_eligible,
+        fields["adapterTopology"]: topology,
+        fields["generationProvider"]: generation_provider,
+        fields["storageProvider"]: storage_provider,
+        fields["templateIdentityMethodIdentity"]: identities.get(
+            "templateIdentityMethodIdentity"
+        ),
+        fields["visualReviewMethodIdentity"]: identities.get(
+            "visualReviewMethodIdentity"
+        ),
+        fields["authoringAnalysisMethodIdentity"]: identities.get(
+            "authoringAnalysisMethodIdentity"
+        ),
+        fields["authoringAuditMethodIdentity"]: identities.get(
+            "authoringAuditMethodIdentity"
+        ),
+        fields["runtimeInstallSource"]: None,
+    }
 
 
 def resolve_execution_profile(
@@ -199,29 +322,21 @@ def resolve_execution_profile(
 
     contract = rules["productionExecutionContract"]
     modes = contract["executionModes"]
-    fields = contract["profileFields"]
     mode = modes["recordedReplay"] if execution_mode is None else execution_mode
     accepted_modes = accepted_production_execution_modes(rules)
     if type(mode) is not str or mode not in accepted_modes:
         return None, ["execution mode is missing or unknown"]
 
     if mode == modes["recordedReplay"]:
-        return {
-            fields["artifactType"]: contract["artifactType"],
-            fields["schemaVersion"]: rules["schemaVersion"],
-            fields["executionMode"]: mode,
-            fields["deliveryEligible"]: False,
-            fields["adapterTopology"]: contract["adapterTopologies"][
-                "recordedReplay"
-            ],
-            fields["generationProvider"]: contract["recordedProvider"],
-            fields["storageProvider"]: contract["recordedProvider"],
-            fields["templateIdentityMethodIdentity"]: None,
-            fields["visualReviewMethodIdentity"]: None,
-            fields["authoringAnalysisMethodIdentity"]: None,
-            fields["authoringAuditMethodIdentity"]: None,
-            fields["runtimeInstallSource"]: None,
-        }, []
+        return _execution_profile(
+            mode=mode,
+            delivery_eligible=False,
+            topology=contract["adapterTopologies"]["recordedReplay"],
+            generation_provider=contract["recordedProvider"],
+            storage_provider=contract["recordedProvider"],
+            identities={},
+            rules=rules,
+        ), []
 
     oss = adapters if type(adapters) is AliyunOssWorkflowAdapters else None
     fal = oss.delegate if oss is not None else None
@@ -233,36 +348,77 @@ def resolve_execution_profile(
         review_method = getattr(delegate, "live_review_method_id", None)
         if review_method not in set(contract["liveReviewMethodIds"]):
             return None, ["live readiness review method is not approved"]
-        return {
-            fields["artifactType"]: contract["artifactType"],
-            fields["schemaVersion"]: rules["schemaVersion"],
-            fields["executionMode"]: mode,
-            fields["deliveryEligible"]: False,
-            fields["adapterTopology"]: contract["adapterTopologies"][
-                "liveReadiness"
-            ],
-            fields["generationProvider"]: rules["generationExecutionContract"][
+        return _execution_profile(
+            mode=mode,
+            delivery_eligible=False,
+            topology=contract["adapterTopologies"]["liveReadiness"],
+            generation_provider=rules["generationExecutionContract"][
                 "providerRoles"
             ]["fal"],
-            fields["storageProvider"]: rules["objectStorageContract"][
-                "providerRoles"
-            ]["aliyunOss"],
-            fields["templateIdentityMethodIdentity"]: None,
-            fields["visualReviewMethodIdentity"]: review_method,
-            fields["authoringAnalysisMethodIdentity"]: None,
-            fields["authoringAuditMethodIdentity"]: None,
-            fields["runtimeInstallSource"]: None,
-        }, []
+            storage_provider=rules["objectStorageContract"]["providerRoles"][
+                "aliyunOss"
+            ],
+            identities={"visualReviewMethodIdentity": review_method},
+            rules=rules,
+        ), []
 
     errors: list[str] = []
 
-    registered_identities = _TRUSTED_LIVE_ADAPTERS.get(adapters)
+    registration = _TRUSTED_LIVE_ADAPTERS.get(adapters)
     if (
         type(delegate) is not _IndependentProductionDelegate
-        or not isinstance(registered_identities, dict)
+        or not isinstance(registration, dict)
     ):
         return None, ["live production adapter topology is not core-registered"]
-    identities: dict[str, Any] = dict(registered_identities)
+    registered_roles = registration.get("roles")
+    registered_terminals = registration.get("terminalDelegates")
+    current_roles = delegate.roles
+    current_chains = tuple(
+        _adapter_delegate_chain(adapter) for adapter in current_roles.values()
+    )
+    if (
+        adapters.delegate is not registration.get("fal")
+        or fal.delegate is not registration.get("delegate")
+        or delegate is not registration.get("delegate")
+        or current_roles is not registered_roles
+        or not isinstance(registered_terminals, tuple)
+        or len(current_chains) != len(registered_terminals)
+        or any(
+            chain[-1] is not terminal
+            for chain, terminal in zip(
+                current_chains, registered_terminals, strict=True
+            )
+        )
+        or len({id(chain[-1]) for chain in current_chains})
+        != len(current_chains)
+    ):
+        return None, ["live production adapter topology changed after registration"]
+    identities: dict[str, Any] = dict(registration.get("identities", {}))
+    live_fields = contract["liveAdapterFields"]
+    current_identity_values = {
+        "templateIdentityMethodIdentity": getattr(
+            current_roles.source,
+            live_fields["templateIdentityMethodIdentity"],
+            None,
+        ),
+        "visualReviewMethodIdentity": getattr(
+            current_roles.visual_review,
+            live_fields["visualReviewMethodIdentity"],
+            None,
+        ),
+        "authoringAnalysisMethodIdentity": getattr(
+            current_roles.authoring_analysis,
+            live_fields["authoringAnalysisMethodIdentity"],
+            None,
+        ),
+        "authoringAuditMethodIdentity": getattr(
+            current_roles.authoring_audit,
+            live_fields["authoringAuditMethodIdentity"],
+            None,
+        ),
+    }
+    if current_identity_values != identities:
+        return None, ["live production method identities changed after registration"]
     identity_pattern = contract["methodIdentityPattern"]
     for role, value in identities.items():
         if type(value) is not str or re.fullmatch(identity_pattern, value) is None:
@@ -283,32 +439,19 @@ def resolve_execution_profile(
     if errors:
         return None, errors
 
-    return {
-        fields["artifactType"]: contract["artifactType"],
-        fields["schemaVersion"]: rules["schemaVersion"],
-        fields["executionMode"]: mode,
-        fields["deliveryEligible"]: True,
-        fields["adapterTopology"]: contract["adapterTopologies"]["liveExternal"],
-        fields["generationProvider"]: rules["generationExecutionContract"][
-            "providerRoles"
-        ]["fal"],
-        fields["storageProvider"]: rules["objectStorageContract"][
-            "providerRoles"
-        ]["aliyunOss"],
-        fields["templateIdentityMethodIdentity"]: identities[
-            "templateIdentityMethodIdentity"
+    return _execution_profile(
+        mode=mode,
+        delivery_eligible=True,
+        topology=contract["adapterTopologies"]["liveExternal"],
+        generation_provider=rules["generationExecutionContract"]["providerRoles"][
+            "fal"
         ],
-        fields["visualReviewMethodIdentity"]: identities[
-            "visualReviewMethodIdentity"
+        storage_provider=rules["objectStorageContract"]["providerRoles"][
+            "aliyunOss"
         ],
-        fields["authoringAnalysisMethodIdentity"]: identities[
-            "authoringAnalysisMethodIdentity"
-        ],
-        fields["authoringAuditMethodIdentity"]: identities[
-            "authoringAuditMethodIdentity"
-        ],
-        fields["runtimeInstallSource"]: None,
-    }, []
+        identities=identities,
+        rules=rules,
+    ), []
 
 
 def bind_runtime_install_source(
@@ -331,22 +474,31 @@ def bind_runtime_install_source(
     return bound, []
 
 
+def registered_live_adapter_authority_errors(
+    adapters: Any,
+    rules: dict[str, Any],
+) -> list[str]:
+    """Revalidate the registered live topology at later delivery boundaries."""
+
+    execution_mode = rules["productionExecutionContract"]["executionModes"][
+        "liveExternal"
+    ]
+    _profile, errors = resolve_execution_profile(adapters, execution_mode, rules)
+    return errors
+
+
 def qualify_runtime_execution_profile(
     profile: dict[str, Any],
     rules: dict[str, Any],
     *,
     production_pin: dict[str, Any] | None = None,
-    runtime_preflight: RuntimePreflight | None = None,
 ) -> tuple[dict[str, Any], list[str], list[str]]:
     """Run doctor and bind its authority result through one workflow seam."""
 
-    if runtime_preflight is None:
-        from .release_management import doctor
-        from .workflow_core import REPO_ROOT
+    from .release_management import doctor
+    from .workflow_core import REPO_ROOT
 
-        diagnosis = doctor(REPO_ROOT, production_pin=production_pin)
-    else:
-        diagnosis = runtime_preflight(production_pin)
+    diagnosis = doctor(REPO_ROOT, production_pin=production_pin)
     diagnostics = rules["releaseManagementContract"]["diagnosticFields"]
     if not isinstance(diagnosis, dict):
         return profile, ["INVALID_RUNTIME_DIAGNOSIS"], []

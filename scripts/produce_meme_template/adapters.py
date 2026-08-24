@@ -461,99 +461,6 @@ class DeterministicFixtureAdapters:
         result["evidence"][roles["maximumDifference"]["evidence"]] = [
             slot["suggestions"][0] for slot in slots
         ]
-        suggestion_contract = rules["slotSuggestionReviewContract"]
-        slot_review_fields = suggestion_contract["slotReviewFields"]
-        suggestion_review_fields = suggestion_contract["suggestionReviewFields"]
-        authored_reviews = result["evidence"].get(
-            roles["slotSuggestions"]["evidence"], []
-        )
-        authored_review_by_slot = {
-            review.get(slot_review_fields["slotIdentity"]): review
-            for review in authored_reviews
-            if isinstance(review, dict)
-            and isinstance(review.get(slot_review_fields["slotIdentity"]), str)
-        }
-
-        def authored_nonempty_text(
-            authored: dict[str, Any], role: str, fallback: str
-        ) -> str:
-            value = authored.get(slot_review_fields[role])
-            return value if isinstance(value, str) and value.strip() else fallback
-
-        def suggestion_review(
-            slot: dict[str, Any],
-            suggestion: str,
-            authored_slot_review: dict[str, Any],
-        ) -> dict[str, Any]:
-            authored_items = authored_slot_review.get(
-                slot_review_fields["suggestionReviews"], []
-            )
-            authored_item = next(
-                (
-                    item
-                    for item in authored_items
-                    if isinstance(item, dict)
-                    and item.get(suggestion_review_fields["value"])
-                    == suggestion
-                ),
-                {},
-            )
-            fallback_evidence = (
-                f"{suggestion} 与 {slot['defaultValue']} 属于同一"
-                f"{slot['label']}编辑轴并保持当前模板机制"
-            )
-            return {
-                suggestion_review_fields["value"]: suggestion,
-                suggestion_review_fields["sameAxis"]: authored_item.get(
-                    suggestion_review_fields["sameAxis"], True
-                ),
-                suggestion_review_fields["sameGranularity"]: authored_item.get(
-                    suggestion_review_fields["sameGranularity"], True
-                ),
-                suggestion_review_fields["mechanismCompatible"]: authored_item.get(
-                    suggestion_review_fields["mechanismCompatible"], True
-                ),
-                suggestion_review_fields["evidence"]: (
-                    authored_item.get(suggestion_review_fields["evidence"])
-                    if isinstance(
-                        authored_item.get(suggestion_review_fields["evidence"]),
-                        str,
-                    )
-                    and authored_item[suggestion_review_fields["evidence"]].strip()
-                    else fallback_evidence
-                ),
-            }
-
-        result["evidence"][roles["slotSuggestions"]["evidence"]] = [
-            {
-                slot_review_fields["slotIdentity"]: slot["id"],
-                slot_review_fields["defaultValue"]: slot["defaultValue"],
-                slot_review_fields["axis"]: authored_nonempty_text(
-                    authored_review_by_slot.get(slot["id"], {}),
-                    "axis",
-                    slot["label"],
-                ),
-                slot_review_fields["granularity"]: authored_nonempty_text(
-                    authored_review_by_slot.get(slot["id"], {}),
-                    "granularity",
-                    f"单个{slot['label']}替换值",
-                ),
-                slot_review_fields["suggestionReviews"]: [
-                    suggestion_review(
-                        slot,
-                        suggestion,
-                        authored_review_by_slot.get(slot["id"], {}),
-                    )
-                    for suggestion in slot["suggestions"]
-                ],
-                slot_review_fields["evidence"]: authored_nonempty_text(
-                    authored_review_by_slot.get(slot["id"], {}),
-                    "evidence",
-                    f"逐项比较 {slot['id']} 的默认值与全部推荐值",
-                ),
-            }
-            for slot in slots
-        ]
         text_contract = rules["visibleTextContract"]
         region_fields = text_contract["regionFields"]
         audit_fields = text_contract["semanticAuditFields"]
@@ -848,6 +755,11 @@ class DeterministicFixtureAdapters:
 
 class FalQueueWorkflowAdapters:
     """Use fal's durable queue for generation and delegate all other workflow adapters."""
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "delegate" and hasattr(self, "delegate"):
+            raise AttributeError("Fal delegate is immutable after construction")
+        super().__setattr__(name, value)
 
     def __init__(
         self,
@@ -1201,6 +1113,11 @@ class FalQueueWorkflowAdapters:
 
 class AliyunOssWorkflowAdapters:
     """Store the Approved Template Image in Aliyun OSS and delegate other seams."""
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "delegate" and hasattr(self, "delegate"):
+            raise AttributeError("OSS delegate is immutable after construction")
+        super().__setattr__(name, value)
 
     def __init__(
         self,

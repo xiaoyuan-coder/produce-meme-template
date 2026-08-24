@@ -5,11 +5,12 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.export_gallery_templates import ExportError, export_gallery_templates
 from scripts.produce_meme_template.artifacts import pretty_json_bytes, sha256_bytes
 from scripts.produce_meme_template.artifacts import canonical_json_bytes, sha256_file
-from scripts.produce_meme_template import run_production
+from scripts.produce_meme_template import run_production as public_run_production
 from tests.live_production_support import build_live_test_adapters
 
 
@@ -20,6 +21,20 @@ FIXED_TIME = datetime.fromisoformat("2026-08-22T08:00:00+00:00")
 
 def load(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def run_production(*args, runtime_preflight=None, **kwargs):
+    if runtime_preflight is None:
+        return public_run_production(*args, **kwargs)
+
+    def mocked_doctor(_runtime_root, *, production_pin=None):
+        return runtime_preflight(production_pin)
+
+    with patch(
+        "scripts.produce_meme_template.release_management.doctor",
+        side_effect=mocked_doctor,
+    ):
+        return public_run_production(*args, **kwargs)
 
 
 class GalleryTemplateExportTest(unittest.TestCase):
