@@ -265,7 +265,7 @@ def _run_template_data_stage(
     _persist_manifest(output_dir, manifest)
 
     authoring_review_request = compile_authoring_review_request(
-        analysis, approved_sha, rules
+        analysis, approved_sha, authoring_handoff, rules
     )
     authoring_request_sha = _sha_bytes(
         _canonical_bytes(authoring_review_request)
@@ -306,7 +306,7 @@ def _run_template_data_stage(
         output_dir,
         authoring_audit_name,
         p4,
-        ["template-analysis.json", approved_rel],
+        ["template-analysis.json", approved_rel, handoff_name],
     )
     authoring_errors = authoring_contract_audit_errors(
         authoring_audit, authoring_review_request, rules
@@ -322,7 +322,7 @@ def _run_template_data_stage(
         )
 
     editable = _compile_editable_spec(
-        analysis, rules, plan, authoring_audit
+        analysis, rules, plan, authoring_audit, authoring_handoff
     )
     _atomic_write_new(
         output_dir / "editable-template-spec.json", _json_bytes(editable)
@@ -332,7 +332,7 @@ def _run_template_data_stage(
         output_dir,
         "editable-template-spec.json",
         p4,
-        ["template-analysis.json", authoring_audit_name],
+        ["template-analysis.json", authoring_audit_name, handoff_name],
     )
     _advance(manifest, rules, p4, timestamp)
     _persist_manifest(output_dir, manifest)

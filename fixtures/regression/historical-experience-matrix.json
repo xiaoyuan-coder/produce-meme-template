@@ -172,8 +172,11 @@
       "migrationStatus": "confirmed",
       "legacyDisposition": null,
       "authority": {"path": "references/template-authoring.md", "anchor": "## 3. 模板身份与编辑权限"},
-      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/slotCompilationContract/semanticRoles"},
-      "evidence": [{"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_audited_subject_omission_can_keep_two_other_high_value_slots", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]}]
+      "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/authoringContractAudit/subjectPresenceReviewFields"},
+      "evidence": [
+        {"testId": "tests.test_issue_5_editable_prompt_compiler.Issue5EditablePromptCompilerTest.test_audited_subject_omission_can_keep_two_other_high_value_slots", "polarity": "good-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"]},
+        {"testId": "tests.test_issue_25_authoring_handoff.Issue25AuthoringHandoffTest.test_false_no_subject_claim_cannot_bypass_handoff_and_approved_graph", "polarity": "bad-case", "fixturePaths": ["fixtures/e2e/simple-animal/approved-analysis.json"], "expectedGateLocator": "/resultStates/blocked"}
+      ]
     },
     {
       "experienceId": "E20",

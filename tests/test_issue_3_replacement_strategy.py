@@ -289,7 +289,7 @@ def approved_scenario(
             "evidence": f"标题“{title}”只概括当前场景的可见机制，三个开放轴替换后仍成立",
         }
         analysis["neutralDescription"] = "主要可编辑区域位于画面核心，外围留白与空间层级清晰"
-        analysis["hasPrimarySubject"] = subject_role == "subject"
+        analysis["hasPrimarySubject"] = True
         first, second, third = analysis["slotCandidates"]
         first.update(
             {
@@ -334,11 +334,23 @@ def approved_scenario(
         if subject_role != "subject":
             analysis["assetUnitAnalysis"].update(
                 {
-                    COUNT_FIELDS["visibleSubjects"]: 0,
-                    COUNT_FIELDS["identities"]: 0,
+                    COUNT_FIELDS["visibleSubjects"]: 1,
+                    COUNT_FIELDS["identities"]: 1,
                     COUNT_FIELDS["uploads"]: 0,
                 }
             )
+            analysis["subjectSlotOmissionEvidence"] = {
+                "reviewed": True,
+                "valueGates": {
+                    "userMotivation": True,
+                    "visuallyVisible": True,
+                    "modelControllable": True,
+                    "mechanismPreserved": False,
+                },
+                "uploadReplacementFeasible": False,
+                "blockerCode": "fixed_identity_is_mechanism_anchor",
+                "evidence": "当前生产项只替换文字或场景，稳定主体继续承担画面机制锚点",
+            }
         analysis["runtimeSemantics"]["visualContract"].update(
             {
                 "medium": (

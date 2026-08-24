@@ -11,7 +11,7 @@
 
 P3 以 Approved Template Image 为事实源，从组件图重新计算四类数量，并与 `assetUnitAnalysis` 精确对账。一个身份可以拥有多个画面实例和一份上传素材；一个控件也可以驱动多个实例。多个独立上传素材映射到同一个主体控件时，该控件的 `image.maxCount` 必须等于素材单元数且不超过冻结 Gallery Contract 上限；每份素材只能归属一个主体上传控件。任何数量都不能从另一类数量推导。
 
-清点顺序固定为：先按可独立辨识的人物、角色或宠物划分 `identityUnitId`，再为每个身份记录手机内外、分格、镜像、反射或阴影等显示实例。“两个角色形成一对”不会将两个身份合并成一个 `identityUnitId`；一个角色在屏内外出现两次也不会生成两个上传控件。P1 把结果编译为 `subjectEditIntent`，供 P3 直接继承身份单元、主体组件与重复身份关系。
+清点顺序固定为：先按可独立辨识的人物、角色、宠物或容器内身份内容划分 `identityUnitId`，再为每个身份记录手机内外、分格、镜像、反射或阴影等显示实例。“两个角色形成一对”不会将两个身份合并成一个 `identityUnitId`；一个角色在屏内外出现两次也不会生成两个上传控件。P1 从 `visualInstance=true` 且具有身份单元的组件编译 `subjectEditIntent`，供 P3 直接继承身份单元、主体组件与重复身份关系；P4 对 Approved 图使用同一口径重算，防止把主体改标成普通 prop 或声明 `hasPrimarySubject=false` 后绕过主体槽门禁。
 
 每个 `controlId` 还必须符合机器合同的“组件角色 → 槽位类型 + 语义角色”绑定。例如背景组件只能承载场景内容/氛围 prompt，文字组件承载可见文字槽，主体、道具、反射或容器内图片才能按合同承载主要上传槽。Approved analysis 还必须用 `approvedOperationBindings` 为每个 operation 显式列出目标组件、稳定锚点和控件；目标和锚点列表按位置逐项对应来源 operation 的同类列表。P3 按 operation ID 精确对账，不从同角色组件或全图控件反推目标。所有 binding 的 Approved target 组件在全局只归一个 operation 所有。一个 binding 列出的控件不得同时驱动目标集外组件；`identity_replace` 选定身份的全部组件必须精确落入该 binding。这一对账同时防止数量正确但控件指向错误区域，以及用无关组件伪造目标完整性。
 

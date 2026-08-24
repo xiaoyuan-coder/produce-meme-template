@@ -22,12 +22,11 @@ def _subject_edit_intent(
     relations = graph[multi["graphFields"]["relations"]]
     component_fields = multi["componentFields"]
     relation_fields = multi["relationFields"]
-    subject_role = multi["componentRoles"]["subject"]
     repeated_identity = multi["relationTypes"]["repeatedIdentity"]
     subject_components = [
         component
         for component in components
-        if component[component_fields["role"]] == subject_role
+        if component[component_fields["visualInstance"]] is True
         and component[component_fields["identityUnit"]] is not None
     ]
     identity_units = sorted(

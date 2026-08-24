@@ -316,6 +316,10 @@ def _current_item_fact_errors(
         )
         source_analysis = _load_json(output_dir / "source-analysis.json")
         plan = _load_json(output_dir / "replacement-plan.json")
+        authoring_handoff = _load_json(
+            output_dir
+            / rules["authoringHandoffContract"]["artifactNames"]["handoff"]
+        )
         template_analysis = _load_json(output_dir / "template-analysis.json")
         authoring_audit = _load_json(output_dir / "authoring-contract-audit.json")
         editable = _load_json(output_dir / "editable-template-spec.json")
@@ -329,6 +333,7 @@ def _current_item_fact_errors(
             source_analysis,
             identity_resolution,
             plan,
+            authoring_handoff,
             template_analysis,
             authoring_audit,
             editable,
@@ -387,7 +392,10 @@ def _current_item_fact_errors(
         errors.append("template analysis belongs to another approved image")
     else:
         review_request = compile_authoring_review_request(
-            template_analysis, delivery["approvedSha256"], rules
+            template_analysis,
+            delivery["approvedSha256"],
+            authoring_handoff,
+            rules,
         )
         errors.extend(
             f"authoring contract replay: {error}"
@@ -401,6 +409,7 @@ def _current_item_fact_errors(
             rules,
             plan,
             authoring_audit,
+            authoring_handoff,
         )
         expected_hidden = _compile_hidden_spec(
             template_analysis,

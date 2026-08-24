@@ -213,6 +213,64 @@ class Issue25AuthoringHandoffTest(unittest.TestCase):
         self.assertEqual("blocked", result.outcome)
         self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
 
+    def test_false_no_subject_claim_cannot_bypass_handoff_and_approved_graph(self) -> None:
+        class FalseNoSubjectClaim(CapturingHandoffAdapters):
+            def __init__(self, *, erase_graph_subject: bool) -> None:
+                super().__init__()
+                self.erase_graph_subject = erase_graph_subject
+
+            def analyze_approved_with_handoff(
+                self, approved_image: Path, authoring_handoff: dict
+            ) -> dict:
+                analysis = super().analyze_approved_with_handoff(
+                    approved_image, authoring_handoff
+                )
+                analysis["slotCandidates"] = [
+                    slot
+                    for slot in analysis["slotCandidates"]
+                    if slot["semanticRole"] != "subject"
+                ]
+                analysis["promptTemplate"] = analysis["promptTemplate"].replace(
+                    '{{ pet_subject | "柯基犬" }}', "一只小动物"
+                ).replace("一只一只", "一只")
+                analysis["hasPrimarySubject"] = False
+                analysis["subjectKind"] = "non_person"
+                analysis.pop("subjectSlotOmissionEvidence", None)
+                analysis["assetUnitAnalysis"]["uploadUnitCount"] = 0
+                analysis["assetUnitAnalysis"]["controlUnitCount"] = 2
+                analysis["renderingCoherenceDecision"]["subjectTransfers"] = []
+                if self.erase_graph_subject:
+                    for component in analysis["componentGraph"]["components"]:
+                        if component["identityUnitId"] == "approved-animal":
+                            component["identityUnitId"] = None
+                            component["visualInstance"] = False
+                return analysis
+
+        for erase_graph_subject in (False, True):
+            with self.subTest(erase_graph_subject=erase_graph_subject):
+                result = run_production(
+                    {
+                        **self.request,
+                        "productionItemId": (
+                            "false-no-subject-relabelled"
+                            if erase_graph_subject
+                            else "false-no-subject-declared"
+                        ),
+                    },
+                    self.output_root,
+                    FalseNoSubjectClaim(erase_graph_subject=erase_graph_subject),
+                    clock=lambda: FIXED_TIME,
+                    stage=3,
+                )
+
+                self.assertEqual("blocked", result.outcome)
+                self.assertEqual(
+                    RULES["errorCodes"]["contractFailure"], result.error_code
+                )
+                self.assertFalse(
+                    (result.output_dir / "editable-template-spec.json").exists()
+                )
+
     def test_default_batch_runs_independent_items_concurrently(self) -> None:
         class ConcurrentStageOne(DeterministicFixtureAdapters):
             def __init__(self) -> None:

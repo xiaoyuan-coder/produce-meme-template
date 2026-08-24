@@ -103,8 +103,147 @@ def template_identity_resolution_errors(
     return None, []
 
 
+def _subject_presence_context(
+    analysis: dict[str, Any],
+    authoring_handoff: dict[str, Any],
+    rules: dict[str, Any],
+) -> dict[str, Any]:
+    audit_contract = rules["authoringContractAudit"]
+    fields = audit_contract["subjectPresenceContextFields"]
+    multi = rules["multiInstanceContract"]
+    graph_fields = multi["graphFields"]
+    component_fields = multi["componentFields"]
+    graph = analysis.get(multi["approvedFields"]["componentGraph"])
+    components = (
+        graph.get(graph_fields["components"], []) if isinstance(graph, dict) else []
+    )
+    subject_components = [
+        component
+        for component in components
+        if isinstance(component, dict)
+        and component.get(component_fields["visualInstance"]) is True
+        and isinstance(component.get(component_fields["identityUnit"]), str)
+    ]
+    approved_component_ids = sorted(
+        component.get(component_fields["identity"])
+        for component in subject_components
+        if isinstance(component.get(component_fields["identity"]), str)
+    )
+    approved_identity_units = sorted(
+        {
+            component.get(component_fields["identityUnit"])
+            for component in subject_components
+            if isinstance(component.get(component_fields["identityUnit"]), str)
+        }
+    )
+    handoff_contract = rules["authoringHandoffContract"]["subjectEditIntentContract"]
+    handoff_fields = handoff_contract["fields"]
+    source_intent = authoring_handoff.get("sourceIntent", {})
+    subject_intent = (
+        source_intent.get(handoff_contract["field"], {})
+        if isinstance(source_intent, dict)
+        else {}
+    )
+    handoff_identity_units = subject_intent.get(handoff_fields["identityUnits"])
+    slot_contract = rules["slotCompilationContract"]
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    subject_role_name = slot_contract["semanticRoles"]["primarySubject"]
+    candidates = analysis.get("slotCandidates")
+    subject_slot_ids = sorted(
+        slot.get("id")
+        for slot in candidates or []
+        if isinstance(slot, dict)
+        and slot.get("type") == subject_type
+        and slot.get("semanticRole") == subject_role_name
+        and isinstance(slot.get("id"), str)
+    ) if isinstance(candidates, list) else []
+    return {
+        fields["declaredPresence"]: analysis.get("hasPrimarySubject"),
+        fields["subjectKind"]: analysis.get("subjectKind"),
+        fields["approvedSubjectComponents"]: approved_component_ids,
+        fields["approvedIdentityUnits"]: approved_identity_units,
+        fields["handoffIdentityUnits"]: copy.deepcopy(handoff_identity_units),
+        fields["handoffSubjectCount"]: subject_intent.get(
+            handoff_fields["subjectCount"]
+        ),
+        fields["handoffBindingMode"]: subject_intent.get(
+            handoff_fields["bindingMode"]
+        ),
+        fields["subjectSlots"]: subject_slot_ids,
+        fields["omissionEvidence"]: copy.deepcopy(
+            analysis.get("subjectSlotOmissionEvidence")
+        ),
+    }
+
+
+def subject_presence_context_errors(
+    context: dict[str, Any], rules: dict[str, Any]
+) -> list[str]:
+    audit_contract = rules["authoringContractAudit"]
+    fields = audit_contract["subjectPresenceContextFields"]
+    if not isinstance(context, dict) or set(context) != set(fields.values()):
+        return ["主体存在性上下文形状无效"]
+    declared = context[fields["declaredPresence"]]
+    approved_components = context[fields["approvedSubjectComponents"]]
+    approved_identity_units = context[fields["approvedIdentityUnits"]]
+    handoff_identity_units = context[fields["handoffIdentityUnits"]]
+    handoff_count = context[fields["handoffSubjectCount"]]
+    handoff_mode = context[fields["handoffBindingMode"]]
+    subject_slots = context[fields["subjectSlots"]]
+    omission = context[fields["omissionEvidence"]]
+    errors: list[str] = []
+
+    def unique_strings(value: Any) -> bool:
+        return bool(
+            isinstance(value, list)
+            and all(isinstance(item, str) and item.strip() for item in value)
+            and len(value) == len(set(value))
+        )
+
+    list_fields_valid = all(
+        unique_strings(value)
+        for value in (
+            approved_components,
+            approved_identity_units,
+            handoff_identity_units,
+            subject_slots,
+        )
+    )
+    if not isinstance(declared, bool) or not list_fields_valid:
+        errors.append("主体声明、组件、身份单元或主体槽列表无效")
+        return errors
+    if declared is not bool(approved_components):
+        errors.append("hasPrimarySubject 与 Approved 组件图的主体组件不一致")
+    if (
+        not isinstance(handoff_count, int)
+        or isinstance(handoff_count, bool)
+        or handoff_count != len(handoff_identity_units)
+        or handoff_count != len(approved_identity_units)
+    ):
+        errors.append("Authoring Handoff 与 Approved 组件图的主体身份数量不一致")
+    handoff_contract = rules["authoringHandoffContract"]["subjectEditIntentContract"]
+    modes = handoff_contract["bindingModes"]
+    expected_mode = (
+        modes["none"]
+        if not approved_identity_units
+        else modes["single"]
+        if len(approved_identity_units) == 1
+        else modes["multiple"]
+    )
+    if handoff_mode != expected_mode:
+        errors.append("Authoring Handoff 主体绑定模式与 Approved 组件图不一致")
+    if not declared and (subject_slots or omission is not None):
+        errors.append("无主体声明不能同时携带主体槽或主体省略证据")
+    if declared and not subject_slots and not isinstance(omission, dict):
+        errors.append("明显主体缺少 subject 槽和类型化省略证据")
+    return errors
+
+
 def compile_authoring_review_request(
-    analysis: dict[str, Any], approved_sha256: str, rules: dict[str, Any]
+    analysis: dict[str, Any],
+    approved_sha256: str,
+    authoring_handoff: dict[str, Any],
+    rules: dict[str, Any],
 ) -> dict[str, Any]:
     contract = rules["authoringContractAudit"]
     fields = contract["requestFields"]
@@ -127,6 +266,9 @@ def compile_authoring_review_request(
         ),
         fields["visualContract"]: copy.deepcopy(
             runtime.get(runtime_fields["visualContract"])
+        ),
+        fields["subjectPresenceContext"]: _subject_presence_context(
+            analysis, authoring_handoff, rules
         ),
     }
 
@@ -271,6 +413,8 @@ def deterministic_authoring_contract_audit(
     review_fields = contract["reviewFields"]
     prompt_fields = contract["promptReviewFields"]
     slot_fields = contract["slotReviewFields"]
+    subject_context_fields = contract["subjectPresenceContextFields"]
+    subject_review_fields = contract["subjectPresenceReviewFields"]
     prompt = review_request[request_fields["promptTemplate"]]
     leaked = _production_prompt_clauses(prompt if isinstance(prompt, str) else "", rules)
     clause_classifications = _prompt_clause_classifications(
@@ -323,15 +467,62 @@ def deterministic_authoring_contract_audit(
                 ),
             }
         )
+    subject_context = review_request[request_fields["subjectPresenceContext"]]
+    subject_context_errors = subject_presence_context_errors(subject_context, rules)
+    declared_subject = subject_context[subject_context_fields["declaredPresence"]]
+    approved_subject_components = subject_context[
+        subject_context_fields["approvedSubjectComponents"]
+    ]
+    handoff_count = subject_context[subject_context_fields["handoffSubjectCount"]]
+    approved_identity_units = subject_context[
+        subject_context_fields["approvedIdentityUnits"]
+    ]
+    subject_slots = subject_context[subject_context_fields["subjectSlots"]]
+    omission = subject_context[subject_context_fields["omissionEvidence"]]
+    observed_subject = bool(approved_subject_components)
+    subject_review = {
+        subject_review_fields["observedPresence"]: observed_subject,
+        subject_review_fields["observedSubjectComponents"]: copy.deepcopy(
+            approved_subject_components
+        ),
+        subject_review_fields["declarationMatchesImage"]: (
+            declared_subject is observed_subject
+        ),
+        subject_review_fields["graphMatchesImage"]: True,
+        subject_review_fields["handoffMatchesImage"]: (
+            isinstance(handoff_count, int)
+            and not isinstance(handoff_count, bool)
+            and handoff_count == len(approved_identity_units)
+        ),
+        subject_review_fields["slotPolicyValid"]: (
+            not observed_subject or bool(subject_slots) or isinstance(omission, dict)
+        ),
+        subject_review_fields["evidence"]: (
+            "逐项复核 Approved Image 主体、组件图、Authoring Handoff 主体连续性和主体槽策略"
+        ),
+    }
     gate_roles = (
         "userMotivation",
         "visuallyVisible",
         "modelControllable",
         "mechanismPreserved",
     )
-    passed = user_editable_only and all(
-        all(review[slot_fields[role]] is True for role in gate_roles)
-        for review in slot_reviews
+    passed = (
+        user_editable_only
+        and not subject_context_errors
+        and all(
+            subject_review[subject_review_fields[role]] is True
+            for role in (
+                "declarationMatchesImage",
+                "graphMatchesImage",
+                "handoffMatchesImage",
+                "slotPolicyValid",
+            )
+        )
+        and all(
+            all(review[slot_fields[role]] is True for role in gate_roles)
+            for review in slot_reviews
+        )
     )
     return {
         review_fields["artifactType"]: contract["artifactType"],
@@ -349,6 +540,7 @@ def deterministic_authoring_contract_audit(
             ),
         },
         review_fields["slotReviews"]: slot_reviews,
+        review_fields["subjectPresenceReview"]: subject_review,
         review_fields["pass"]: passed,
         review_fields["evidence"]: (
             "独立绑定 Approved Image、组件图、槽位候选与 Prompt 职责的作者合同审计"
@@ -366,6 +558,8 @@ def authoring_contract_audit_errors(
     review_fields = contract["reviewFields"]
     prompt_fields = contract["promptReviewFields"]
     slot_fields = contract["slotReviewFields"]
+    subject_context_fields = contract["subjectPresenceContextFields"]
+    subject_review_fields = contract["subjectPresenceReviewFields"]
     errors: list[str] = []
     if not isinstance(audit, dict) or set(audit) != set(review_fields.values()):
         return ["作者合同审计形状无效"]
@@ -415,6 +609,40 @@ def authoring_contract_audit_errors(
         and prompt_review[prompt_fields["evidence"]].strip()
     ):
         errors.append("promptTemplate 含生产、清理、输出或商品展示约束")
+    subject_context = review_request[request_fields["subjectPresenceContext"]]
+    context_errors = subject_presence_context_errors(subject_context, rules)
+    errors.extend(f"主体连续性：{error}" for error in context_errors)
+    subject_review = audit[review_fields["subjectPresenceReview"]]
+    declared_subject = subject_context.get(
+        subject_context_fields["declaredPresence"]
+    )
+    approved_subject_components = subject_context.get(
+        subject_context_fields["approvedSubjectComponents"]
+    )
+    subject_review_valid = bool(
+        isinstance(subject_review, dict)
+        and set(subject_review) == set(subject_review_fields.values())
+        and isinstance(
+            subject_review.get(subject_review_fields["observedPresence"]), bool
+        )
+        and subject_review[subject_review_fields["observedPresence"]]
+        is declared_subject
+        and subject_review.get(subject_review_fields["observedSubjectComponents"])
+        == approved_subject_components
+        and all(
+            subject_review.get(subject_review_fields[role]) is True
+            for role in (
+                "declarationMatchesImage",
+                "graphMatchesImage",
+                "handoffMatchesImage",
+                "slotPolicyValid",
+            )
+        )
+        and isinstance(subject_review.get(subject_review_fields["evidence"]), str)
+        and subject_review[subject_review_fields["evidence"]].strip()
+    )
+    if not subject_review_valid:
+        errors.append("独立主体存在性、组件图、Handoff 连续性或主体槽策略复核失败")
     graph = review_request[request_fields["componentGraph"]]
     graph_fields = rules["multiInstanceContract"]["graphFields"]
     component_fields = rules["multiInstanceContract"]["componentFields"]

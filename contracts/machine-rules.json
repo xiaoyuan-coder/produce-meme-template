@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.27.0",
+  "schemaVersion": "0.28.0",
   "productionExecutionContract": {
     "artifactName": "production-execution-profile.json",
     "artifactType": "production-execution-profile",
@@ -582,7 +582,8 @@
       "slotCandidates": "slotCandidates",
       "visibleTextRegions": "visibleTextRegions",
       "componentGraph": "componentGraph",
-      "visualContract": "visualContract"
+      "visualContract": "visualContract",
+      "subjectPresenceContext": "subjectPresenceContext"
     },
     "reviewFields": {
       "artifactType": "artifactType",
@@ -591,6 +592,7 @@
       "reviewRequestSha256": "reviewRequestSha256",
       "promptReview": "promptReview",
       "slotReviews": "slotReviews",
+      "subjectPresenceReview": "subjectPresenceReview",
       "pass": "pass",
       "evidence": "evidence"
     },
@@ -617,6 +619,26 @@
       "visuallyVisible": "visuallyVisible",
       "modelControllable": "modelControllable",
       "mechanismPreserved": "mechanismPreserved",
+      "evidence": "evidence"
+    },
+    "subjectPresenceContextFields": {
+      "declaredPresence": "declaredHasPrimarySubject",
+      "subjectKind": "subjectKind",
+      "approvedSubjectComponents": "approvedSubjectComponentIds",
+      "approvedIdentityUnits": "approvedSubjectIdentityUnitIds",
+      "handoffIdentityUnits": "handoffIdentityUnitIds",
+      "handoffSubjectCount": "handoffSubjectCount",
+      "handoffBindingMode": "handoffBindingMode",
+      "subjectSlots": "subjectSlotIds",
+      "omissionEvidence": "subjectSlotOmissionEvidence"
+    },
+    "subjectPresenceReviewFields": {
+      "observedPresence": "observedHasPrimarySubject",
+      "observedSubjectComponents": "observedSubjectComponentIds",
+      "declarationMatchesImage": "declarationMatchesApprovedImage",
+      "graphMatchesImage": "approvedGraphMatchesApprovedImage",
+      "handoffMatchesImage": "handoffContinuityMatchesApprovedImage",
+      "slotPolicyValid": "subjectSlotPolicyValid",
       "evidence": "evidence"
     },
     "productionClausePatterns": [
@@ -2222,7 +2244,10 @@
       "E16": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
       "E17": [{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}],
       "E18": [{"polarityRole":"goodCase","expectedGateLocator":null}],
-      "E19": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E19": [
+        {"polarityRole":"goodCase","expectedGateLocator":null},
+        {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}
+      ],
       "E20": [
         {"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},
         {"polarityRole":"goodCase","expectedGateLocator":null},
@@ -2280,7 +2305,7 @@
       "E16": "b9d784075717bc7a0aa8a4062181939cd4927b0e70722c8bf38df7dedb8e103a",
       "E17": "6ec1be99e823e4d935fbd5335305fbc2a2eeec68e08b1dde7b414fcdc29c9b69",
       "E18": "3af4ab187902031366a89787254cf361380eac4a6347b11853dfdb471f90b49a",
-      "E19": "e498c65c754bbbf4b778177970a166b68f8a5ab012e825930451a44dee50a8c5",
+      "E19": "ec165503bae7f23b9a073b292d91e0875cf810f78ed81b586b31fd4971c4c514",
       "E20": "5f7129a325e3ecfa453671b319e24aca85fe027b80abb5b0b65c995feb706461",
       "E21": "e173e182fc5f2f466083f946a80f095ee9c8eef56967901d31609e5486d7b1e9",
       "E22": "3df4ba8238d4cef92384e4525b60078624205a712eea683478ccf7adcbad0c34",

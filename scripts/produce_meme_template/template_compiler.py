@@ -19,6 +19,10 @@ from .replacement_planning import (
     _component_graph_view,
     _identity_relations_are_consistent,
 )
+from .production_gates import (
+    _subject_presence_context,
+    subject_presence_context_errors,
+)
 from .workflow_core import (
     CJK_CHARACTER,
     GALLERY_SCHEMA_PATH,
@@ -436,8 +440,20 @@ def _compile_editable_spec(
     rules: dict[str, Any],
     plan: dict[str, Any],
     authoring_audit: dict[str, Any],
+    authoring_handoff: dict[str, Any],
 ) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
+    subject_context_errors = subject_presence_context_errors(
+        _subject_presence_context(analysis, authoring_handoff, rules), rules
+    )
+    if subject_context_errors:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "主体存在性、Approved 组件图与 Authoring Handoff 不一致。",
+            {"errors": subject_context_errors},
+        )
     prompt_template = analysis.get("promptTemplate")
     hidden_prompt_fragments = rules["authoringHandoffContract"][
         "promptTemplateForbiddenHiddenFragments"

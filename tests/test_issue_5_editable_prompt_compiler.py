@@ -635,11 +635,11 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             analysis["promptTemplate"] = analysis["promptTemplate"].removesuffix("。") + f"，{secondary_text}。"
             analysis["freeEditableContent"].append(secondary_text)
             analysis["assetUnitAnalysis"] = {
-                ASSET_COUNT_FIELDS["visibleSubjects"]: 4,
-                ASSET_COUNT_FIELDS["identities"]: 4,
+                ASSET_COUNT_FIELDS["visibleSubjects"]: 1,
+                ASSET_COUNT_FIELDS["identities"]: 1,
                 ASSET_COUNT_FIELDS["uploads"]: 1,
                 ASSET_COUNT_FIELDS["controls"]: 3,
-                "evidence": "四个身份共用一张上传素材，控件按三个高价值编辑入口计算",
+                "evidence": "单个可见身份使用一张上传素材，控件按三个高价值编辑入口计算",
             }
             return analysis
 
@@ -651,8 +651,8 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         self.assertIn(secondary_text, editable["freeEditableContent"])
         self.assertIn(secondary_text, editable["promptTemplate"])
         self.assertNotIn(secondary_text, json.dumps(record["inputSchema"], ensure_ascii=False))
-        self.assertEqual(4, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["visibleSubjects"]])
-        self.assertEqual(4, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["identities"]])
+        self.assertEqual(1, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["visibleSubjects"]])
+        self.assertEqual(1, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["identities"]])
         self.assertEqual(1, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["uploads"]])
         self.assertEqual(3, editable["assetUnitAnalysis"][ASSET_COUNT_FIELDS["controls"]])
 
