@@ -429,6 +429,21 @@ def deterministic_authoring_contract_audit(
     graph_fields = rules["multiInstanceContract"]["graphFields"]
     component_fields = rules["multiInstanceContract"]["componentFields"]
     components = graph[graph_fields["components"]] if isinstance(graph, dict) else []
+    slot_contract = rules["slotCompilationContract"]
+    input_contract = slot_contract["inputContract"]
+    mode_field = input_contract["modeAuthoringField"]
+    modes = input_contract["modes"]
+
+    def reviewed_modes(slot: dict[str, Any]) -> list[str]:
+        authored = slot.get(mode_field)
+        if authored is None:
+            if slot.get("type") == slot_contract["slotTypes"]["primarySubjectUpload"]:
+                return [modes["text"], modes["image"]]
+            return [modes["text"]]
+        if not isinstance(authored, list):
+            return []
+        return [mode for mode in modes.values() if mode in authored]
+
     slot_reviews = []
     for slot in review_request[request_fields["slotCandidates"]] or []:
         slot_id = slot.get("id")
@@ -458,6 +473,7 @@ def deterministic_authoring_contract_audit(
             {
                 slot_fields["slotIdentity"]: slot_id,
                 slot_fields["componentIdentities"]: component_ids,
+                slot_fields["approvedInputModes"]: reviewed_modes(slot),
                 slot_fields["userMotivation"]: user_motivation,
                 slot_fields["visuallyVisible"]: visually_visible,
                 slot_fields["modelControllable"]: model_controllable,
@@ -648,6 +664,21 @@ def authoring_contract_audit_errors(
     component_fields = rules["multiInstanceContract"]["componentFields"]
     components = graph[graph_fields["components"]] if isinstance(graph, dict) else []
     candidates = review_request[request_fields["slotCandidates"]]
+    slot_contract = rules["slotCompilationContract"]
+    input_contract = slot_contract["inputContract"]
+    mode_field = input_contract["modeAuthoringField"]
+    modes = input_contract["modes"]
+
+    def expected_modes(slot: dict[str, Any]) -> list[str]:
+        authored = slot.get(mode_field)
+        if authored is None:
+            if slot.get("type") == slot_contract["slotTypes"]["primarySubjectUpload"]:
+                return [modes["text"], modes["image"]]
+            return [modes["text"]]
+        if not isinstance(authored, list):
+            return []
+        return [mode for mode in modes.values() if mode in authored]
+
     expected_ids = [slot.get("id") for slot in candidates] if isinstance(candidates, list) else []
     reviews = audit[review_fields["slotReviews"]]
     if not isinstance(reviews, list):
@@ -677,6 +708,9 @@ def authoring_contract_audit_errors(
             isinstance(review, dict)
             and set(review) == set(slot_fields.values())
             and review[slot_fields["componentIdentities"]] == expected_components
+            and review[slot_fields["approvedInputModes"]] == expected_modes(
+                next(slot for slot in candidates if slot.get("id") == slot_id)
+            )
             and all(
                 isinstance(review[slot_fields[role]], bool) for role in gate_roles
             )

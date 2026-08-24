@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.28.0",
+  "schemaVersion": "0.29.0",
   "productionExecutionContract": {
     "artifactName": "production-execution-profile.json",
     "artifactType": "production-execution-profile",
@@ -180,8 +180,8 @@
     "validatorRelativePath": "scripts/produce_meme_template/workflow.py",
     "replacementSpecRelativePath": "references/replacement-spec.md",
     "replacementSpecVersion": "1.0.0",
-    "gallerySnapshotRelativePath": "contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json",
-    "gallerySnapshotMetadataRelativePath": "contracts/upstream/gallery-template/runtime-semantics-v2-contract/snapshot-metadata.json",
+    "gallerySnapshotRelativePath": "contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/gallery-template.schema.json",
+    "gallerySnapshotMetadataRelativePath": "contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/snapshot-metadata.json",
     "installLayout": {
       "versionsDirectory": "versions",
       "currentPointer": "current",
@@ -615,6 +615,7 @@
     "slotReviewFields": {
       "slotIdentity": "slotId",
       "componentIdentities": "componentIds",
+      "approvedInputModes": "approvedInputModes",
       "userMotivation": "userMotivation",
       "visuallyVisible": "visuallyVisible",
       "modelControllable": "modelControllable",
@@ -1067,7 +1068,7 @@
     },
     "templateKind": "PROMPT",
     "outputImageCount": 1,
-    "canonicalImageSizes": ["1024x1024", "1152x896", "896x1152"],
+    "canonicalImageSizes": ["1024x1024", "1152x896", "896x1152", "768x1344", "1344x768"],
     "suggestionCount": 3,
     "targetKinds": {
       "identitySubject": "identity_subject",
@@ -1078,6 +1079,9 @@
       "kind": "kind",
       "role": "role",
       "region": "region"
+    },
+    "targetInstanceOptionalFields": {
+      "groupIdentity": "groupId"
     },
     "targetGrounding": {
       "minimumRoleCharacters": 5,
@@ -1094,11 +1098,14 @@
       "targetIdentities": "targetIds",
       "distributionPolicy": "distributionPolicy"
     },
-    "subjectBinding": {
-      "bindingPolicy": "one_to_one",
+    "identityBindingBase": {
       "renderingMode": "illustration_redraw",
       "allowedSourceGrouping": ["single_subject"],
       "groupToSinglePolicy": "reject"
+    },
+    "identityBindingPolicies": {
+      "oneToOne": "one_to_one",
+      "sameSourceRepeated": "same_source_repeated"
     },
     "contentDistributionPolicies": {
       "singleTarget": "replace_as_unit",
@@ -1128,6 +1135,32 @@
         "合理构图",
         "自然关系"
       ]
+    },
+    "sourceIsolationDecision": {
+      "authoringField": "sourceIsolationDecision",
+      "fields": {
+        "identityInputIds": "identityInputIds",
+        "contentInputIds": "contentInputIds",
+        "identityBackgroundExcluded": "identityBackgroundExcluded",
+        "contentInputExclusive": "contentInputIsExclusiveSource",
+        "evidence": "evidence"
+      }
+    },
+    "containerDependencyDecision": {
+      "authoringField": "containerDependencies",
+      "fields": {
+        "contentInputId": "contentInputId",
+        "contentTargetId": "contentTargetId",
+        "containerTargetId": "containerTargetId",
+        "classification": "classification",
+        "preservedLayer": "preservedLayer",
+        "evidence": "evidence"
+      },
+      "classifications": {
+        "postEdit": "post_edit",
+        "templateFixed": "template_fixed",
+        "independent": "independent"
+      }
     }
   },
   "semanticAuditChecks": {
@@ -1233,7 +1266,20 @@
       "visibleTextPrompt": "text",
       "freePrompt": "prompt"
     },
-    "subjectInputOptionalAuthoringFields": {
+    "inputContract": {
+      "version": 2,
+      "fields": {
+        "version": "version",
+        "slots": "slots"
+      },
+      "modeAuthoringField": "inputModes",
+      "modes": {
+        "text": "text",
+        "image": "image"
+      },
+      "textPresentation": "suggestions"
+    },
+    "imageInputOptionalAuthoringFields": {
       "imagePromptValue": "imagePromptValue",
       "imageHint": "imageHint"
     },
@@ -1251,12 +1297,19 @@
       "required": false,
       "resolutionStrategy": "image_over_text",
       "allowCustomText": true,
-      "imageEnabled": true,
       "imagePromptValue": "用户上传图中的主体",
       "imageHint": "上传1张主体清晰的单主体图片",
       "imageMinimumWidth": 256,
       "imageMinimumHeight": 256,
       "imagePrivate": true,
+      "imageSourceOptions": ["upload", "recent_upload", "asset_library"]
+    },
+    "contentImageDefaults": {
+      "imagePromptValue": "用户上传图中与该槽位对应的完整可见内容与空间关系",
+      "imageHint": "上传1张目标清晰、边界明确的参考图片",
+      "imageMinimumWidth": 256,
+      "imageMinimumHeight": 256,
+      "imagePrivate": false,
       "imageSourceOptions": ["upload", "recent_upload", "asset_library"]
     },
     "valueGateRoles": {

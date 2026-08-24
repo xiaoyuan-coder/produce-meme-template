@@ -263,6 +263,26 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         subject_slot = analysis["slotCandidates"][0]
         scene_replacement = self.scenario["operationRole"] == "sceneReplace"
         ordered_content_group = self.scenario["operationRole"] == "orderedSet"
+        content_image_replacement = self.scenario["operationRole"] == "maskFill"
+        if content_image_replacement:
+            subject_slot["type"] = RULES["slotCompilationContract"]["slotTypes"]["freePrompt"]
+            subject_slot["semanticRole"] = RULES["slotCompilationContract"]["semanticRoles"]["supportingAppearance"]
+            subject_slot["inputModes"] = ["text", "image"]
+            subject_slot["imagePromptValue"] = "用户上传图中的完整手持物件"
+            subject_slot["imageHint"] = "上传1张边界清晰的单个物件图片"
+            subject_slot.pop("identityInheritanceDecision", None)
+            analysis["subjectSlotOmissionEvidence"] = {
+                "reviewed": True,
+                "valueGates": {
+                    "userMotivation": False,
+                    "visuallyVisible": True,
+                    "modelControllable": True,
+                    "mechanismPreserved": False,
+                },
+                "uploadReplacementFeasible": False,
+                "blockerCode": "fixed_identity_is_mechanism_anchor",
+                "evidence": "人物是握持机制的固定锚点，手持物以内容图片输入独立替换。",
+            }
         if ordered_content_group:
             subject_slot["type"] = RULES["slotCompilationContract"]["slotTypes"]["freePrompt"]
             subject_slot["semanticRole"] = RULES["slotCompilationContract"]["semanticRoles"]["sceneContent"]
@@ -317,6 +337,17 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         analysis["freeEditableContent"] = ["边缘关系清楚", "构图层级稳定"]
         approved_graph = component_graph(self.scenario, approved=True)
         analysis[CONTRACT["approvedFields"]["componentGraph"]] = approved_graph
+        if content_image_replacement:
+            analysis["containerDependencies"] = [
+                {
+                    "contentInputId": "pet_subject",
+                    "contentTargetId": "approved-held-object",
+                    "containerTargetId": None,
+                    "classification": "independent",
+                    "preservedLayer": "双手与手持物的接触、遮挡和前后层级",
+                    "evidence": "手持物与双手属于接触遮挡，不存在封闭容器轮廓。",
+                }
+            ]
         binding_fields = CONTRACT["approvedOperationBindingFields"]
         approved_component_by_id = {
             component[COMPONENT_FIELDS["identity"]]: component
@@ -399,6 +430,37 @@ class Issue9MultiInstanceOperationsTest(unittest.TestCase):
                 adapters = MultiInstanceAdapters(scenario)
                 result = self.run_case(f"operation-{name.lower()}", adapters)
                 self.assertEqual(RULES["resultStates"]["completed"], result.state)
+                formal = json.loads(result.gallery_template.read_text())
+                if name == "repeatedPet":
+                    identity_binding = formal["runtimeSemantics"]["inputBindings"][
+                        "pet_subject"
+                    ]
+                    self.assertEqual(
+                        "same_source_repeated", identity_binding["bindingPolicy"]
+                    )
+                    self.assertGreaterEqual(len(identity_binding["targetIds"]), 2)
+                if name == "personContactObject":
+                    content_slot = next(
+                        item
+                        for item in formal["inputSchema"]["slots"]
+                        if item["id"] == "pet_subject"
+                    )
+                    self.assertIn("text", content_slot)
+                    self.assertIn("image", content_slot)
+                    self.assertEqual(
+                        "replace_content",
+                        formal["runtimeSemantics"]["inputBindings"]["pet_subject"][
+                            "operation"
+                        ],
+                    )
+                    self.assertTrue(
+                        any(
+                            "不将它编译为其他目标的轮廓填充" in relation
+                            for relation in formal["runtimeSemantics"]["visualContract"][
+                                "relations"
+                            ]
+                        )
+                    )
                 plan = json.loads((result.output_dir / "replacement-plan.json").read_text())
                 package = json.loads((result.output_dir / "generation-package.json").read_text())
                 plan_operation = plan[CONTRACT["planFields"]["imageOperations"]][0]
@@ -443,9 +505,10 @@ class Issue9MultiInstanceOperationsTest(unittest.TestCase):
                 if name == "multiPersonGrid":
                     formal = json.loads(result.gallery_template.read_text())
                     group_input = next(
-                        item for item in formal["inputSchema"] if item["id"] == "pet_subject"
+                        item for item in formal["inputSchema"]["slots"] if item["id"] == "pet_subject"
                     )
-                    self.assertEqual("prompt", group_input["type"])
+                    self.assertIn("text", group_input)
+                    self.assertNotIn("image", group_input)
                     self.assertEqual(
                         "preserve_target_group",
                         formal["runtimeSemantics"]["inputBindings"]["pet_subject"][

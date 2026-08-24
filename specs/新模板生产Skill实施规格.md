@@ -142,17 +142,18 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - Template Analysis 保存事实置信度、机制、组件图、四个数量、文字区域、身份拓扑、六维视觉合同、专项合同、固定结构和编辑边界。
 - 高价值槽位常态 2–5 个且通常约 3 个。首次只发现一个候选时继续复核主体、内容物、颜色、文字、服装、道具、场景和嵌套内容；穷尽后确实只有一个时允许单槽并保存例外证据。
 - 主体通常属于高价值槽位。服装、造型、发型、姿势、颜色和配饰分别通过独立价值与可生成性检查，禁止按人物类型批量套用。
-- 每个 subject 在 P3 裁决图片模式的身份特征继承范围：默认继承用户上传图中清晰可见的特征，只将构成模板核心玩法的特征列为模板固定例外。裁决保留于 sidecar 并编译为 `runtimeSemantics.relations`，不新增 Gallery Template 正式字段。
+- 每个身份图片输入在 P3 裁决特征继承范围：默认继承用户上传图中清晰可见的特征，只将构成模板核心玩法的特征列为最小模板固定例外。服装默认跟随上传图；特定服装特征承担核心玩法时才进入 `keepFromTemplate`。裁决保留于 sidecar 并编译为 `runtimeSemantics.relations`。
 - 文字区域先分类角色和操作，再决定是否开放。只有身份绑定文字、主要视觉文字、承担笑点的关键句和长文中的高价值词组可以进入文字槽；装饰微字、版权出处、氛围填充和低价值说明保持固定或清理。
 - 默认值优先使用 2–8 个中文字符，原则上不超过 12 个字符；精确画内文字按实际内容处理。文字槽另外受角色和版面容量约束。
 - 主体开放时，确认模板图和正式 JSON 默认态中的具体身份文字必须删除、中性化或转为具有中性默认值的独立短文字槽。正式合同没有声明自动联动时，不生成身份解析、别名推导和计算默认值字段。
 - title 统一使用中性的画面机制、动作、关系、容器、视觉钩子或场景，通过最大差异输入测试。具体 IP、姓名、年龄、性别、物种、发型、服装和身份配色不进入标题。
 - Prompt Template 是用户可见、可全文编辑的完整自然语言画面描述。它包含全部结构化槽位和未入槽但仍有编辑价值的内容；结构化编辑和全文编辑最终编译为同一种 resolved prompt。
 - Prompt Template 拥有用户内容权限。隐藏字段不能恢复用户修改后的主体、文字、颜色、配饰、服装、道具和场景。
-- `inputSchema`、`targetInstances`、`inputBindings` 和 `visualContract` 从中间模型确定性编译。身份输入一对一绑定唯一身份目标；内容输入绑定类型匹配的内容目标或目标组。
+- `inputSchema` 固定为 `{version: 2, slots: [...]}`，每个槽的 `text` 与 `image` 模式正交组合。`targetInstances`、`inputBindings` 和 `visualContract` 从同一中间模型确定性编译。身份输入绑定一个目标时使用 `one_to_one`，同一来源身份覆盖多个固定实例时使用 `same_source_repeated`。
+- 内容图片输入绑定 `content_element`；身份图与内容图并存时必须提交来源隔离裁决，每个内容图目标必须提交 `post_edit/template_fixed/independent` 容器分类。
 - `visualContract` 使用正向、可观察的媒介、画风、构图、关系和条件性色光事实；编译器必须检查它与开放槽位和自由编辑内容的冲突。
 - 正式模板记录使用白名单投影，只保留 `key`、`status`、`title`、`description`、`imageSize`、`imageN`、`kind`、`promptTemplate`、`inputSchema`、`preprocessSteps`、`runtimeSemantics`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover` 和 `referenceImage`。
-- 新模板的 `inputSchema[].image` 不输出 `extract`；`runtimeSemantics` 是输入目标、绑定和视觉约束的唯一正式运行权威，正式 JSON 不输出 `promptEnhancement`。
+- 新模板的 `inputSchema.slots[].image` 不输出 `enabled` 或 `extract`；`runtimeSemantics` 是输入目标、绑定和视觉约束的唯一正式运行权威，正式 JSON 不输出 `promptEnhancement`。
 - `candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 以及其他生产审计字段全部保留在 sidecar，不进入正式 JSON。
 - 当前正式封面字段固定为 `cover`。`coverUrl` 不输出、不双写，并作为版本冲突 fixture 持续验证。
 - P7 只上传当前 Approved Template Image。Asset Receipt 保存图片摘要、对象键、URL 和幂等信息；P8 将同一 HTTPS URL 写入 `cover` 与 `referenceImage`。
@@ -202,7 +203,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 建立 Prompt Template 测试，证明全部结构化槽位都有绑定，非槽位自由编辑内容允许存在，所有默认值和推荐项代入后语法自然。
 - 建立两种编辑模式等价测试，证明槽位编辑与全文编辑最后都得到完整 resolved prompt。
 - 建立用户权限冲突测试，证明 `visualContract` 不会恢复用户修改过的主体、文字、颜色、服装、道具和场景。
-- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、身份一对一绑定、内容组分配、媒介、画风、构图、关系和服装裁决。
+- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、`one_to_one`、`same_source_repeated`、内容组分配、来源隔离、容器分类、媒介、画风、构图、关系和服装裁决。
 - 建立正式投影测试，对两份最新正式样例的全部 110 类归一化叶子路径执行分类；未分类数必须保持为 0。
 - 建立字段白名单测试，正式 JSON 只允许当前合同字段；旧流程 metadata、临时路径、Data URL、生产术语和 `coverUrl` 必须失败。
 - 建立 Schema 测试，正式 JSON 通过冻结的 runtimeSemantics v2 Schema；`image.extract` 与 `promptEnhancement` 均被拒绝，placeholder 全部可解析。

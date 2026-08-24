@@ -60,7 +60,8 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 | 属性 | 编写规则 |
 | --- | --- |
 | `id` | 使用稳定英文语义 ID，字母开头；表达角色或位置，不写当前默认身份。多实例用稳定空间角色区分，例如 `person_left`。同一模板重跑保持不变。 |
-| `type` | 图片优先接管一个身份或完整可见目标时使用 `subject`；文字、颜色、内容物、场景和氛围使用内部 prompt 类槽并投影为正式 `prompt`。 |
+| `type` | 仅作生产 sidecar 中的身份/内容语义分类；正式 JSON 不输出 `type`。 |
+| `inputModes` | 从 `text`、`image` 中选择一种或两种。身份槽默认两种模式，内容槽默认文字；完整可见内容需要图片替换时显式加入 `image`。 |
 | `semanticRole` | 从机器合同枚举中选择当前组件实际承担的职责，并与 `componentGraph.controlId`、目标类型和输入绑定一致。 |
 | `label` | 用户可见的短名词短语，明确当前图中的对象或区域；保持身份中性，不复用其他模板标签。正式上限读取 Gallery Schema。 |
 | `required` | 当前正式投影固定为 `false`，因为 Prompt Template 内联默认值提供可执行 fallback。 |
@@ -71,24 +72,24 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 推荐项审计必须逐槽回答四件事：默认值对应什么编辑轴、默认值处于什么颗粒度、三条推荐是否逐项保持同轴同颗粒度、它们是否适配当前动作与视觉机制。P6 对每个槽位绑定当前默认值与三条推荐值，逐条记录 `sameAxis`、`sameGranularity`、`mechanismCompatible` 和非空证据；仅列出“已检查的 slot ID”不能形成通过结论。P3 保留作者事实与推荐池，独立审计证据统一由 P6 产生，避免作者自证。
 
-## 5. Subject 槽属性
+## 5. inputSchema v2 与身份图片槽
 
-`subject` 表示图片输入优先、文字输入兜底的单个目标。当前 v2 正式形状如下：
+`inputSchema` 固定为 `{version: 2, slots: [...]}`。每个槽通过 `text`、`image` 或两者组合表达能力。以下是一个身份图片槽的 `slots[]` 对象：
 
 ```json
 {
   "id": "pet_subject",
-  "type": "subject",
   "label": "猫咪主体",
   "required": false,
   "resolutionStrategy": "image_over_text",
   "text": {
+    "presentation": "suggestions",
     "allowCustom": true,
     "defaultValue": "三花猫",
+    "placeholder": "描述想替换的猫咪",
     "suggestions": ["橘白猫", "银渐层猫", "黑白奶牛猫"]
   },
   "image": {
-    "enabled": true,
     "promptValue": "用户上传图中的主体",
     "hint": "上传1张主体清晰的单主体图片",
     "maxCount": 1,
@@ -104,13 +105,21 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 - `resolutionStrategy` 固定为 `image_over_text`：有合法图片时由图片接管目标，没有图片时使用文字值。
 - `text.allowCustom` 固定为 `true`；`text.defaultValue` 和三条 `suggestions` 服从公共默认值与推荐项规则。
-- 当前 v2 的 `subject.text` 不包含 `placeholder`。subject 的界面说明由 `label`、`image.hint` 和文字默认值共同承担；旧 `text.placeholder` 会被 Schema 拒绝。
-- `image.enabled` 固定为 `true`。
+- `text.presentation` 固定为 `suggestions`，`text.placeholder` 提供面向用户的短动作说明。
+- `image` 存在即表示开放图片模式，不输出 `enabled` 或 `extract`。
 - `image.promptValue` 是图片模式提供给运行时/LLM 的中性主体说明；`image.hint` 是上传 UI 文案。它们都不承担目标定位、身份绑定或画风约束。目标位置和接管关系只由 `runtimeSemantics.targetInstances + inputBindings` 表达。
 - 作者可省略这两项，编译器分别回填“用户上传图中的主体”和“上传1张主体清晰的单主体图片”。需要让界面更清楚时可提供非空短文本覆盖，例如“用户上传图中的人物”；无需逐图复述容器、动作和空间位置。
 - `maxCount` 当前固定为 `1`。多个独立身份或素材使用独立 subject 槽；当前合同不把多人合照静默压成单主体。
-- 一个身份的多个重复实例共享该 subject 的单张上传图；每个实例都要在 `componentGraph` 和 `repeated_identity` 关系中明确建模。
+- 一个身份的多个重复实例共享单张上传图；每个实例都在 `componentGraph` 和 `repeated_identity` 关系中建模，正式绑定使用 `same_source_repeated`。
 - `minWidth/minHeight`、`private` 和 `sourceOptions` 由机器合同统一投影，作者分析不得按批次随意改写。
+
+### 5.0 内容图片、来源隔离与容器分类
+
+完整可见内容需要用用户图片替换时，对内部 prompt 槽显式声明 `inputModes: ["text", "image"]`，并让图片模式绑定 `content_element`。人物、宠物等身份图继续绑定 `identity_subject`。
+
+- 身份图与内容图并存时，`sourceIsolationDecision` 必须精确枚举两类输入，确认身份图背景不参与内容目标，且内容图是绑定目标的唯一题材来源。
+- 每个图片模式内容目标在 `containerDependencies` 中恰好出现一次。内容位于本次会重绘的封闭形状内时使用 `post_edit`；位于固定字母、相框或面板内时使用 `template_fixed`；普通背景、环境或道具使用 `independent`。
+- 接触、遮挡和前后层次作为原子关系保留，它们本身不会将内容目标升级为 `post_edit`。
 
 ### 5.1 身份特征继承裁决
 
@@ -135,13 +144,13 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 ### 5.2 混合服装权限
 
-服装可以采用混合裁决。用户上传图提供人物身份、服装颜色、可辨认材质和局部细节；模板保留承担核心视觉机制的服装轮廓、体积、受力方式或动作所需结构。此时 `inheritFromUpload` 写入可继承的服装事实，`keepFromTemplate` 只写轮廓或结构例外，并在 `reason` 中说明它与动作、裁切或视觉钩子的关系。
+服装默认继承用户上传图中清晰可见的颜色、材质、轮廓和局部细节。特定服装特征承担当前模板核心玩法时，才以最小范围写入 `keepFromTemplate`，并在 `reason` 中说明它与动作、裁切、结构或视觉钩子的直接关系。
 
 例如动态半身人物模板可以继承上传人物的服装配色和领口细节，同时固定“贴合肩胸、轻量、不过度膨胀”的外轮廓，以免厚重外套改变头肩占幅和冲出画面的动作线。固定例外不能偷渡具体制服、角色专属饰品、编号或默认颜色；这些内容应随身份继承、开放编辑或清理。
 
 ## 6. Prompt 槽属性
 
-正式 prompt 槽只包含 `id/type/label/required/placeholder/suggestions`。`placeholder` 使用面向用户的动作短句说明该轴，例如“输入软垫颜色或材质”；它不描述模型内部约束。默认值位于 Prompt Template 的内联 placeholder，并在生产 sidecar 中保存，正式 `inputSchema` 不复制第二份默认值。
+文字模式放在正式槽的 `text` 对象中，包含 `presentation/allowCustom/defaultValue/placeholder/suggestions`。`placeholder` 使用面向用户的动作短句说明该轴，例如“输入软垫颜色或材质”；它不描述模型内部约束。默认值同时进入 `text.defaultValue` 和 Prompt Template 的字面 fallback，编译器检查两者同源。
 
 文字槽继续服从 `visible-text-contract.md`：身份文字、主视觉文字和高价值短 span 才能成为控件；次要可读长文字进入全文自由编辑；固定、清理或复核区域不能泄漏回普通 Prompt 槽。
 
@@ -178,7 +187,7 @@ Prompt Template 的每个字面都应是用户可编辑的内容或它们之间�
 
 ### 9.2 inputBindings
 
-每个正式 input ID 恰好出现一次。subject 绑定唯一 `identity_subject` 并执行一对一身份重绘；prompt 输入绑定一个内容目标，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
+每个正式 input ID 恰好出现一次。身份输入绑定一个 `identity_subject` 时使用 `one_to_one`；同一来源身份覆盖两个及以上固定可见实例时使用 `same_source_repeated`。内容输入绑定一个 `content_element`，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
 
 ### 9.3 renderingCoherenceDecision
 

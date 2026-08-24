@@ -111,8 +111,14 @@
   "slotCandidates": [
     {
       "id": "held_object",
-      "type": "subject",
-      "semanticRole": "subject",
+      "type": "prompt",
+      "semanticRole": "supporting_appearance",
+      "inputModes": [
+        "text",
+        "image"
+      ],
+      "imagePromptValue": "用户上传图中的完整手持物件",
+      "imageHint": "上传1张边界清晰的单个物件图片",
       "label": "手持物件",
       "placeholder": "描述想让人物握住的物件",
       "defaultValue": "小束鲜花",
@@ -132,17 +138,6 @@
         "小型相机",
         "礼物盒"
       ],
-      "identityInheritanceDecision": {
-        "inheritFromUpload": [
-          "可辨认身份特征",
-          "物件类别",
-          "外形与表面标识"
-        ],
-        "keepFromTemplate": [
-          "双手握持接触与遮挡关系"
-        ],
-        "reason": "双手握持关系构成模板核心玩法"
-      },
       "valueGates": {
         "userMotivation": true,
         "visuallyVisible": true,
@@ -181,6 +176,18 @@
       }
     }
   ],
+  "subjectSlotOmissionEvidence": {
+    "reviewed": true,
+    "valueGates": {
+      "userMotivation": false,
+      "visuallyVisible": true,
+      "modelControllable": true,
+      "mechanismPreserved": false
+    },
+    "uploadReplacementFeasible": false,
+    "blockerCode": "fixed_identity_is_mechanism_anchor",
+    "evidence": "人物双手是握持机制的固定锚点；仅开放手持内容图片替换。"
+  },
   "tags": [
     "手持物件",
     "生活方式摄影",
@@ -191,7 +198,7 @@
     "targetInstances": [
       {
         "id": "approved-held-object",
-        "kind": "identity_subject",
+        "kind": "content_element",
         "role": "被双手握持的主要物件",
         "region": "画面中央、双手之间的前景区域"
       },
@@ -216,6 +223,16 @@
       "colorAndLight": []
     }
   },
+  "containerDependencies": [
+    {
+      "contentInputId": "held_object",
+      "contentTargetId": "approved-held-object",
+      "containerTargetId": null,
+      "classification": "independent",
+      "preservedLayer": "双手与手持物的接触、遮挡和前后层级",
+      "evidence": "手持物与人物双手是接触和遮挡关系，没有封闭容器轮廓"
+    }
+  ],
   "renderingCoherenceDecision": {
     "mode": "unified",
     "approvedImageSha256": null,
@@ -235,25 +252,7 @@
       }
     ],
     "boundaryEvidence": [],
-    "subjectTransfers": [
-      {
-        "inputId": "held_object",
-        "targetIds": [
-          "approved-held-object"
-        ],
-        "inheritFromUpload": [
-          "可辨认身份特征",
-          "物件类别",
-          "外形与表面标识"
-        ],
-        "keepFromTemplate": [
-          "双手握持接触与遮挡关系"
-        ],
-        "renderingUnitId": "whole-approved-image",
-        "completeRedraw": true,
-        "evidence": "输入 held_object 的身份范围完整重绘进确认模板图的统一媒介"
-      }
-    ],
+    "subjectTransfers": [],
     "evidence": "逐组件核对后确认当前模板图采用单一渲染体系"
   }
 }

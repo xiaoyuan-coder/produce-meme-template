@@ -50,32 +50,47 @@ def formal_template() -> dict:
             "{{ cushion_look | \"暖黄色软垫\" }}上，"
             "{{ room_mood | \"午后窗光\" }}从侧面照入。"
         ),
-        "inputSchema": [
-            {
-                "type": "prompt",
+        "inputSchema": {
+            "version": 2,
+            "slots": [
+              {
                 "id": "pet_subject",
                 "label": "主体",
                 "required": False,
-                "placeholder": "描述画面主体",
-                "suggestions": ["垂耳兔", "水豚", "小羊"],
-            },
-            {
-                "type": "prompt",
+                "text": {
+                    "presentation": "suggestions",
+                    "allowCustom": True,
+                    "defaultValue": "柯基犬",
+                    "placeholder": "描述画面主体",
+                    "suggestions": ["垂耳兔", "水豚", "小羊"],
+                },
+              },
+              {
                 "id": "cushion_look",
                 "label": "软垫",
                 "required": False,
-                "placeholder": "描述软垫颜色或材质",
-                "suggestions": ["深蓝色绒垫", "格纹坐垫", "奶油白绒垫"],
-            },
-            {
-                "type": "prompt",
+                "text": {
+                    "presentation": "suggestions",
+                    "allowCustom": True,
+                    "defaultValue": "暖黄色软垫",
+                    "placeholder": "描述软垫颜色或材质",
+                    "suggestions": ["深蓝色绒垫", "格纹坐垫", "奶油白绒垫"],
+                },
+              },
+              {
                 "id": "room_mood",
                 "label": "环境光",
                 "required": False,
-                "placeholder": "描述室内环境光",
-                "suggestions": ["清晨冷光", "夜晚暖灯", "雨天柔光"],
-            },
-        ],
+                "text": {
+                    "presentation": "suggestions",
+                    "allowCustom": True,
+                    "defaultValue": "午后窗光",
+                    "placeholder": "描述室内环境光",
+                    "suggestions": ["清晨冷光", "夜晚暖灯", "雨天柔光"],
+                },
+              },
+            ],
+        },
         "preprocessSteps": [],
         "runtimeSemantics": {
             "version": 1,
@@ -369,9 +384,6 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         template = formal_template()
         for field in ("description", "imageN", "kind", "preprocessSteps", "metadata"):
             template.pop(field)
-        for item in template["inputSchema"]:
-            if item["type"] == "subject":
-                item["text"].pop("placeholder", None)
         template["communityKey"] = "fixture-community"
         template["featureKeys"] = ["fixture-feature"]
         self.template_path.write_text(

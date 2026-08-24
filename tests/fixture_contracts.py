@@ -55,10 +55,7 @@ def rebuild_rendering_coherence_decision(
     subject_type = rules["slotCompilationContract"]["slotTypes"][
         "primarySubjectUpload"
     ]
-    dependent_roles = {
-        multi["componentRoles"]["reflection"],
-        multi["componentRoles"]["shadow"],
-    }
+    shadow_role = multi["componentRoles"]["shadow"]
     transfers = []
     for slot in analysis["slotCandidates"]:
         if slot["type"] != subject_type:
@@ -70,19 +67,16 @@ def rebuild_rendering_coherence_decision(
             component
             for component in components
             if component[component_fields["control"]] == slot["id"]
-            and component[component_fields["role"]] not in dependent_roles
+            and component[component_fields["visualInstance"]] is True
+            and component[component_fields["role"]] != shadow_role
+            and isinstance(component[component_fields["identityUnit"]], str)
         ]
-        identity_units = {
-            component[component_fields["identityUnit"]]
-            for component in candidates
-        }
-        selected = candidates[:1] if len(identity_units) == 1 else candidates
         transfers.append(
             {
                 "inputId": slot["id"],
                 "targetIds": [
                     component[component_fields["identity"]]
-                    for component in selected
+                    for component in candidates
                 ],
                 "inheritFromUpload": inheritance["inheritFromUpload"],
                 "keepFromTemplate": inheritance["keepFromTemplate"],
@@ -132,10 +126,7 @@ def rebuild_runtime_targets(
         "primarySubjectUpload"
     ]
     target_kinds = rules["runtimeSemanticsContract"]["targetKinds"]
-    dependent_roles = {
-        multi["componentRoles"]["reflection"],
-        multi["componentRoles"]["shadow"],
-    }
+    shadow_role = multi["componentRoles"]["shadow"]
     targets = []
     for slot_id, slot in slot_by_id.items():
         controlled = [
@@ -148,14 +139,10 @@ def rebuild_runtime_targets(
             controlled = [
                 component
                 for component in controlled
-                if component[component_fields["role"]] not in dependent_roles
+                if component[component_fields["visualInstance"]] is True
+                and component[component_fields["role"]] != shadow_role
+                and isinstance(component[component_fields["identityUnit"]], str)
             ]
-            identity_units = {
-                component[component_fields["identityUnit"]]
-                for component in controlled
-            }
-            if len(identity_units) == 1:
-                controlled = controlled[:1]
         kind = (
             target_kinds["identitySubject"]
             if is_subject

@@ -1353,27 +1353,24 @@ def _template_test_report_valid(
 def _template_test_values(template: dict[str, Any]) -> dict[str, str] | None:
     values: dict[str, str] = {}
     input_schema = template.get("inputSchema")
-    if not isinstance(input_schema, list) or not input_schema:
+    input_slots = (
+        input_schema.get("slots")
+        if isinstance(input_schema, dict) and input_schema.get("version") == 2
+        else None
+    )
+    if not isinstance(input_slots, list) or not input_slots:
         return None
-    for item in input_schema:
+    for item in input_slots:
         if not isinstance(item, dict):
             return None
         slot_id = item.get("id")
-        slot_type = item.get("type")
-        value: Any = None
-        if slot_type == "subject":
-            text = item.get("text")
-            suggestions = text.get("suggestions") if isinstance(text, dict) else None
-            value = suggestions[0] if isinstance(suggestions, list) and suggestions else None
-            if value is None and isinstance(text, dict):
-                value = text.get("defaultValue")
-        elif slot_type == "prompt":
-            suggestions = item.get("suggestions")
-            value = suggestions[0] if isinstance(suggestions, list) and suggestions else None
-        elif slot_type == "select":
-            options = item.get("options")
-            first = options[0] if isinstance(options, list) and options else None
-            value = first.get("value") if isinstance(first, dict) else None
+        text = item.get("text")
+        suggestions = text.get("suggestions") if isinstance(text, dict) else None
+        value: Any = (
+            suggestions[0]
+            if isinstance(suggestions, list) and suggestions
+            else text.get("defaultValue") if isinstance(text, dict) else None
+        )
         if not (
             isinstance(slot_id, str)
             and isinstance(value, str)

@@ -156,11 +156,16 @@ def _formal_template_errors(template: Any) -> list[str]:
     if not formal_template_contract_valid(template, _rules()):
         errors.append("formal projection contract invalid")
     input_schema = template.get("inputSchema")
+    input_slots = (
+        input_schema.get("slots")
+        if isinstance(input_schema, dict) and input_schema.get("version") == 2
+        else None
+    )
     prompt_template = template.get("promptTemplate")
-    if isinstance(input_schema, list) and isinstance(prompt_template, str):
+    if isinstance(input_slots, list) and isinstance(prompt_template, str):
         input_ids = [
             item.get("id")
-            for item in input_schema
+            for item in input_slots
             if isinstance(item, dict) and isinstance(item.get("id"), str)
         ]
         referenced_heads: set[str] = set()
@@ -171,22 +176,12 @@ def _formal_template_errors(template: Any) -> list[str]:
                 head = term.split(".", 1)[0].strip()
                 if head:
                     referenced_heads.add(head)
-        if len(input_ids) != len(input_schema) or len(input_ids) != len(
+        if len(input_ids) != len(input_slots) or len(input_ids) != len(
             set(input_ids)
         ):
             errors.append("formal input ids must be complete and unique")
         elif referenced_heads != set(input_ids):
             errors.append("prompt placeholders and formal input ids must match")
-        for item in input_schema:
-            if not isinstance(item, dict) or item.get("type") != "select":
-                continue
-            option_values = [
-                option.get("value")
-                for option in item.get("options", [])
-                if isinstance(option, dict)
-            ]
-            if len(option_values) != len(set(option_values)):
-                errors.append("select option values must be unique")
     return errors
 
 
@@ -230,25 +225,6 @@ def _resolve_prompt(
             head = path[0]
             value = slot_values.get(head)
             if isinstance(value, str) and value.strip():
-                input_item = inputs.get(head)
-                if isinstance(input_item, dict) and input_item.get("type") == "select":
-                    option = next(
-                        (
-                            item
-                            for item in input_item.get("options", [])
-                            if isinstance(item, dict) and item.get("value") == value
-                        ),
-                        None,
-                    )
-                    if option is None:
-                        continue
-                    if len(path) == 1:
-                        return value.strip()
-                    payload = option.get("payload")
-                    selected = payload.get(path[1]) if isinstance(payload, dict) else None
-                    if isinstance(selected, str) and selected.strip():
-                        return selected.strip()
-                    continue
                 return value.strip()
         raise ValueError(f"placeholder has no resolved value: {match.group(0)}")
 
@@ -271,9 +247,10 @@ def _case_prompt(
     slot_values = case.get(fields["slotValues"])
     if not isinstance(slot_values, dict):
         raise ValueError("slot edit requires slot values")
+    input_slots = template["inputSchema"]["slots"]
     input_ids = {
         item.get("id")
-        for item in template["inputSchema"]
+        for item in input_slots
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
     if not (
@@ -288,15 +265,15 @@ def _case_prompt(
     ):
         raise ValueError("slot values do not match the formal input schema")
     input_by_id = {
-        item["id"]: item for item in template["inputSchema"] if isinstance(item, dict)
+        item["id"]: item for item in input_slots if isinstance(item, dict)
     }
-    if any(input_by_id[slot_id].get("type") == "image" for slot_id in slot_values):
+    if any("text" not in input_by_id[slot_id] for slot_id in slot_values):
         raise ValueError(
-            "image slots require a binary test asset and are not string slot values"
+            "image-only slots require a binary test asset and are not string slot values"
         )
     normalized = {key: value.strip() for key, value in slot_values.items()}
     return _resolve_prompt(
-        template["promptTemplate"], normalized, template["inputSchema"]
+        template["promptTemplate"], normalized, input_slots
     ), {
         fields["slotValues"]: normalized
     }
@@ -327,8 +304,14 @@ def _compile_actual_prompt(
         )
         operation = binding["operation"]
         if operation == runtime_contract["operations"]["replaceIdentity"]:
+            policy = binding["bindingPolicy"]
+            policy_text = (
+                "一对一接管"
+                if policy == runtime_contract["identityBindingPolicies"]["oneToOne"]
+                else "以同一来源身份同步接管全部重复实例"
+            )
             binding_texts.append(
-                f"输入 {input_id} 一对一接管{target_roles}，"
+                f"输入 {input_id} {policy_text}{target_roles}，"
                 "只提供身份线索并按模板媒介完整重绘"
             )
         else:

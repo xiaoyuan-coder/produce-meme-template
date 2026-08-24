@@ -42,9 +42,9 @@ GALLERY_SCHEMA_PATH = (
 GALLERY_SCHEMA = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
 BATCH_PRODUCTION_CONTRACT = MACHINE_RULES["batchProductionContract"]
 INPUT_ID_PATTERN = GALLERY_SCHEMA["$defs"]["inputId"]["pattern"]
-SUBJECT_IMAGE_MAX_COUNT = GALLERY_SCHEMA["$defs"]["subjectImageConfig"]["properties"][
+SUBJECT_IMAGE_MAX_COUNT = GALLERY_SCHEMA["$defs"]["inputImageModeV2"]["properties"][
     "maxCount"
-]["maximum"]
+]["const"]
 INPUT_ID_PATTERN_BODY = INPUT_ID_PATTERN.removeprefix("^").removesuffix("$")
 SLOT_ID = re.compile(INPUT_ID_PATTERN)
 PLACEHOLDER = re.compile(

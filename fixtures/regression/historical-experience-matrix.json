@@ -490,10 +490,10 @@
     }
   ],
   "corpus": {
-    "latest-heart-input": {"path": "fixtures/contracts/latest-gallery-samples/heart.input.json", "selector": "/key", "sha256": "24003b3c81b4213903abc8db4b100f936618315362c3364708295fb483dcf77f"},
-    "latest-heart-expected": {"path": "fixtures/contracts/latest-gallery-samples/heart.expected.json", "selector": "/key", "sha256": "0ecae7bb7bd005755151251608bc9f38e313ebbf9f2eb11ea789556e992cf546"},
-    "latest-wedding-input": {"path": "fixtures/contracts/latest-gallery-samples/wedding.input.json", "selector": "/key", "sha256": "0400d9194ca3e03abc47f96c25cab28996ac8b9c1b786631467f883b6a3005ed"},
-    "latest-wedding-expected": {"path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json", "selector": "/key", "sha256": "63fdc66551920cae96cd4890bd66388028746fba6e4e06988a951283581101da"},
+    "latest-heart-input": {"path": "fixtures/contracts/latest-gallery-samples/heart.input.json", "selector": "/key", "sha256": "026e69c00d28495c5bfcafdb4cccd2bab84a6f33b7bbf580d1eef380264fd03a"},
+    "latest-heart-expected": {"path": "fixtures/contracts/latest-gallery-samples/heart.expected.json", "selector": "/key", "sha256": "75c590c4ace07f43290431c04d0a343f0d1f9977c22541840c953b86f8070ade"},
+    "latest-wedding-input": {"path": "fixtures/contracts/latest-gallery-samples/wedding.input.json", "selector": "/key", "sha256": "160f042c8a06cb776b8bad0177363226f72397626d852a29cd672a161177acf9"},
+    "latest-wedding-expected": {"path": "fixtures/contracts/latest-gallery-samples/wedding.expected.json", "selector": "/key", "sha256": "e2e43d60338493ed4389c6a0385f6d5e8ed7a0a3c0869190ca4ed3aea32771d3"},
     "ordinary-person": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ordinary/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
     "known-character-ip": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ip/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
     "animal": {"path": "fixtures/e2e/simple-animal/source-image.ppm", "selector": null, "sha256": "b24c23d936effa3a455065e2be41498f85fe5b59204f80448daca56ec1e2f3b0"},

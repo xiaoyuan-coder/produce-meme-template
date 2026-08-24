@@ -27,7 +27,7 @@ NON_PERSON_KIND = SLOT_CONTRACT["subjectKinds"]["nonHumanSubject"]
 SUBJECT_ROLE = SLOT_CONTRACT["semanticRoles"]["primarySubject"]
 SUBJECT_TYPE = SLOT_CONTRACT["slotTypes"]["primarySubjectUpload"]
 SUBJECT_PROMPT_VALUE_FIELD, SUBJECT_HINT_FIELD = tuple(
-    SLOT_CONTRACT["subjectInputOptionalAuthoringFields"].values()
+    SLOT_CONTRACT["imageInputOptionalAuthoringFields"].values()
 )
 SUBJECT_DEFAULTS = SLOT_CONTRACT["subjectInputDefaults"]
 PERSON_ATTRIBUTE_ROLES = tuple(SLOT_CONTRACT["personAttributeRoles"].values())
@@ -378,7 +378,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             slot for slot in editable["slots"] if slot["type"] == SUBJECT_TYPE
         )
         formal_subject = next(
-            slot for slot in formal["inputSchema"] if slot["type"] == SUBJECT_TYPE
+            slot for slot in formal["inputSchema"]["slots"] if slot["id"] == "pet_subject"
         )
         self.assertEqual(
             {
@@ -753,7 +753,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["completed"], result.state)
         formal = load_json(result.gallery_template)
-        subject = next(item for item in formal["inputSchema"] if item["type"] == SUBJECT_TYPE)
+        subject = next(item for item in formal["inputSchema"]["slots"] if item["id"] == "pet_subject")
         self.assertEqual("用户上传图中的蜷卧小动物", subject["image"]["promptValue"])
         self.assertEqual(
             "上传1张单只小动物清晰照片，用于替换软垫上蜷卧的主体",
@@ -764,7 +764,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             for value in subject.values()
             if isinstance(value, dict) and "allowCustom" in value
         )
-        self.assertNotIn("placeholder", subject_text)
+        self.assertEqual("描述想替换的小动物", subject_text["placeholder"])
 
     def test_subject_input_uses_contract_defaults_when_optional_copy_is_absent(self) -> None:
         def subject_without_optional_copy(analysis: dict) -> dict:
@@ -779,7 +779,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["completed"], result.state)
         formal = load_json(result.gallery_template)
-        subject = next(item for item in formal["inputSchema"] if item["type"] == SUBJECT_TYPE)
+        subject = next(item for item in formal["inputSchema"]["slots"] if item["id"] == "pet_subject")
         self.assertEqual(
             SUBJECT_DEFAULTS["imagePromptValue"], subject["image"]["promptValue"]
         )

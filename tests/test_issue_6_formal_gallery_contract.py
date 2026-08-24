@@ -158,15 +158,12 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
             target["id"]: target for target in semantics["targetInstances"]
         }
         self.assertEqual(
-            {item["id"] for item in record["inputSchema"]},
+            {item["id"] for item in record["inputSchema"]["slots"]},
             set(semantics["inputBindings"]),
         )
-        for item in record["inputSchema"]:
-            suggestions = (
-                item["text"]["suggestions"]
-                if item["type"] == "subject"
-                else item["suggestions"]
-            )
+        self.assertEqual(2, record["inputSchema"]["version"])
+        for item in record["inputSchema"]["slots"]:
+            suggestions = item["text"]["suggestions"]
             self.assertEqual(3, len(suggestions))
             binding = semantics["inputBindings"][item["id"]]
             self.assertTrue(binding["targetIds"])
@@ -219,7 +216,10 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
 
         self.assertEqual(RULES["resultStates"]["completed"], result.state)
         record = load_json(result.gallery_template)
-        self.assertEqual(authored_targets, record["runtimeSemantics"]["targetInstances"])
+        expected_targets = copy.deepcopy(authored_targets)
+        for target in expected_targets:
+            target["id"] = target["id"].replace("-", "_")
+        self.assertEqual(expected_targets, record["runtimeSemantics"]["targetInstances"])
 
     def test_public_workflow_rejects_targets_without_unique_visual_locations(self) -> None:
         generic_targets = [
@@ -308,8 +308,8 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
 
     def test_two_latest_samples_have_explicit_comparable_projections(self) -> None:
         expected_hashes = {
-            "heart": "24003b3c81b4213903abc8db4b100f936618315362c3364708295fb483dcf77f",
-            "wedding": "0400d9194ca3e03abc47f96c25cab28996ac8b9c1b786631467f883b6a3005ed",
+            "heart": "026e69c00d28495c5bfcafdb4cccd2bab84a6f33b7bbf580d1eef380264fd03a",
+            "wedding": "160f042c8a06cb776b8bad0177363226f72397626d852a29cd672a161177acf9",
         }
         recognized_sidecars = set(RULES["formalProjection"]["recognizedMetadataSidecars"].values())
 
@@ -374,17 +374,17 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
         base = load_json(SAMPLE_FIXTURE / "heart.expected.json")
 
         def missing_binding(record: dict) -> None:
-            first_input = record["inputSchema"][0]["id"]
+            first_input = record["inputSchema"]["slots"][0]["id"]
             record["runtimeSemantics"]["inputBindings"].pop(first_input)
 
         def unknown_target(record: dict) -> None:
-            first_input = record["inputSchema"][0]["id"]
+            first_input = record["inputSchema"]["slots"][0]["id"]
             record["runtimeSemantics"]["inputBindings"][first_input]["targetIds"] = [
                 "missing_target"
             ]
 
         def duplicate_identity_owner(record: dict) -> None:
-            first, second = record["inputSchema"][:2]
+            first, second = record["inputSchema"]["slots"][:2]
             target_id = record["runtimeSemantics"]["inputBindings"][first["id"]][
                 "targetIds"
             ][0]
@@ -393,7 +393,7 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
             ]
 
         def legacy_extract(record: dict) -> None:
-            record["inputSchema"][0]["image"]["extract"] = {
+            record["inputSchema"]["slots"][0]["image"]["extract"] = {
                 "enabled": True
             }
 

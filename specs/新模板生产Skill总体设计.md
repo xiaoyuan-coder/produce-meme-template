@@ -172,7 +172,7 @@ title 使用中性标题，描述画面机制、视觉钩子、动作、关系�
 - `inputBindings`：将 subject 一对一绑定到 `identity_subject`，将 prompt 绑定到单个或一组 `content_element`。
 - `visualContract`：仅保留媒介、风格、构图、关系和色光，不锁回用户开放内容。
 
-只编译正式模板合同已经支持且运行或产品展示需要的字段。正式 metadata 默认白名单为 `tags`，确有人工复核原因时增加 `needsReview`。`candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 留在生产 sidecar，不进入正式 JSON。新正式 JSON 不输出 `inputSchema[].image.extract` 或手写 `promptEnhancement`。
+只编译正式模板合同已经支持且运行或产品展示需要的字段。正式 metadata 默认白名单为 `tags`，确有人工复核原因时增加 `needsReview`。`candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 留在生产 sidecar，不进入正式 JSON。新正式 JSON 不输出 `inputSchema.slots[].image.extract`、`image.enabled` 或手写 `promptEnhancement`。
 
 身份文字自动识别、别名推导、计算默认值或联动字段如果未进入正式 JSON 合同，就不写入正式数据。此时使用中性模板图、中性标题和中性文字默认值消除身份冲突。
 

@@ -1,7 +1,7 @@
 {
   "artifactType": "semantic-audit",
   "schemaVersion": "0.22.0",
-  "contentSha256": "22344c30042e4820c93e83e4b06f20e4d0ff5b264f64045c075feec59a464a26",
+  "contentSha256": "3fdd79af4e503e1b5713c5ef70faf946d628136fb9756b0dbf8b8686f137e957",
   "checks": {
     "promptResolutionsNatural": true,
     "hiddenOpenAxesRemainEditable": true,

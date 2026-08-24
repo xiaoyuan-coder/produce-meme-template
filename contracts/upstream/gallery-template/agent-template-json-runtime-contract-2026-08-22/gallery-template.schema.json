@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memebuy.internal/schemas/gallery-template-agent-runtime-2026-08-22.json",
+  "title": "GalleryTemplateAgentRuntimeContract20260822",
+  "description": "研发《Agent 模板 JSON 与运行时上下文合同》生效日 2026-08-22 的 produce-meme-template 正式子集快照。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "status",
+    "title",
+    "cover",
+    "referenceImage",
+    "imageSize",
+    "promptTemplate",
+    "inputSchema",
+    "runtimeSemantics"
+  ],
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,59}$"
+    },
+    "status": { "const": "DRAFT" },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "cover": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "referenceImage": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://"
+    },
+    "imageSize": {
+      "enum": ["1024x1024", "1152x896", "896x1152", "768x1344", "1344x768"]
+    },
+    "imageN": { "const": 1 },
+    "kind": { "const": "PROMPT" },
+    "promptTemplate": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "inputSchema": { "$ref": "#/$defs/inputContractV2" },
+    "preprocessSteps": {
+      "type": "array",
+      "maxItems": 4,
+      "items": { "$ref": "#/$defs/visionStep" }
+    },
+    "runtimeSemantics": { "$ref": "#/$defs/runtimeSemantics" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tags"],
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "needsReview": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "communityKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "featureKeys": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    }
+  },
+  "$defs": {
+    "inputId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,39}$"
+    },
+    "targetId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,79}$"
+    },
+    "nonEmptyText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "threeSuggestions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      }
+    },
+    "inputContractV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "slots"],
+      "properties": {
+        "version": { "const": 2 },
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/inputSlotV2" }
+        }
+      }
+    },
+    "inputSlotV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "required"],
+      "properties": {
+        "id": { "$ref": "#/$defs/inputId" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "required": { "type": "boolean" },
+        "text": { "$ref": "#/$defs/inputTextModeV2" },
+        "image": { "$ref": "#/$defs/inputImageModeV2" },
+        "resolutionStrategy": { "const": "image_over_text" }
+      },
+      "oneOf": [
+        {
+          "required": ["text"],
+          "not": {
+            "anyOf": [
+              { "required": ["image"] },
+              { "required": ["resolutionStrategy"] }
+            ]
+          }
+        },
+        {
+          "required": ["image"],
+          "not": {
+            "anyOf": [
+              { "required": ["text"] },
+              { "required": ["resolutionStrategy"] }
+            ]
+          }
+        },
+        { "required": ["text", "image", "resolutionStrategy"] }
+      ]
+    },
+    "inputTextModeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "presentation",
+        "allowCustom",
+        "defaultValue",
+        "placeholder",
+        "suggestions"
+      ],
+      "properties": {
+        "presentation": { "const": "suggestions" },
+        "allowCustom": { "const": true },
+        "defaultValue": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "placeholder": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "suggestions": { "$ref": "#/$defs/threeSuggestions" }
+      }
+    },
+    "inputImageModeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "promptValue",
+        "hint",
+        "maxCount",
+        "minWidth",
+        "minHeight",
+        "private",
+        "sourceOptions"
+      ],
+      "properties": {
+        "promptValue": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "hint": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "maxCount": { "const": 1 },
+        "minWidth": { "type": "integer", "minimum": 64, "maximum": 8192 },
+        "minHeight": { "type": "integer", "minimum": 64, "maximum": 8192 },
+        "private": { "type": "boolean" },
+        "sourceOptions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["upload", "recent_upload", "asset_library"] }
+        }
+      }
+    },
+    "visionStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "stageKey", "imageInputId", "prompt"],
+      "properties": {
+        "type": { "const": "vision" },
+        "id": { "$ref": "#/$defs/inputId" },
+        "stageKey": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "imageInputId": { "$ref": "#/$defs/inputId" },
+        "prompt": { "type": "string", "minLength": 1, "maxLength": 8000 }
+      }
+    },
+    "targetInstance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "role", "region"],
+      "properties": {
+        "id": { "$ref": "#/$defs/targetId" },
+        "kind": { "enum": ["identity_subject", "content_element"] },
+        "role": { "$ref": "#/$defs/nonEmptyText" },
+        "region": { "$ref": "#/$defs/nonEmptyText" },
+        "groupId": { "$ref": "#/$defs/targetId" }
+      }
+    },
+    "oneToOneIdentityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "targetIds",
+        "bindingPolicy",
+        "renderingMode",
+        "allowedSourceGrouping",
+        "groupToSinglePolicy"
+      ],
+      "properties": {
+        "operation": { "const": "replace_identity" },
+        "targetIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/targetId" }
+        },
+        "bindingPolicy": { "const": "one_to_one" },
+        "renderingMode": { "const": "illustration_redraw" },
+        "allowedSourceGrouping": {
+          "type": "array",
+          "prefixItems": [{ "const": "single_subject" }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "groupToSinglePolicy": { "const": "reject" }
+      }
+    },
+    "repeatedIdentityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "targetIds",
+        "bindingPolicy",
+        "renderingMode",
+        "allowedSourceGrouping",
+        "groupToSinglePolicy"
+      ],
+      "properties": {
+        "operation": { "const": "replace_identity" },
+        "targetIds": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/targetId" }
+        },
+        "bindingPolicy": { "const": "same_source_repeated" },
+        "renderingMode": { "const": "illustration_redraw" },
+        "allowedSourceGrouping": {
+          "type": "array",
+          "prefixItems": [{ "const": "single_subject" }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "groupToSinglePolicy": { "const": "reject" }
+      }
+    },
+    "contentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "targetIds", "distributionPolicy"],
+      "properties": {
+        "operation": { "const": "replace_content" },
+        "targetIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/targetId" }
+        },
+        "distributionPolicy": {
+          "enum": ["replace_as_unit", "preserve_target_group"]
+        }
+      }
+    },
+    "visualContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["medium", "styleTraits", "composition", "relations", "colorAndLight"],
+      "properties": {
+        "medium": { "$ref": "#/$defs/nonEmptyText" },
+        "styleTraits": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyText" }
+        },
+        "composition": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyText" }
+        },
+        "relations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyText" }
+        },
+        "colorAndLight": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonEmptyText" }
+        }
+      }
+    },
+    "runtimeSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "targetInstances", "inputBindings", "visualContract"],
+      "properties": {
+        "version": { "const": 1 },
+        "targetInstances": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 80,
+          "items": { "$ref": "#/$defs/targetInstance" }
+        },
+        "inputBindings": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "oneOf": [
+              { "$ref": "#/$defs/oneToOneIdentityBinding" },
+              { "$ref": "#/$defs/repeatedIdentityBinding" },
+              { "$ref": "#/$defs/contentBinding" }
+            ]
+          }
+        },
+        "visualContract": { "$ref": "#/$defs/visualContract" }
+      }
+    }
+  }
+}

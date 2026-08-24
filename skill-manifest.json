@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "4.3.2",
+  "version": "5.0.0",
   "updated_at": "2026-08-24",
-  "description": "在同一 Production Item 谱系中完成四个可恢复大阶段；新增杨媛个人工作区固定批次根、Production output_root、正式单模板投影路径与数据台资格合同。",
+  "description": "在同一 Production Item 谱系中编译 inputSchema v2 及 runtimeSemantics v1，支持正交文字/图片输入、同源重复身份、图片来源隔离和容器依赖。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -15,6 +15,8 @@
     "contracts/upstream/gallery-template/current-cover-contract/snapshot-metadata.json",
     "contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json",
     "contracts/upstream/gallery-template/runtime-semantics-v2-contract/snapshot-metadata.json",
+    "contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/gallery-template.schema.json",
+    "contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/snapshot-metadata.json",
     "contracts/machine-rules.json",
     "docs/adr/0001-生产流程与独立模板测试边界.md",
     "docs/adr/0002-批量提交默认保持生产项隔离.md",
@@ -43,6 +45,7 @@
     "docs/adr/0025-用Authoring-Handoff连接替换分析与模板编译.md",
     "docs/adr/0026-生产前强制模板身份与独立作者合同审计.md",
     "docs/adr/0027-正式生产使用受信执行画像与交付资格.md",
+    "docs/adr/0028-新模板作者合同使用正交inputSchema-v2.md",
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",

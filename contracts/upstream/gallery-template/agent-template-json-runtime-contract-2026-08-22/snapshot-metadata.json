@@ -1,0 +1,25 @@
+{
+  "artifactType": "upstream-contract-snapshot",
+  "contractId": "gallery-template",
+  "contractVersion": "agent-template-json-runtime-contract-2026-08-22",
+  "source": "研发《Agent 模板 JSON 与运行时上下文合同》CURRENT 正本及 template-import/schema.json",
+  "sourceEvidence": "2026-08-22 生效的新模板作者合同；2026-08-24 取得并核对真实校验器样例",
+  "acquisitionCommit": null,
+  "acquiredAt": "2026-08-24T12:00:00+08:00",
+  "schemaFile": "gallery-template.schema.json",
+  "sourceArtifactSha256": "a8e72047758c5677b1a1862e0bc29e17e92571bee750c9305fcea6e17893fb61",
+  "sourceDocumentSha256": "6299c87baca0420c92218e8ec44089f76d56842c82b9132a7002a0d08020b680",
+  "upstreamImportSchemaSha256": "770805c93edde5a31690aece821ca4db4febcf47a9e156839381f3b619887d54",
+  "compatibility": {
+    "consumer": "produce-meme-template",
+    "supportedContract": "agent-template-json-runtime-contract-2026-08-22",
+    "authorProtocolVersion": 2,
+    "inputSchemaVersion": 2,
+    "runtimeSemanticsVersion": 1,
+    "formalCoverField": "cover",
+    "formalReferenceField": "referenceImage",
+    "legacyPromptEnhancementAllowed": false,
+    "legacySubjectExtractAllowed": false,
+    "legacyArrayInputSchemaAllowedForNewProduction": false
+  }
+}

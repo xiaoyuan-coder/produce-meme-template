@@ -56,17 +56,17 @@ subject binding 固定使用 `replace_identity + one_to_one + illustration_redra
 
 ## 4. 四层验收与正式投影
 
-P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；runtimeSemantics 范围和目标—绑定职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/runtime-semantics-v2-contract/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前作者合同的只读快照，来源、取得时间、兼容范围和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
+P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；runtimeSemantics 范围和目标—绑定职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前作者合同的只读快照，来源、取得时间、兼容范围和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
 
 本 Skill 的 P8 生产投影固定输出：
 
 `key`、`status`、`title`、`description`、`imageSize`、`imageN`、`kind`、`promptTemplate`、`inputSchema`、`preprocessSteps`、`runtimeSemantics`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover`、`referenceImage`。
 
-作者 Schema 中 `description`、`imageN`、`kind`、`preprocessSteps` 和 `metadata` 保持可选，并允许调用方分发使用的 `communityKey` 与 `featureKeys`；T1 可以测试这些合法形状。P8 继续输出上述稳定子集，不为生产项自行添加社区或专题归属。subject 的 `text` 仅保留 `allowCustom`、`defaultValue` 和三条 `suggestions`；上传提示只位于 `image.hint`。
+作者 Schema 中 `inputSchema.version` 固定为 `2`，`slots[]` 通过 `text`、`image` 或两者组合表达输入能力；同时具备两种模式时使用 `resolutionStrategy=image_over_text`。Skill 的文字模式固定输出 `presentation=suggestions`、作者默认值、placeholder 和三条推荐项；图片模式不输出 `enabled`。
 
 `cover` 与 `referenceImage` 写入 Asset Receipt 中同一个 HTTPS URL。投影源若含未知顶层字段、未知 metadata、空 `needsReview` 或非 HTTPS URL，直接阻断；冻结 Schema 允许但业务白名单未开放的 metadata 同样不能静默进入正式记录。最终验证还拒绝 Data URL、文件 URL、临时/用户绝对路径、生成 request 字段和审计字段。
 
-`coverUrl`、`promptEnhancement`、`inputSchema[].image.extract`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在存量迁移输入或 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结研发已验证的 v2 正式样例及显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的 metadata sidecar，未分类数保持为 0。expected 执行白名单投影和中性文案纠偏，并继续通过冻结 Gallery Schema 与最终业务门禁。
+`coverUrl`、`promptEnhancement`、`inputSchema.slots[].image.extract`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在存量迁移输入或 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结研发已验证的 v2 正式样例及显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的 metadata sidecar，未分类数保持为 0。expected 执行白名单投影和中性文案纠偏，并继续通过冻结 Gallery Schema 与最终业务门禁。
 
 ## 5. 正式记录拆分交付
 

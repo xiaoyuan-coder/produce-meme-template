@@ -162,7 +162,9 @@ class Issue15HistoricalExperienceRegressionTest(unittest.TestCase):
         shutil.copytree(
             ROOT,
             destination,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+            ignore=shutil.ignore_patterns(
+                ".git", ".scratch", "__pycache__", "*.pyc"
+            ),
         )
         commit_source(destination)
         return destination

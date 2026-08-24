@@ -39,6 +39,26 @@ from .workflow_core import (
 )
 
 
+def _slot_input_modes(slot: dict[str, Any], rules: dict[str, Any]) -> list[str]:
+    contract = rules["slotCompilationContract"]
+    input_contract = contract["inputContract"]
+    mode_field = input_contract["modeAuthoringField"]
+    modes = input_contract["modes"]
+    authored = slot.get(mode_field)
+    if authored is None:
+        if slot.get("type") == contract["slotTypes"]["primarySubjectUpload"]:
+            return [modes["text"], modes["image"]]
+        return [modes["text"]]
+    if not (
+        isinstance(authored, list)
+        and authored
+        and len(authored) == len(set(authored))
+        and set(authored) <= set(modes.values())
+    ):
+        return []
+    return [mode for mode in modes.values() if mode in authored]
+
+
 def _text_tokens_follow_source(
     source_text: str, tokens: list[str], common_punctuation: set[str]
 ) -> bool:
@@ -493,9 +513,10 @@ def _compile_editable_spec(
             {},
         )
     value_gate_roles = tuple(slot_contract["valueGateRoles"].values())
-    subject_optional_authoring_fields = tuple(
-        slot_contract["subjectInputOptionalAuthoringFields"].values()
+    image_optional_authoring_fields = tuple(
+        slot_contract["imageInputOptionalAuthoringFields"].values()
     )
+    input_modes = slot_contract["inputContract"]["modes"]
     allowed_semantic_roles = {
         *slot_contract["semanticRoles"].values(),
         *slot_contract["personAttributeRoles"].values(),
@@ -563,21 +584,25 @@ def _compile_editable_spec(
             and slot.get("type") in set(slot_contract["slotTypes"].values())
             and isinstance(slot.get("defaultValue"), str)
             and isinstance(slot.get("suggestions"), list)
+            and bool(_slot_input_modes(slot, rules))
+            and (
+                slot["type"] != subject_upload_type
+                or input_modes["image"] in _slot_input_modes(slot, rules)
+            )
             and (slot["type"] == subject_upload_type)
             is (slot["semanticRole"] == subject_role)
             and isinstance(slot.get("valueGates"), dict)
             and set(slot["valueGates"]) == set(value_gate_roles)
             and all(isinstance(slot["valueGates"][role], bool) for role in value_gate_roles)
             and (
-                slot["type"] != subject_upload_type
-                or all(
+                all(
                     field not in slot
                     or (
                         isinstance(slot[field], str)
                         and slot[field].strip()
                         and len(slot[field]) <= 120
                     )
-                    for field in subject_optional_authoring_fields
+                    for field in image_optional_authoring_fields
                 )
             )
             and identity_inheritance_is_valid(slot)
@@ -604,17 +629,21 @@ def _compile_editable_spec(
         for review in independent_reviews
         if isinstance(review, dict)
     }
-    slots = [
-        copy.deepcopy(slot)
-        for slot in slot_candidates
-        if all(
-            independent_review_by_slot.get(slot["id"], {}).get(
-                audit_slot_fields[role]
-            )
-            is True
+    slots = []
+    mode_field = slot_contract["inputContract"]["modeAuthoringField"]
+    for slot in slot_candidates:
+        review = independent_review_by_slot.get(slot["id"], {})
+        normalized_modes = _slot_input_modes(slot, rules)
+        if not all(
+            review.get(audit_slot_fields[role]) is True
             for role in value_gate_roles
-        )
-    ]
+        ):
+            continue
+        if review.get(audit_slot_fields["approvedInputModes"]) != normalized_modes:
+            continue
+        accepted = copy.deepcopy(slot)
+        accepted[mode_field] = normalized_modes
+        slots.append(accepted)
     identity_contract = rules["identityReplacementContract"]
     identity_plan_fields = identity_contract["planFields"]
     if identity_plan_fields["route"] in plan:
@@ -822,6 +851,16 @@ def _compile_editable_spec(
         if component[component_fields["control"]] is not None
     }
     slot_by_id = {slot["id"]: slot for slot in slots}
+    input_contract = slot_contract["inputContract"]
+    input_modes_field = input_contract["modeAuthoringField"]
+    image_mode = input_contract["modes"]["image"]
+
+    def slot_accepts_image(slot: dict[str, Any]) -> bool:
+        authored_modes = slot.get(input_modes_field)
+        if isinstance(authored_modes, list):
+            return image_mode in authored_modes
+        return slot.get("type") == subject_upload_type
+
     semantic_role_by_key = {
         **slot_contract["semanticRoles"],
         **slot_contract["personAttributeRoles"],
@@ -1256,14 +1295,15 @@ def _compile_editable_spec(
             component[component_fields["uploadAsset"]] is None
             or (
                 component[component_fields["control"]] in slot_by_id
-                and slot_by_id[component[component_fields["control"]]]["type"]
-                == subject_upload_type
+                and slot_accepts_image(
+                    slot_by_id[component[component_fields["control"]]]
+                )
             )
             for component in components
         )
         and all(len(control_ids) == 1 for control_ids in controls_by_upload.values())
         and all(
-            slot["type"] != subject_upload_type
+            not slot_accepts_image(slot)
             or bool(uploads_by_control.get(slot["id"]))
             for slot in slots
         )
@@ -1297,7 +1337,7 @@ def _compile_editable_spec(
         )
     image_max_count_field = multi_contract["subjectImageMaxCountField"]
     for slot in slots:
-        if slot["type"] == subject_upload_type:
+        if slot_accepts_image(slot):
             slot[image_max_count_field] = len(uploads_by_control[slot["id"]])
     default_preference = slot_contract["defaultValuePreference"]
     preference_exceptions = analysis.get("defaultValuePreferenceExceptionEvidence", {})
@@ -1506,46 +1546,50 @@ def _compile_editable_spec(
 def _slot_to_input(slot: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
     slot_contract = rules["slotCompilationContract"]
     slot_types = slot_contract["slotTypes"]
-    subject_fields = slot_contract["subjectInputOptionalAuthoringFields"]
+    input_contract = slot_contract["inputContract"]
+    modes = input_contract["modes"]
+    authored_modes = slot[input_contract["modeAuthoringField"]]
+    image_fields = slot_contract["imageInputOptionalAuthoringFields"]
     subject_defaults = slot_contract["subjectInputDefaults"]
+    content_defaults = slot_contract["contentImageDefaults"]
     multi_contract = rules["multiInstanceContract"]
-    if slot["type"] == slot_types["primarySubjectUpload"]:
-        image_max_count = slot[multi_contract["subjectImageMaxCountField"]]
-        return {
-            "id": slot["id"],
-            "type": slot_types["primarySubjectUpload"],
-            "label": slot["label"],
-            "required": subject_defaults["required"],
-            "resolutionStrategy": subject_defaults["resolutionStrategy"],
-            "text": {
-                "allowCustom": subject_defaults["allowCustomText"],
-                "defaultValue": slot["defaultValue"],
-                "suggestions": slot["suggestions"],
-            },
-            "image": {
-                "enabled": subject_defaults["imageEnabled"],
-                "promptValue": slot.get(
-                    subject_fields["imagePromptValue"],
-                    subject_defaults["imagePromptValue"],
-                ),
-                "hint": slot.get(
-                    subject_fields["imageHint"], subject_defaults["imageHint"]
-                ),
-                "maxCount": image_max_count,
-                "minWidth": subject_defaults["imageMinimumWidth"],
-                "minHeight": subject_defaults["imageMinimumHeight"],
-                "private": subject_defaults["imagePrivate"],
-                "sourceOptions": subject_defaults["imageSourceOptions"],
-            },
-        }
-    return {
+    is_subject = slot["type"] == slot_types["primarySubjectUpload"]
+    image_defaults = subject_defaults if is_subject else content_defaults
+    result: dict[str, Any] = {
         "id": slot["id"],
-        "type": slot_types["freePrompt"],
         "label": slot["label"],
-        "placeholder": slot["placeholder"],
-        "required": False,
-        "suggestions": slot["suggestions"],
+        "required": subject_defaults["required"],
     }
+    if modes["text"] in authored_modes:
+        result["text"] = {
+            "presentation": input_contract["textPresentation"],
+            "allowCustom": subject_defaults["allowCustomText"],
+            "defaultValue": slot["defaultValue"],
+            "placeholder": slot["placeholder"],
+            "suggestions": slot["suggestions"],
+        }
+    if modes["image"] in authored_modes:
+        result["image"] = {
+            "promptValue": slot.get(
+                image_fields["imagePromptValue"],
+                image_defaults["imagePromptValue"],
+            ),
+            "hint": slot.get(
+                image_fields["imageHint"], image_defaults["imageHint"]
+            ),
+            "maxCount": (
+                slot[multi_contract["subjectImageMaxCountField"]]
+                if is_subject
+                else SUBJECT_IMAGE_MAX_COUNT
+            ),
+            "minWidth": image_defaults["imageMinimumWidth"],
+            "minHeight": image_defaults["imageMinimumHeight"],
+            "private": image_defaults["imagePrivate"],
+            "sourceOptions": image_defaults["imageSourceOptions"],
+        }
+    if set(authored_modes) == set(modes.values()):
+        result["resolutionStrategy"] = subject_defaults["resolutionStrategy"]
+    return result
 
 
 def _rendering_coherence_decision(
@@ -1659,10 +1703,7 @@ def _rendering_coherence_decision(
     inheritance_contract = slot_contract["identityInheritanceDecision"]
     inheritance_field = inheritance_contract["authoringField"]
     inheritance_fields = inheritance_contract["fields"]
-    dependent_roles = {
-        multi_contract["componentRoles"]["reflection"],
-        multi_contract["componentRoles"]["shadow"],
-    }
+    shadow_role = multi_contract["componentRoles"]["shadow"]
     subject_slots = {
         slot["id"]: slot
         for slot in editable["slots"]
@@ -1674,13 +1715,10 @@ def _rendering_coherence_decision(
             component
             for component in components
             if component.get(component_fields["control"]) == slot_id
-            and component[component_fields["role"]] not in dependent_roles
+            and component[component_fields["role"]] != shadow_role
+            and component[component_fields["visualInstance"]] is True
         ]
-        identity_units = {
-            component[component_fields["identityUnit"]] for component in candidates
-        }
-        selected = candidates[:1] if len(identity_units) == 1 else candidates
-        return [component[component_fields["identity"]] for component in selected]
+        return [component[component_fields["identity"]] for component in candidates]
 
     transfer_by_input = {
         transfer.get(transfer_fields["inputIdentity"]): transfer
@@ -1841,12 +1879,158 @@ def _identity_inheritance_relations(
     return relations
 
 
+def _source_isolation_relations(
+    analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
+) -> list[str]:
+    slot_contract = rules["slotCompilationContract"]
+    input_contract = slot_contract["inputContract"]
+    mode_field = input_contract["modeAuthoringField"]
+    image_mode = input_contract["modes"]["image"]
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    identity_inputs = sorted(
+        slot["id"]
+        for slot in editable["slots"]
+        if slot["type"] == subject_type and image_mode in slot[mode_field]
+    )
+    content_inputs = sorted(
+        slot["id"]
+        for slot in editable["slots"]
+        if slot["type"] != subject_type and image_mode in slot[mode_field]
+    )
+    if not identity_inputs or not content_inputs:
+        return []
+    contract = rules["runtimeSemanticsContract"]["sourceIsolationDecision"]
+    fields = contract["fields"]
+    decision = analysis.get(contract["authoringField"])
+    valid = bool(
+        isinstance(decision, dict)
+        and set(decision) == set(fields.values())
+        and decision.get(fields["identityInputIds"]) == identity_inputs
+        and decision.get(fields["contentInputIds"]) == content_inputs
+        and decision.get(fields["identityBackgroundExcluded"]) is True
+        and decision.get(fields["contentInputExclusive"]) is True
+        and isinstance(decision.get(fields["evidence"]), str)
+        and len(decision[fields["evidence"]].strip()) >= 8
+    )
+    if not valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "身份图与内容图并存时必须提交绑定当前槽位的来源隔离裁决。",
+            {
+                "identityInputIds": identity_inputs,
+                "contentInputIds": content_inputs,
+            },
+        )
+    identity_text = "、".join(identity_inputs)
+    return [
+        f"图片模式下，身份输入 {identity_text} 只接管各自身份目标，其原图背景、构图、色彩与光影不进入内容目标",
+        *[
+            f"图片模式下，内容输入 {input_id} 是其绑定内容目标的唯一题材来源，不从身份图背景或模板默认内容补取"
+            for input_id in content_inputs
+        ],
+    ]
+
+
+def _container_dependency_relations(
+    analysis: dict[str, Any],
+    editable: dict[str, Any],
+    bindings: dict[str, dict[str, Any]],
+    target_by_id: dict[str, dict[str, Any]],
+    rules: dict[str, Any],
+) -> list[str]:
+    slot_contract = rules["slotCompilationContract"]
+    input_contract = slot_contract["inputContract"]
+    mode_field = input_contract["modeAuthoringField"]
+    image_mode = input_contract["modes"]["image"]
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    content_input_ids = {
+        slot["id"]
+        for slot in editable["slots"]
+        if slot["type"] != subject_type and image_mode in slot[mode_field]
+    }
+    if not content_input_ids:
+        return []
+    runtime_contract = rules["runtimeSemanticsContract"]
+    binding_fields = runtime_contract["inputBindingFields"]
+    expected_pairs = {
+        (input_id, target_id)
+        for input_id in content_input_ids
+        for target_id in bindings[input_id][binding_fields["targetIdentities"]]
+    }
+    contract = runtime_contract["containerDependencyDecision"]
+    fields = contract["fields"]
+    classes = contract["classifications"]
+    decisions = analysis.get(contract["authoringField"])
+    decision_pairs: set[tuple[str, str]] = set()
+    relations: list[str] = []
+    valid = isinstance(decisions, list) and len(decisions) == len(expected_pairs)
+    for decision in decisions if isinstance(decisions, list) else []:
+        if not isinstance(decision, dict) or set(decision) != set(fields.values()):
+            valid = False
+            continue
+        input_id = decision.get(fields["contentInputId"])
+        target_id = decision.get(fields["contentTargetId"])
+        container_id = decision.get(fields["containerTargetId"])
+        classification = decision.get(fields["classification"])
+        preserved_layer = decision.get(fields["preservedLayer"])
+        evidence = decision.get(fields["evidence"])
+        pair = (input_id, target_id)
+        if not (
+            pair in expected_pairs
+            and pair not in decision_pairs
+            and classification in set(classes.values())
+            and isinstance(preserved_layer, str)
+            and preserved_layer.strip()
+            and isinstance(evidence, str)
+            and len(evidence.strip()) >= 8
+            and (
+                (
+                    classification == classes["independent"]
+                    and container_id is None
+                )
+                or (
+                    classification != classes["independent"]
+                    and isinstance(container_id, str)
+                    and container_id in target_by_id
+                    and container_id != target_id
+                )
+            )
+        ):
+            valid = False
+            continue
+        decision_pairs.add(pair)
+        if classification == classes["postEdit"]:
+            relations.append(
+                f"输入 {input_id} 接管 {target_id} 时，先完成 {container_id} 的新几何，再按其当前轮廓裁切内容；目标外保持{preserved_layer.strip()}"
+            )
+        elif classification == classes["templateFixed"]:
+            relations.append(
+                f"输入 {input_id} 接管 {target_id} 时，使用模板固定容器 {container_id} 的边界，容器外保持{preserved_layer.strip()}"
+            )
+        else:
+            relations.append(
+                f"输入 {input_id} 独立接管 {target_id}，不将它编译为其他目标的轮廓填充，目标外保持{preserved_layer.strip()}"
+            )
+    if not valid or decision_pairs != expected_pairs:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "每个图片模式内容目标必须拥有唯一的容器依赖分类与图像证据。",
+            {"expectedInputTargets": sorted(expected_pairs)},
+        )
+    return relations
+
+
 def _compile_runtime_semantics(
     analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
     runtime_contract = rules["runtimeSemanticsContract"]
     runtime_fields = runtime_contract["fields"]
     target_fields = runtime_contract["targetInstanceFields"]
+    target_optional_fields = runtime_contract["targetInstanceOptionalFields"]
     target_grounding = runtime_contract["targetGrounding"]
     binding_fields = runtime_contract["inputBindingFields"]
     multi_contract = rules["multiInstanceContract"]
@@ -1865,7 +2049,11 @@ def _compile_runtime_semantics(
         and authored_targets
         and all(
             isinstance(target, dict)
-            and set(target) == set(target_fields.values())
+            and set(target_fields.values()) <= set(target)
+            and set(target) <= {
+                *target_fields.values(),
+                *target_optional_fields.values(),
+            }
             and isinstance(target.get(target_fields["identity"]), str)
             and target[target_fields["identity"]].strip()
             and target.get(target_fields["kind"]) in set(target_kinds.values())
@@ -1879,6 +2067,12 @@ def _compile_runtime_semantics(
             >= target_grounding["minimumRegionCharacters"]
             and target[target_fields["region"]].strip()
             not in set(target_grounding["forbiddenRegionValues"])
+            and all(
+                isinstance(target.get(optional_field), str)
+                and target[optional_field].strip()
+                for optional_field in target_optional_fields.values()
+                if optional_field in target
+            )
             for target in authored_targets
         )
         and len(
@@ -1933,34 +2127,39 @@ def _compile_runtime_semantics(
         )
     slot_types = rules["slotCompilationContract"]["slotTypes"]
     subject_type = slot_types["primarySubjectUpload"]
-    dependent_subject_roles = {
-        multi_contract["componentRoles"]["reflection"],
-        multi_contract["componentRoles"]["shadow"],
-    }
+    shadow_role = multi_contract["componentRoles"]["shadow"]
 
     def primary_subject_targets(components: list[dict[str, Any]]) -> list[dict[str, Any]]:
         candidates = [
             component
             for component in components
-            if component[component_fields["role"]] not in dependent_subject_roles
+            if component[component_fields["role"]] != shadow_role
+            and component[component_fields["visualInstance"]] is True
+            and isinstance(component[component_fields["identityUnit"]], str)
         ]
-        identity_units = {
-            component[component_fields["identityUnit"]] for component in candidates
-        }
-        return candidates[:1] if len(identity_units) == 1 else candidates
+        return candidates
 
     multi_subject_slots = sorted(
         slot_id
         for slot_id, components in components_by_control.items()
         if slot_by_id[slot_id]["type"] == subject_type
-        and len(primary_subject_targets(components)) != 1
+        and (
+            not primary_subject_targets(components)
+            or len(
+                {
+                    component[component_fields["identityUnit"]]
+                    for component in primary_subject_targets(components)
+                }
+            )
+            != 1
+        )
     )
     if multi_subject_slots:
         raise _stop(
             rules,
             "blocked",
             "contractFailure",
-            "v2 subject 槽必须一对一绑定唯一身份目标。",
+            "v2 subject 槽必须绑定同一身份单元的一个或多个固定可见目标。",
             {"slotIds": multi_subject_slots},
         )
     bindings: dict[str, dict[str, Any]] = {}
@@ -1982,10 +2181,14 @@ def _compile_runtime_semantics(
             target_ids.append(target_id)
             bound_target_kinds[target_id] = kind
         if is_subject:
+            binding_policy = runtime_contract["identityBindingPolicies"][
+                "oneToOne" if len(target_ids) == 1 else "sameSourceRepeated"
+            ]
             bindings[slot_id] = {
                 binding_fields["operation"]: operations["replaceIdentity"],
                 binding_fields["targetIdentities"]: target_ids,
-                **copy.deepcopy(runtime_contract["subjectBinding"]),
+                "bindingPolicy": binding_policy,
+                **copy.deepcopy(runtime_contract["identityBindingBase"]),
             }
         else:
             bindings[slot_id] = {
@@ -2029,21 +2232,80 @@ def _compile_runtime_semantics(
     visual_contract[relations_field].extend(
         _identity_inheritance_relations(editable, rules)
     )
+    visual_contract[relations_field].extend(
+        _source_isolation_relations(analysis, editable, rules)
+    )
+    visual_contract[relations_field].extend(
+        _container_dependency_relations(
+            analysis,
+            editable,
+            bindings,
+            authored_target_by_id,
+            rules,
+        )
+    )
+    if len(visual_contract[relations_field]) != len(
+        set(visual_contract[relations_field])
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "visualContract.relations 必须保持原子化且不重复。",
+            {},
+        )
+    def formal_target_id(value: str) -> str:
+        normalized = re.sub(r"[^a-z0-9_]+", "_", value.lower()).strip("_")
+        if not normalized or not normalized[0].isalpha():
+            normalized = f"target_{normalized}"
+        if len(normalized) < 2:
+            normalized = f"{normalized}_target"
+        return normalized[:80].rstrip("_")
+
+    target_id_map = {
+        target_id: formal_target_id(target_id) for target_id in authored_target_by_id
+    }
+    if len(set(target_id_map.values())) != len(target_id_map):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "runtimeSemantics target ID 正规化后必须保持唯一。",
+            {"targetIdMap": target_id_map},
+        )
+    formal_targets = copy.deepcopy(authored_targets)
+    group_field = runtime_contract.get("targetInstanceOptionalFields", {}).get(
+        "groupIdentity"
+    )
+    for target in formal_targets:
+        target[target_fields["identity"]] = target_id_map[
+            target[target_fields["identity"]]
+        ]
+        if group_field and isinstance(target.get(group_field), str):
+            target[group_field] = formal_target_id(target[group_field])
+    formal_bindings = copy.deepcopy(bindings)
+    for binding in formal_bindings.values():
+        binding[binding_fields["targetIdentities"]] = [
+            target_id_map[target_id]
+            for target_id in binding[binding_fields["targetIdentities"]]
+        ]
     return {
         runtime_fields["version"]: runtime_contract["version"],
-        runtime_fields["targetInstances"]: copy.deepcopy(authored_targets),
-        runtime_fields["inputBindings"]: bindings,
+        runtime_fields["targetInstances"]: formal_targets,
+        runtime_fields["inputBindings"]: formal_bindings,
         runtime_fields["visualContract"]: visual_contract,
     }
 
 
 def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
-    input_schema = [_slot_to_input(slot, rules) for slot in editable["slots"]]
+    slot_contract = rules["slotCompilationContract"]
+    input_contract = slot_contract["inputContract"]
+    compiled_slots = [_slot_to_input(slot, rules) for slot in editable["slots"]]
     invalid_subject_counts = sorted(
         item["id"]
-        for item in input_schema
-        if item["type"] == rules["slotCompilationContract"]["slotTypes"]["primarySubjectUpload"]
-        and item["image"]["maxCount"] != 1
+        for item, slot in zip(compiled_slots, editable["slots"], strict=True)
+        if slot["type"] == slot_contract["slotTypes"]["primarySubjectUpload"]
+        and item.get("image", {}).get("maxCount") != 1
     )
     if invalid_subject_counts:
         raise _stop(
@@ -2057,7 +2319,10 @@ def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rul
         "artifactType": "hidden-template-spec",
         "schemaVersion": rules["schemaVersion"],
         "visualFactSourceSha256": analysis["visualFactSourceSha256"],
-        "inputSchema": input_schema,
+        "inputSchema": {
+            input_contract["fields"]["version"]: input_contract["version"],
+            input_contract["fields"]["slots"]: compiled_slots,
+        },
         "runtimeSemantics": _compile_runtime_semantics(analysis, editable, rules),
     }
 
@@ -2154,7 +2419,9 @@ def _validation_report(
     errors = sorted(
         Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(draft), key=lambda item: list(item.path)
     )
-    input_ids = {item["id"] for item in draft[input_schema_field]}
+    input_contract = rules["slotCompilationContract"]["inputContract"]
+    input_slots = draft[input_schema_field][input_contract["fields"]["slots"]]
+    input_ids = {item["id"] for item in input_slots}
     referenced_ids = set(PLACEHOLDER.findall(draft[prompt_field]))
     missing_placeholders = sorted(input_ids - referenced_ids)
     unknown_placeholders = sorted(referenced_ids - input_ids)
@@ -2953,9 +3220,18 @@ def _runtime_semantics_contract_errors(
     """Validate v2 relationships that JSON Schema cannot express."""
     top_level = rules["formalProjection"]["topLevel"]
     contract = rules["runtimeSemanticsContract"]
-    inputs = record.get(top_level["userInputSchema"])
+    input_schema = record.get(top_level["userInputSchema"])
     runtime = record.get(top_level["runtimeSemantics"])
     prompt = record.get(top_level["userPromptTemplate"])
+    slot_contract = rules["slotCompilationContract"]
+    input_contract = slot_contract["inputContract"]
+    input_fields = input_contract["fields"]
+    inputs = (
+        input_schema.get(input_fields["slots"])
+        if isinstance(input_schema, dict)
+        and input_schema.get(input_fields["version"]) == input_contract["version"]
+        else None
+    )
     if not isinstance(inputs, list) or not isinstance(runtime, dict) or not isinstance(prompt, str):
         return ["runtimeSemantics 跨字段校验缺少必需输入。"]
 
@@ -2996,15 +3272,16 @@ def _runtime_semantics_contract_errors(
     if set(bindings) != set(input_by_id):
         errors.append("inputBindings 必须精确覆盖 inputSchema.id。")
 
-    subject_type = rules["slotCompilationContract"]["slotTypes"]["primarySubjectUpload"]
     identity_targets_owned: list[str] = []
+    identity_image_inputs: list[str] = []
+    content_image_inputs: list[str] = []
     for input_id, item in input_by_id.items():
-        suggestions = (
-            item.get("text", {}).get("suggestions")
-            if item.get("type") == subject_type
-            else item.get("suggestions")
-        )
-        if not isinstance(suggestions, list) or len(suggestions) != contract["suggestionCount"]:
+        text_mode = item.get("text")
+        suggestions = text_mode.get("suggestions") if isinstance(text_mode, dict) else None
+        if text_mode is not None and (
+            not isinstance(suggestions, list)
+            or len(suggestions) != contract["suggestionCount"]
+        ):
             errors.append(f"{input_id} 必须提供精确三条 suggestions。")
         binding = bindings.get(input_id)
         if not isinstance(binding, dict):
@@ -3018,20 +3295,29 @@ def _runtime_semantics_contract_errors(
         ):
             errors.append(f"{input_id} 的 targetIds 必须唯一且可解析。")
             continue
-        if item.get("type") == subject_type:
+        operation = binding.get(binding_fields["operation"])
+        if operation == contract["operations"]["replaceIdentity"]:
+            expected_policy = contract["identityBindingPolicies"][
+                "oneToOne" if len(target_ids) == 1 else "sameSourceRepeated"
+            ]
             expected = {
                 binding_fields["operation"]: contract["operations"]["replaceIdentity"],
                 binding_fields["targetIdentities"]: target_ids,
-                **contract["subjectBinding"],
+                "bindingPolicy": expected_policy,
+                **contract["identityBindingBase"],
             }
-            if len(target_ids) != 1 or binding != expected:
-                errors.append(f"{input_id} 必须使用一对一身份绑定。")
-            elif target_by_id[target_ids[0]].get(
-                target_fields["kind"]
-            ) != contract["targetKinds"]["identitySubject"]:
+            if binding != expected:
+                errors.append(f"{input_id} 的身份绑定策略与固定目标数量不一致。")
+            elif any(
+                target_by_id[target_id].get(target_fields["kind"])
+                != contract["targetKinds"]["identitySubject"]
+                for target_id in target_ids
+            ):
                 errors.append(f"{input_id} 必须绑定 identity_subject。")
             identity_targets_owned.extend(target_ids)
-        else:
+            if "image" in item:
+                identity_image_inputs.append(input_id)
+        elif operation == contract["operations"]["replaceContent"]:
             expected_policy = contract["contentDistributionPolicies"][
                 "singleTarget" if len(target_ids) == 1 else "targetGroup"
             ]
@@ -3047,8 +3333,24 @@ def _runtime_semantics_contract_errors(
                 for target_id in target_ids
             ):
                 errors.append(f"{input_id} 必须绑定 content_element。")
+            if "image" in item:
+                content_image_inputs.append(input_id)
+        else:
+            errors.append(f"{input_id} 的绑定操作无效。")
     if len(identity_targets_owned) != len(set(identity_targets_owned)):
         errors.append("同一身份目标不能由多个 subject 输入接管。")
+    if identity_image_inputs and content_image_inputs:
+        relations = runtime.get(runtime_fields["visualContract"], {}).get(
+            contract["visualContractFields"]["relations"], []
+        )
+        relation_text = "\n".join(relations) if isinstance(relations, list) else ""
+        if not all(input_id in relation_text for input_id in identity_image_inputs):
+            errors.append("身份图槽未完整进入来源隔离关系。")
+        if not all(
+            input_id in relation_text and "唯一题材来源" in relation_text
+            for input_id in content_image_inputs
+        ):
+            errors.append("内容图槽未声明目标唯一题材来源。")
     return sorted(set(errors))
 
 

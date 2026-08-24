@@ -65,6 +65,7 @@ ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0027 中共有 26 份生效�
 | D47 | 四个可恢复用户大阶段聚合 P0–P8，第二阶段调用 Fal API | 公共工作流与外部副作用 | ADR 0023；`references/vertical-slice-runtime.md` | 复合覆盖 |
 | D48 | P1 语义/结构经验通过 Authoring Handoff 注入 P3，P3 以 Approved Image 做增量分析；默认批次五路并发、大阶段屏障与单项一次新请求 | 阶段事实边界与性能架构 | ADR 0025；`references/template-image-gate.md`；`references/shared-batch-policy.md` | 复合覆盖 |
 | D49 | 正式生产与回放使用执行画像分权；正式模式要求已安装 runtime、Fal、独立审核和 Aliyun OSS，拆分导出重放交付资格 | 执行授权与交付门禁 | ADR 0027；`references/production-execution-authority.md` | 复合覆盖 |
+| D50 | 新模板使用 inputSchema v2 正交输入，支持同源重复身份、内容图来源隔离和容器依赖；T1 仍为独立发布准备入口 | 上游合同与测试边界 | ADR 0028；2026-08-22 合同快照、compiler 与 fixtures | 复合覆盖 |
 
 ## 3. ADR 边界检查
 

@@ -93,7 +93,7 @@ _Avoid_: 兄弟项标题、上一张图的构图、隐式批次主题
 _Avoid_: 只满足 JSON Schema 的通用占位文案
 
 **身份特征继承裁决（Identity Feature Inheritance Decision）**：
-针对一个 subject 图片输入，记录图片模式下从用户上传图读取的可辨认特征，以及因参与模板核心玩法而沿用模板值的少量例外。
+针对一个身份图片输入，记录图片模式下从用户上传图读取的可辨认特征，以及因参与模板核心玩法而沿用模板值的最小例外。
 _Avoid_: 画风合同、槽位价值评估、image.promptValue
 
 **槽位预算（Slot Budget）**：
@@ -125,8 +125,16 @@ _Avoid_: promptEnhancement、metadata 留档、生产分析全集
 _Avoid_: 来源图组件、槽位本身、泛化的整张画面
 
 **输入绑定（Input Binding）**：
-把一个 `inputSchema` 输入映射到一个或一组类型匹配目标的运行规则；身份输入执行一对一身份替换，内容输入执行整体替换或保持目标组结构。
+把一个 `inputSchema.slots` 输入映射到一个或一组类型匹配目标的运行规则；身份输入依据目标数量执行 `one_to_one` 或 `same_source_repeated`，内容输入执行整体替换或保持目标组结构。
 _Avoid_: UI 提示、推荐项、生成任务实例
+
+**图片来源隔离（Image Source Isolation）**：
+身份图只提供身份线索，内容图是它所绑定内容目标的唯一题材来源；身份图背景、构图、色彩和光影不流入内容目标。
+_Avoid_: 把身份照的环境当成场景参考
+
+**容器依赖（Container Dependency）**：
+对每个图片模式内容目标裁决 `post_edit`、`template_fixed` 或 `independent`；只有内容位于会被重绘目标的封闭轮廓内时使用 `post_edit`。
+_Avoid_: 把接触、遮挡或前后层次误判为容器
 
 **视觉运行合同（Visual Contract）**：
 从确认模板图提炼的媒介、画风特征、构图、关系和条件性色光事实，约束替换后仍需成立的视觉结构，同时服从开放槽的用户内容权限。

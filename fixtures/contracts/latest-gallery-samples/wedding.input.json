@@ -9,80 +9,87 @@
   "kind": "PROMPT",
   "status": "DRAFT",
   "promptTemplate": "复古波普漫画婚礼场景中，{{ boy_subject | \"男生\" }}站在前景，张嘴大笑并把戴戒指的左手夸张举到镜头前，再用右手指向戒指；{{ girl_subject | \"女生\" }}穿婚纱站在左后方。右上对白框逐字显示{{ celebration_text | \"YEAH!!!\" }}。",
-  "inputSchema": [
-    {
-      "id": "boy_subject",
-      "type": "subject",
-      "label": "男生",
-      "required": false,
-      "resolutionStrategy": "image_over_text",
-      "text": {
-        "allowCustom": true,
-        "defaultValue": "男生",
-        "suggestions": [
-          "短发新郎男生",
-          "卷发男生",
-          "戴眼镜男生"
-        ]
+  "inputSchema": {
+    "version": 2,
+    "slots": [
+      {
+        "id": "boy_subject",
+        "label": "男生",
+        "required": false,
+        "resolutionStrategy": "image_over_text",
+        "text": {
+          "allowCustom": true,
+          "defaultValue": "男生",
+          "suggestions": [
+            "短发新郎男生",
+            "卷发男生",
+            "戴眼镜男生"
+          ],
+          "presentation": "suggestions",
+          "placeholder": "输入男生，或上传1张清晰主体图"
+        },
+        "image": {
+          "promptValue": "用户上传图中的男生",
+          "hint": "上传1张清晰主体图，用于替换“男生”的身份特征",
+          "maxCount": 1,
+          "minWidth": 256,
+          "minHeight": 256,
+          "private": true,
+          "sourceOptions": [
+            "upload",
+            "recent_upload",
+            "asset_library"
+          ]
+        }
       },
-      "image": {
-        "enabled": true,
-        "promptValue": "用户上传图中的男生",
-        "hint": "上传1张清晰主体图，用于替换“男生”的身份特征",
-        "maxCount": 1,
-        "minWidth": 256,
-        "minHeight": 256,
-        "private": true,
-        "sourceOptions": [
-          "upload",
-          "recent_upload",
-          "asset_library"
-        ]
-      }
-    },
-    {
-      "id": "girl_subject",
-      "type": "subject",
-      "label": "女生",
-      "required": false,
-      "resolutionStrategy": "image_over_text",
-      "text": {
-        "allowCustom": true,
-        "defaultValue": "女生",
-        "suggestions": [
-          "短发女生",
-          "卷发女生",
-          "戴眼镜女生"
-        ]
+      {
+        "id": "girl_subject",
+        "label": "女生",
+        "required": false,
+        "resolutionStrategy": "image_over_text",
+        "text": {
+          "allowCustom": true,
+          "defaultValue": "女生",
+          "suggestions": [
+            "短发女生",
+            "卷发女生",
+            "戴眼镜女生"
+          ],
+          "presentation": "suggestions",
+          "placeholder": "输入女生，或上传1张清晰主体图"
+        },
+        "image": {
+          "promptValue": "用户上传图中的女生",
+          "hint": "上传1张清晰主体图，用于替换“女生”的身份特征",
+          "maxCount": 1,
+          "minWidth": 256,
+          "minHeight": 256,
+          "private": true,
+          "sourceOptions": [
+            "upload",
+            "recent_upload",
+            "asset_library"
+          ]
+        }
       },
-      "image": {
-        "enabled": true,
-        "promptValue": "用户上传图中的女生",
-        "hint": "上传1张清晰主体图，用于替换“女生”的身份特征",
-        "maxCount": 1,
-        "minWidth": 256,
-        "minHeight": 256,
-        "private": true,
-        "sourceOptions": [
-          "upload",
-          "recent_upload",
-          "asset_library"
-        ]
+      {
+        "id": "celebration_text",
+        "label": "对白框英文",
+        "required": false,
+        "text": {
+          "presentation": "suggestions",
+          "allowCustom": true,
+          "defaultValue": "YEAH!!!",
+          "placeholder": "输入对白框英文",
+          "suggestions": [
+            "WE DID IT!!!",
+            "I SAID YES!!!",
+            "JUST MARRIED!!!"
+          ]
+        }
       }
-    },
-    {
-      "id": "celebration_text",
-      "type": "prompt",
-      "label": "对白框英文",
-      "placeholder": "输入对白框英文",
-      "required": false,
-      "suggestions": [
-        "WE DID IT!!!",
-        "I SAID YES!!!",
-        "JUST MARRIED!!!"
-      ]
-    }
-  ],
+    ]
+  },
   "preprocessSteps": [],
   "runtimeSemantics": {
     "version": 1,

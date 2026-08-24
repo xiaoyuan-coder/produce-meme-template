@@ -819,7 +819,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
         self.assertIn(secondary_copy, editable["freeEditableContent"])
         self.assertEqual(
             {"poster_figure", "headline_text", "poster_tone"},
-            {item["id"] for item in formal["inputSchema"]},
+            {item["id"] for item in formal["inputSchema"]["slots"]},
         )
 
     def test_unseen_forward_fixture_runs_without_an_image_path_override(self) -> None:
