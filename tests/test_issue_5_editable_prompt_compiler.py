@@ -485,6 +485,22 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         )
         self.assertEqual(RULES["resultStates"]["completed"], accepted.state)
 
+        def invisible_core_clothing(analysis: dict) -> dict:
+            analysis = core_clothing_feature(analysis)
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"]["clothingVisible"] = False
+            return analysis
+
+        contradictory = self.run_case(
+            "invisible-clothing-cannot-be-a-fixed-core-feature",
+            invisible_core_clothing,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], contradictory.state)
+
         def generic_template_clothing(analysis: dict) -> dict:
             subject = next(
                 slot

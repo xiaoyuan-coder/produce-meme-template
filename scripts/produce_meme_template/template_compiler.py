@@ -591,6 +591,7 @@ def _compile_editable_spec(
             and reason == reason.strip()
             and (not fixed or bool(reason))
             and clothing_exception_valid
+            and (not fixed_clothing or clothing_visible)
             and (not clothing_visible or inherited_clothing)
         )
 
