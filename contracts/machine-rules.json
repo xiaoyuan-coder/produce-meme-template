@@ -1145,6 +1145,10 @@
         "identityBackgroundExcluded": "identityBackgroundExcluded",
         "contentInputExclusive": "contentInputIsExclusiveSource",
         "evidence": "evidence"
+      },
+      "formalRelations": {
+        "identityExclusion": "图片模式下，身份输入 {identityInputs} 只接管各自身份目标，其上传素材的背景、构图、色彩与光影不进入内容目标",
+        "contentExclusive": "图片模式下，内容输入 {contentInputId} 是其绑定内容目标的唯一题材来源，不从身份图背景或模板默认内容补取"
       }
     },
     "containerDependencyDecision": {
@@ -1311,6 +1315,7 @@
     "identityInheritanceDecision": {
       "authoringField": "identityInheritanceDecision",
       "fields": {
+        "clothingVisible": "clothingVisible",
         "inheritFromUpload": "inheritFromUpload",
         "keepFromTemplate": "keepFromTemplate",
         "reason": "reason"

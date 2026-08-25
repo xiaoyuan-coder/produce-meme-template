@@ -344,6 +344,54 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
             self.assertNotIn("promptEnhancement", record)
             self.assertNotIn("extract", json.dumps(record, ensure_ascii=False))
 
+    def test_mixed_image_sources_require_exact_background_exclusion_relations(self) -> None:
+        record = load_json(SAMPLE_FIXTURE / "wedding.expected.json")
+        content_slot = next(
+            slot
+            for slot in record["inputSchema"]["slots"]
+            if slot["id"] == "celebration_text"
+        )
+        content_slot["resolutionStrategy"] = "image_over_text"
+        content_slot["image"] = {
+            "promptValue": "用户上传图中的庆祝内容",
+            "hint": "上传1张庆祝内容图片",
+            "maxCount": 1,
+            "minWidth": 256,
+            "minHeight": 256,
+            "private": True,
+            "sourceOptions": ["upload", "recent_upload", "asset_library"],
+        }
+        relations = record["runtimeSemantics"]["visualContract"]["relations"]
+        relations.extend(
+            [
+                "boy_subject girl_subject celebration_text 彼此独立",
+                "celebration_text 是唯一题材来源",
+            ]
+        )
+
+        forged = _validate_final(record, RULES)
+        self.assertFalse(forged["pass"])
+        self.assertIn(
+            "身份图槽未完整进入来源隔离关系。",
+            forged["runtimeSemanticsErrors"],
+        )
+
+        source_contract = RULES["runtimeSemanticsContract"][
+            "sourceIsolationDecision"
+        ]
+        templates = source_contract["formalRelations"]
+        relations.extend(
+            [
+                templates["identityExclusion"].format(
+                    identityInputs="boy_subject、girl_subject"
+                ),
+                templates["contentExclusive"].format(
+                    contentInputId="celebration_text"
+                ),
+            ]
+        )
+        self.assertTrue(_validate_final(record, RULES)["pass"])
+
     def test_unknown_formal_fields_are_rejected_instead_of_silently_dropped(self) -> None:
         base = load_json(SAMPLE_FIXTURE / "heart.expected.json")
         mutations = {

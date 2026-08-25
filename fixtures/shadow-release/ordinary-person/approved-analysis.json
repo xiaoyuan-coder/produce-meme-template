@@ -120,6 +120,7 @@
         "长发青年"
       ],
       "identityInheritanceDecision": {
+        "clothingVisible": true,
         "inheritFromUpload": [
           "可辨认身份特征",
           "肤色",

@@ -228,6 +228,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                     *scenario["subjectSuggestions"],
                 ],
                 "identityInheritanceDecision": {
+                    "clothingVisible": True,
                     "inheritFromUpload": [
                         "可辨认身份特征",
                         "肤色",

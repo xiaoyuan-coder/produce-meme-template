@@ -10,7 +10,7 @@ T1 只由用户通过 `scripts/produce.py t1` 或 `run_template_test` 明确唤�
 
 ## 3. 两种用户编辑
 
-- `slot_edit` 只接受正式 `inputSchema` 中的槽 ID。`prompt` 直接代入；`subject` 的文字模式代入 `text` 语义值，图片模式由运行时按 `inputBindings` 接管唯一身份目标。v2 正式合同不接受旧的纯 `image` 槽或 select 扩展字段。未显式编辑的占位符继续使用 Prompt Template 的字面兜底。
+- `slot_edit` 只接受正式 `inputSchema` 中的槽 ID。`prompt` 直接代入；`subject` 的文字模式代入 `text` 语义值，图片模式由运行时按 `inputBindings` 接管唯一身份目标。v2 正式合同不接受旧版顶层数组形态的纯 `image` 槽或 select 扩展字段。未显式编辑的占位符继续使用 Prompt Template 的字面兜底；v2 模板全部槽位均为纯图片模式时，T1 接受空 `slotValues` 并使用这些字面兜底准备结构化用例，真实图片稳定性仍由发布就绪的独立图片试验覆盖。
 - `free_edit` 直接使用用户给出的完整 Prompt 文本。
 
 两种模式先得到用户基础 Prompt，再与 `runtimeSemantics.targetInstances`、`inputBindings` 和 `visualContract` 一次性编译为实际 Prompt。逐 case 报告的 `resolvedPrompt`、generation request 和真实 Fal 请求中的 prompt 必须逐字一致。测试任务同时冻结整份模板 JSON 摘要；结构化编辑和全文编辑的用户内容权限继续最高，`visualContract` 不得恢复旧主体、文字、颜色、配饰、服装、道具或场景。

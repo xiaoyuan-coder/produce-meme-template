@@ -1394,7 +1394,7 @@ def _template_test_values(
         ):
             return None
         values[slot_id] = value.strip()
-    return values or None
+    return values
 
 
 def _template_test_request(

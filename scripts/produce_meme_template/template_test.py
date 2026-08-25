@@ -269,8 +269,7 @@ def _case_prompt(
         and isinstance(item.get(slot_fields["identity"]), str)
     }
     if not (
-        slot_values
-        and set(slot_values) <= input_ids
+        set(slot_values) <= input_ids
         and all(
             isinstance(key, str)
             and isinstance(value, str)
@@ -291,6 +290,13 @@ def _case_prompt(
         raise ValueError(
             "image-only slots require a binary test asset and are not string slot values"
         )
+    text_capable_ids = {
+        slot_id
+        for slot_id, item in input_by_id.items()
+        if slot_fields["text"] in item
+    }
+    if not slot_values and text_capable_ids:
+        raise ValueError("slot edit requires at least one text-capable slot value")
     normalized = {key: value.strip() for key, value in slot_values.items()}
     return _resolve_prompt(
         template[top_level["userPromptTemplate"]], normalized, input_slots

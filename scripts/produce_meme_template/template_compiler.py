@@ -528,6 +528,11 @@ def _compile_editable_spec(
             if isinstance(decision, dict)
             else None
         )
+        clothing_visible = (
+            decision.get(inheritance_fields["clothingVisible"])
+            if isinstance(decision, dict)
+            else None
+        )
 
         def unique_clean_strings(value: Any, *, allow_empty: bool) -> bool:
             return bool(
@@ -575,6 +580,7 @@ def _compile_editable_spec(
         return bool(
             isinstance(decision, dict)
             and set(decision) == set(inheritance_fields.values())
+            and isinstance(clothing_visible, bool)
             and unique_clean_strings(inherited, allow_empty=False)
             and inheritance_contract["requiredInheritedTrait"] in inherited
             and len(inherited) - 1
@@ -585,7 +591,7 @@ def _compile_editable_spec(
             and reason == reason.strip()
             and (not fixed or bool(reason))
             and clothing_exception_valid
-            and (subject_kind != person_kind or inherited_clothing)
+            and (not clothing_visible or inherited_clothing)
         )
 
     slot_candidates = analysis.get("slotCandidates")
@@ -1949,10 +1955,15 @@ def _source_isolation_relations(
             },
         )
     identity_text = "、".join(identity_inputs)
+    relation_templates = contract["formalRelations"]
     return [
-        f"图片模式下，身份输入 {identity_text} 只接管各自身份目标，其原图背景、构图、色彩与光影不进入内容目标",
+        relation_templates["identityExclusion"].format(
+            identityInputs=identity_text
+        ),
         *[
-            f"图片模式下，内容输入 {input_id} 是其绑定内容目标的唯一题材来源，不从身份图背景或模板默认内容补取"
+            relation_templates["contentExclusive"].format(
+                contentInputId=input_id
+            )
             for input_id in content_inputs
         ],
     ]
@@ -3447,11 +3458,18 @@ def _runtime_semantics_contract_errors(
         relations = runtime.get(runtime_fields["visualContract"], {}).get(
             contract["visualContractFields"]["relations"], []
         )
-        relation_text = "\n".join(relations) if isinstance(relations, list) else ""
-        if not all(input_id in relation_text for input_id in identity_image_inputs):
+        relation_set = set(relations) if isinstance(relations, list) else set()
+        source_contract = contract["sourceIsolationDecision"]
+        relation_templates = source_contract["formalRelations"]
+        identity_relation = relation_templates["identityExclusion"].format(
+            identityInputs="、".join(sorted(identity_image_inputs))
+        )
+        if identity_relation not in relation_set:
             errors.append("身份图槽未完整进入来源隔离关系。")
         if not all(
-            input_id in relation_text and "唯一题材来源" in relation_text
+            relation_templates["contentExclusive"].format(
+                contentInputId=input_id
+            ) in relation_set
             for input_id in content_image_inputs
         ):
             errors.append("内容图槽未声明目标唯一题材来源。")

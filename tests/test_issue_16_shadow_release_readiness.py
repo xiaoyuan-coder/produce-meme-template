@@ -231,6 +231,19 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
             readiness_module._template_test_values(template, RULES),
         )
 
+        template[RULES["formalProjection"]["topLevel"]["userInputSchema"]][
+            input_fields["slots"]
+        ] = [
+            {
+                slot_fields["identity"]: "photo_only",
+                slot_fields["image"]: {"promptValue": "上传照片"},
+            }
+        ]
+        self.assertEqual(
+            {},
+            readiness_module._template_test_values(template, RULES),
+        )
+
     def test_review_receipt_separates_comparison_base_from_reviewed_head(self) -> None:
         fields = CONTRACT["reviewReceiptFields"]
         comparison_base = "1" * 40

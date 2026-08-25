@@ -380,6 +380,49 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 generation[CONTRACT["generationRequestFields"]["imageCount"]],
             )
 
+    def test_v2_all_image_slots_prepare_slot_case_from_literal_fallbacks(self) -> None:
+        template = formal_template()
+        for slot in template["inputSchema"]["slots"]:
+            slot.pop("text")
+            slot["image"] = {
+                "promptValue": f"用户上传图中的{slot['label']}",
+                "hint": f"上传1张{slot['label']}图片",
+                "maxCount": 1,
+                "minWidth": 256,
+                "minHeight": 256,
+                "private": True,
+                "sourceOptions": ["upload", "recent_upload", "asset_library"],
+            }
+        self.template_path.write_text(
+            json.dumps(template, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        request = t1_request(self.template_path)
+        request[REQUEST_FIELDS["cases"]] = [
+            {
+                CASE_FIELDS["caseIdentity"]: "image-defaults",
+                CASE_FIELDS["mode"]: MODES["slotEdit"],
+                CASE_FIELDS["slotValues"]: {},
+            }
+        ]
+
+        result = run_template_test(
+            request,
+            self.output,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual("completed", result.outcome)
+        report = load_json(result.report_path)
+        resolved = report[REPORT_FIELDS["cases"]][0][
+            CASE_REPORT_FIELDS["resolvedPrompt"]
+        ]
+        self.assertIn("柯基犬", resolved)
+        self.assertIn("暖黄色软垫", resolved)
+        self.assertIn("午后窗光", resolved)
+        self.assertNotIn("{{", resolved)
+
     def test_optional_author_fields_may_be_omitted_and_distribution_fields_are_accepted(self) -> None:
         template = formal_template()
         for field in ("description", "imageN", "kind", "preprocessSteps", "metadata"):

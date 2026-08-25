@@ -347,13 +347,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 for slot in analysis["slotCandidates"]
                 if slot["type"] == SUBJECT_TYPE
             )
-            subject["identityInheritanceDecision"]["inheritFromUpload"].append(
-                "服装"
-            )
-            transfer = analysis["renderingCoherenceDecision"]["subjectTransfers"][0]
-            transfer["inheritFromUpload"] = subject[
-                "identityInheritanceDecision"
-            ]["inheritFromUpload"]
+            subject["identityInheritanceDecision"]["clothingVisible"] = False
             analysis["subjectAttributeAssessments"] = {
                 role: {gate: False for gate in VALUE_GATE_ROLES.values()} | {
                     "includedAsSlot": False,
@@ -375,6 +369,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
             )
             subject["identityInheritanceDecision"] = {
+                "clothingVisible": False,
                 "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
                 "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
                 "reason": "蜷卧和搭爪动作构成模板核心玩法",
@@ -394,6 +389,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         )
         self.assertEqual(
             {
+                "clothingVisible": False,
                 "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
                 "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
                 "reason": "蜷卧和搭爪动作构成模板核心玩法",
@@ -420,6 +416,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 if slot["type"] == SUBJECT_TYPE
             )
             subject["identityInheritanceDecision"] = {
+                "clothingVisible": False,
                 "inheritFromUpload": [
                     "可辨认身份特征",
                     "毛色与花纹",
@@ -449,6 +446,21 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
     def test_clothing_defaults_to_upload_and_only_core_play_feature_is_fixed(
         self,
     ) -> None:
+        def visible_clothing_omitted(analysis: dict) -> dict:
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"]["clothingVisible"] = True
+            return analysis
+
+        omitted = self.run_case(
+            "visible-non-person-clothing-cannot-be-omitted",
+            visible_clothing_omitted,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], omitted.state)
+
         def core_clothing_feature(analysis: dict) -> dict:
             subject = next(
                 slot
@@ -456,6 +468,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 if slot["type"] == SUBJECT_TYPE
             )
             subject["identityInheritanceDecision"] = {
+                "clothingVisible": True,
                 "inheritFromUpload": [
                     "可辨认身份特征",
                     "服装颜色与材质",
@@ -479,6 +492,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 if slot["type"] == SUBJECT_TYPE
             )
             subject["identityInheritanceDecision"] = {
+                "clothingVisible": True,
                 "inheritFromUpload": ["可辨认身份特征", "服装颜色与材质"],
                 "keepFromTemplate": ["模板服装"],
                 "reason": "保持模板美观",
@@ -509,6 +523,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
             )
             subject["identityInheritanceDecision"] = {
+                "clothingVisible": True,
                 "inheritFromUpload": ["可辨认身份特征", "服装"],
                 "keepFromTemplate": ["服装"],
                 "reason": "伪造重叠范围",
@@ -524,6 +539,7 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
                 slot for slot in analysis["slotCandidates"] if slot["type"] == SUBJECT_TYPE
             )
             subject["identityInheritanceDecision"] = {
+                "clothingVisible": False,
                 "inheritFromUpload": ["可辨认身份特征"],
                 "keepFromTemplate": [],
                 "reason": "默认继承用户上传图",

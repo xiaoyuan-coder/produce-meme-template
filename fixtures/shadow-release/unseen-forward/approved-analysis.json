@@ -180,6 +180,7 @@
         "小羊"
       ],
       "identityInheritanceDecision": {
+        "clothingVisible": false,
         "inheritFromUpload": [
           "可辨认身份特征",
           "毛色与花纹",

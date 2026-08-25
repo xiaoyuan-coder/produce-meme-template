@@ -128,6 +128,7 @@
         "胡桃夹子王子"
       ],
       "identityInheritanceDecision": {
+        "clothingVisible": true,
         "inheritFromUpload": [
           "可辨认身份特征",
           "角色服装与必要配饰",
