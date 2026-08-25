@@ -341,7 +341,13 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
 
         self.assertTrue(passed)
         self.assertIsNone(detail)
-        self.assertEqual(2, runner.call_count)
+        nested_suite_validation = bool(
+            os.environ.get(VALIDATION_SUITE_ENV) == "1"
+            and release_management._run_release_validation.__name__
+            == "nested_validation"
+        )
+        expected_call_count = 1 if nested_suite_validation else 2
+        self.assertEqual(expected_call_count, runner.call_count)
         self.assertTrue(
             all(
                 call.kwargs["timeout"]
