@@ -349,7 +349,8 @@ def _compile_actual_prompt(
             )
         else:
             binding_texts.append(
-                f"输入 {input_id} 接管{target_roles}，"
+                f"输入 {input_id} 完整接管{target_roles}，"
+                "先清除各目标的旧内容与残留，再由当前输入完整替换，"
                 f"分布策略为 {binding[binding_fields['distributionPolicy']]}"
             )
 

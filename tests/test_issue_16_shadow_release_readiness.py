@@ -18,6 +18,7 @@ from scripts.produce_meme_template import (
     recorded_shadow_request,
     run_production,
     run_release_readiness,
+    run_template_test,
     verify_code_review_receipt,
     verify_release_readiness_completion,
 )
@@ -881,6 +882,97 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
             {"poster_figure", "headline_text", "poster_tone"},
             {item["id"] for item in formal["inputSchema"]["slots"]},
         )
+
+    def test_complex_multi_instance_t1_clears_every_subject_and_keeps_the_grid(self) -> None:
+        fixture_dir = SHADOW_FIXTURE / CONTRACT[
+            "fixtureDirectoryByScenarioRoleKey"
+        ]["complexMultiInstance"]
+        production_fields = CONTRACT["productionRequestFields"]
+        production_request = json.loads(
+            (fixture_dir / "request.json").read_text(encoding="utf-8")
+        )
+        production_request[production_fields["sourceImage"]] = str(
+            fixture_dir / production_request[production_fields["sourceImage"]]
+        )
+        test_contract = RULES["templateTestContract"]
+        request_fields = test_contract["requestFields"]
+        case_fields = test_contract["caseFields"]
+        report_fields = test_contract["reportFields"]
+        case_report_fields = test_contract["caseReportFields"]
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            production = run_production(
+                production_request,
+                root / "production",
+                DeterministicFixtureAdapters(fixture_dir),
+            )
+            formal = json.loads(
+                (production.output_dir / "gallery-template.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            test_request = {
+                request_fields["templateJsonPath"]: str(
+                    production.output_dir / "gallery-template.json"
+                ),
+                request_fields["templateRevision"]: 1,
+                request_fields["invocationIdentity"]: "complex-multi-t1-regression",
+                request_fields["cases"]: [
+                    {
+                        case_fields["caseIdentity"]: "replace-four-panels",
+                        case_fields["mode"]: test_contract["modes"]["slotEdit"],
+                        case_fields["slotValues"]: {
+                            "panel_subjects": "四位球队成员",
+                            "panel_frame": "白边拍立得相纸",
+                            "archive_tone": "暖灰褪色胶片",
+                        },
+                    }
+                ],
+            }
+            template_test = run_template_test(
+                test_request,
+                root / "template-tests",
+                DeterministicFixtureAdapters(fixture_dir),
+            )
+            report = json.loads(
+                template_test.report_path.read_text(encoding="utf-8")
+            )
+
+        prompt = report[report_fields["cases"]][0][
+            case_report_fields["resolvedPrompt"]
+        ]
+        formal_top_level = RULES["formalProjection"]["topLevel"]
+        runtime = formal[formal_top_level["runtimeSemantics"]]
+        runtime_contract = RULES["runtimeSemanticsContract"]
+        runtime_fields = runtime_contract["fields"]
+        target_fields = runtime_contract["targetInstanceFields"]
+        binding_fields = runtime_contract["inputBindingFields"]
+        targets = {
+            item[target_fields["identity"]]: item
+            for item in runtime[runtime_fields["targetInstances"]]
+        }
+        subject_binding = runtime[runtime_fields["inputBindings"]][
+            "panel_subjects"
+        ]
+        self.assertEqual(
+            runtime_contract["contentDistributionPolicies"]["targetGroup"],
+            subject_binding[binding_fields["distributionPolicy"]],
+        )
+        for target_id in subject_binding[binding_fields["targetIdentities"]]:
+            self.assertIn(targets[target_id][target_fields["role"]], prompt)
+        self.assertIn("先清除各目标的旧内容与残留，再由当前输入完整替换", prompt)
+        self.assertIn(
+            runtime_contract["contentDistributionPolicies"]["targetGroup"],
+            prompt,
+        )
+        visual = runtime[runtime_fields["visualContract"]]
+        visual_fields = runtime_contract["visualContractFields"]
+        for relation in (
+            visual[visual_fields["composition"]]
+            + visual[visual_fields["relations"]]
+        ):
+            self.assertIn(relation, prompt)
 
     def test_unseen_forward_fixture_runs_without_an_image_path_override(self) -> None:
         request = recorded_shadow_request()[

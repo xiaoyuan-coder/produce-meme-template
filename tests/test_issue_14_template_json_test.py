@@ -354,6 +354,11 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertIn("垂耳兔", slot_prompt)
         self.assertIn("深蓝色绒垫", slot_prompt)
         self.assertIn("清晨冷光", slot_prompt)
+        self.assertIn(
+            "输入 pet_subject 完整接管蜷卧的小动物，"
+            "先清除各目标的旧内容与残留，再由当前输入完整替换",
+            slot_prompt,
+        )
         self.assertNotIn("{{", slot_prompt)
         free_prompt = cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]]
         self.assertTrue(
