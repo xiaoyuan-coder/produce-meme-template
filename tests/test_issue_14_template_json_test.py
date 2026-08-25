@@ -362,6 +362,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertIn("当前输入是被内容接管目标", slot_prompt)
         self.assertIn("本约束只作用于上述内容目标", slot_prompt)
         self.assertIn("旧人物类型、旧服装、旧道具和旧活动语义", slot_prompt)
+        self.assertIn("媒介、画风特征、构图、关系与条件性色光", slot_prompt)
         self.assertNotIn("{{", slot_prompt)
         free_prompt = cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]]
         self.assertTrue(

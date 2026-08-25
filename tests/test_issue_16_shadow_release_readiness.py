@@ -965,6 +965,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
         self.assertIn("当前输入是被内容接管目标", prompt)
         self.assertIn("本约束只作用于上述内容目标", prompt)
         self.assertIn("旧人物类型、旧服装、旧道具和旧活动语义", prompt)
+        self.assertIn("媒介、画风特征、构图、关系与条件性色光", prompt)
         self.assertIn(
             runtime_contract["contentDistributionPolicies"]["targetGroup"],
             prompt,
