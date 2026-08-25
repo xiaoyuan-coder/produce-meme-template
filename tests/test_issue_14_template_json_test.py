@@ -16,6 +16,7 @@ from scripts.produce_meme_template import (
     FalQueueWorkflowAdapters,
     run_template_test,
 )
+from scripts.produce_meme_template.workflow_core import SUBJECT_IMAGE_MAX_COUNT
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -33,6 +34,9 @@ T1_STATES = CONTRACT["states"]
 ARTIFACT_NAMES = CONTRACT["artifactNames"]
 FORMAL_TOP_LEVEL = RULES["formalProjection"]["topLevel"]
 INPUT_CONTRACT = RULES["slotCompilationContract"]["inputContract"]
+SUBJECT_INPUT_DEFAULTS = RULES["slotCompilationContract"][
+    "subjectInputDefaults"
+]
 INPUT_FIELDS = INPUT_CONTRACT["fields"]
 SLOT_FIELDS = INPUT_CONTRACT["slotFields"]
 IMAGE_FIELDS = INPUT_CONTRACT["imageFields"]
@@ -189,19 +193,27 @@ def multi_target_template(*, mixed_identity: bool = False) -> dict:
             INPUT_FIELDS["slots"]
         ][0]
         pet_slot[SLOT_FIELDS["image"]] = {
-            IMAGE_FIELDS["promptValue"]: "用户上传图中的主体",
-            IMAGE_FIELDS["hint"]: "上传1张主体清晰的单主体图片",
-            IMAGE_FIELDS["maxCount"]: 1,
-            IMAGE_FIELDS["minimumWidth"]: 256,
-            IMAGE_FIELDS["minimumHeight"]: 256,
-            IMAGE_FIELDS["private"]: True,
-            IMAGE_FIELDS["sourceOptions"]: [
-                "upload",
-                "recent_upload",
-                "asset_library",
+            IMAGE_FIELDS["promptValue"]: SUBJECT_INPUT_DEFAULTS[
+                "imagePromptValue"
             ],
+            IMAGE_FIELDS["hint"]: SUBJECT_INPUT_DEFAULTS["imageHint"],
+            IMAGE_FIELDS["maxCount"]: SUBJECT_IMAGE_MAX_COUNT,
+            IMAGE_FIELDS["minimumWidth"]: SUBJECT_INPUT_DEFAULTS[
+                "imageMinimumWidth"
+            ],
+            IMAGE_FIELDS["minimumHeight"]: SUBJECT_INPUT_DEFAULTS[
+                "imageMinimumHeight"
+            ],
+            IMAGE_FIELDS["private"]: SUBJECT_INPUT_DEFAULTS[
+                "imagePrivate"
+            ],
+            IMAGE_FIELDS["sourceOptions"]: copy.deepcopy(
+                SUBJECT_INPUT_DEFAULTS["imageSourceOptions"]
+            ),
         }
-        pet_slot[SLOT_FIELDS["resolutionStrategy"]] = "image_over_text"
+        pet_slot[SLOT_FIELDS["resolutionStrategy"]] = SUBJECT_INPUT_DEFAULTS[
+            "resolutionStrategy"
+        ]
         runtime[RUNTIME_FIELDS["visualContract"]][
             VISUAL_FIELDS["relations"]
         ].extend(
