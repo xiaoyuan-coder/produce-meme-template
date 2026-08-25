@@ -328,6 +328,7 @@ def _compile_actual_prompt(
         for target in targets
     )
     binding_texts: list[str] = []
+    content_target_roles: list[str] = []
     for input_id, binding in bindings.items():
         target_roles = "、".join(
             target_by_id[target_id][target_fields["role"]]
@@ -348,6 +349,7 @@ def _compile_actual_prompt(
                 "只提供身份线索并按模板媒介完整重绘"
             )
         else:
+            content_target_roles.append(target_roles)
             binding_texts.append(
                 f"输入 {input_id} 完整接管{target_roles}，"
                 "先清除各目标的旧内容与残留，再由当前输入完整替换，"
@@ -371,6 +373,14 @@ def _compile_actual_prompt(
             f"输入接管：{'；'.join(binding_texts)}。",
         ]
     )
+    if content_target_roles:
+        sections.append(
+            "内容优先级：当前输入是被内容接管目标（"
+            f"{'、'.join(content_target_roles)}）的唯一内容事实源。"
+            "本约束只作用于上述内容目标；"
+            "必须清除参考图中这些目标的旧人物类型、旧服装、旧道具和旧活动语义，"
+            "最终只呈现当前输入指定的主体内容；模板仅保留视觉合同明确要求的媒介、构图和关系。"
+        )
     return "\n".join(sections)
 
 
