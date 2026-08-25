@@ -29,6 +29,18 @@ CASE_FIELDS = CONTRACT["caseFields"]
 REPORT_FIELDS = CONTRACT["reportFields"]
 CASE_REPORT_FIELDS = CONTRACT["caseReportFields"]
 MODES = CONTRACT["modes"]
+T1_STATES = CONTRACT["states"]
+ARTIFACT_NAMES = CONTRACT["artifactNames"]
+FORMAL_TOP_LEVEL = RULES["formalProjection"]["topLevel"]
+INPUT_CONTRACT = RULES["slotCompilationContract"]["inputContract"]
+INPUT_FIELDS = INPUT_CONTRACT["fields"]
+SLOT_FIELDS = INPUT_CONTRACT["slotFields"]
+IMAGE_FIELDS = INPUT_CONTRACT["imageFields"]
+RUNTIME_CONTRACT = RULES["runtimeSemanticsContract"]
+RUNTIME_FIELDS = RUNTIME_CONTRACT["fields"]
+TARGET_FIELDS = RUNTIME_CONTRACT["targetInstanceFields"]
+BINDING_FIELDS = RUNTIME_CONTRACT["inputBindingFields"]
+VISUAL_FIELDS = RUNTIME_CONTRACT["visualContractFields"]
 FIXED_TIME = datetime(2026, 8, 17, 9, 0, tzinfo=timezone.utc)
 
 
@@ -120,50 +132,79 @@ def formal_template() -> dict:
 
 def multi_target_template(*, mixed_identity: bool = False) -> dict:
     template = formal_template()
-    runtime = template["runtimeSemantics"]
-    runtime["targetInstances"].extend(
+    runtime = template[FORMAL_TOP_LEVEL["runtimeSemantics"]]
+    runtime[RUNTIME_FIELDS["targetInstances"]].extend(
         [
             {
-                "id": "cushion_trim",
-                "kind": "content_element",
-                "role": "软垫外沿的装饰纹理",
-                "region": "画面下方软垫外沿区域",
+                TARGET_FIELDS["identity"]: "cushion_trim",
+                TARGET_FIELDS["kind"]: RUNTIME_CONTRACT["targetKinds"][
+                    "contentElement"
+                ],
+                TARGET_FIELDS["role"]: "软垫外沿的装饰纹理",
+                TARGET_FIELDS["region"]: "画面下方软垫外沿区域",
             },
             {
-                "id": "cushion_corner",
-                "kind": "content_element",
-                "role": "软垫右侧的边角细节",
-                "region": "画面右下方软垫边角区域",
+                TARGET_FIELDS["identity"]: "cushion_corner",
+                TARGET_FIELDS["kind"]: RUNTIME_CONTRACT["targetKinds"][
+                    "contentElement"
+                ],
+                TARGET_FIELDS["role"]: "软垫右侧的边角细节",
+                TARGET_FIELDS["region"]: "画面右下方软垫边角区域",
             },
         ]
     )
-    runtime["inputBindings"]["cushion_look"] = {
-        "operation": "replace_content",
-        "targetIds": ["cushion", "cushion_trim", "cushion_corner"],
-        "distributionPolicy": "preserve_target_group",
+    runtime[RUNTIME_FIELDS["inputBindings"]]["cushion_look"] = {
+        BINDING_FIELDS["operation"]: RUNTIME_CONTRACT["operations"][
+            "replaceContent"
+        ],
+        BINDING_FIELDS["targetIdentities"]: [
+            "cushion",
+            "cushion_trim",
+            "cushion_corner",
+        ],
+        BINDING_FIELDS["distributionPolicy"]: RUNTIME_CONTRACT[
+            "contentDistributionPolicies"
+        ]["targetGroup"],
     }
     if mixed_identity:
-        runtime["targetInstances"][0]["kind"] = "identity_subject"
-        runtime["inputBindings"]["pet_subject"] = {
-            "operation": "replace_identity",
-            "targetIds": ["pet"],
-            "bindingPolicy": "one_to_one",
-            "renderingMode": "illustration_redraw",
-            "allowedSourceGrouping": ["single_subject"],
-            "groupToSinglePolicy": "reject",
+        runtime[RUNTIME_FIELDS["targetInstances"]][0][
+            TARGET_FIELDS["kind"]
+        ] = RUNTIME_CONTRACT["targetKinds"]["identitySubject"]
+        identity_binding = {
+            BINDING_FIELDS["operation"]: RUNTIME_CONTRACT["operations"][
+                "replaceIdentity"
+            ],
+            BINDING_FIELDS["targetIdentities"]: ["pet"],
+            BINDING_FIELDS["identityBindingPolicy"]: RUNTIME_CONTRACT[
+                "identityBindingPolicies"
+            ]["oneToOne"],
         }
-        pet_slot = template["inputSchema"]["slots"][0]
-        pet_slot["image"] = {
-            "promptValue": "用户上传图中的主体",
-            "hint": "上传1张主体清晰的单主体图片",
-            "maxCount": 1,
-            "minWidth": 256,
-            "minHeight": 256,
-            "private": True,
-            "sourceOptions": ["upload", "recent_upload", "asset_library"],
+        identity_binding.update(
+            copy.deepcopy(RUNTIME_CONTRACT["identityBindingBase"])
+        )
+        runtime[RUNTIME_FIELDS["inputBindings"]][
+            "pet_subject"
+        ] = identity_binding
+        pet_slot = template[FORMAL_TOP_LEVEL["userInputSchema"]][
+            INPUT_FIELDS["slots"]
+        ][0]
+        pet_slot[SLOT_FIELDS["image"]] = {
+            IMAGE_FIELDS["promptValue"]: "用户上传图中的主体",
+            IMAGE_FIELDS["hint"]: "上传1张主体清晰的单主体图片",
+            IMAGE_FIELDS["maxCount"]: 1,
+            IMAGE_FIELDS["minimumWidth"]: 256,
+            IMAGE_FIELDS["minimumHeight"]: 256,
+            IMAGE_FIELDS["private"]: True,
+            IMAGE_FIELDS["sourceOptions"]: [
+                "upload",
+                "recent_upload",
+                "asset_library",
+            ],
         }
-        pet_slot["resolutionStrategy"] = "image_over_text"
-        runtime["visualContract"]["relations"].extend(
+        pet_slot[SLOT_FIELDS["resolutionStrategy"]] = "image_over_text"
+        runtime[RUNTIME_FIELDS["visualContract"]][
+            VISUAL_FIELDS["relations"]
+        ].extend(
             [
                 "图片模式下，输入 pet_subject 的可辨认身份特征读取用户上传图并按模板媒介重绘",
                 "输入 pet_subject 的蜷卧姿态沿用模板角色位，软垫承托关系构成模板核心结构",
@@ -1457,7 +1498,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         regenerated, regenerated_client = run_variant(
             multi_target_template(), "regenerated"
         )
-        self.assertEqual("completed", regenerated.outcome)
+        self.assertEqual(T1_STATES["completed"].casefold(), regenerated.outcome)
         regeneration_model, regeneration_arguments = (
             regenerated_client.submit_calls[0]
         )
@@ -1465,9 +1506,12 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             fal_contract["contentRegenerationModel"], regeneration_model
         )
         self.assertNotIn("image_urls", regeneration_arguments)
-        case_dir = regenerated.output_dir / "case-slot-change"
-        submission = load_json(case_dir / "generation-submission.json")
-        wal = load_json(case_dir / "generation-wal.json")
+        case_identity = t1_request(self.template_path)[REQUEST_FIELDS["cases"]][0][
+            CASE_FIELDS["caseIdentity"]
+        ]
+        case_dir = regenerated.output_dir / f"case-{case_identity}"
+        submission = load_json(case_dir / ARTIFACT_NAMES["submission"])
+        wal = load_json(case_dir / ARTIFACT_NAMES["wal"])
         execution = RULES["generationExecutionContract"]
         self.assertEqual(
             regeneration_model,
@@ -1480,7 +1524,9 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         below_threshold, below_client = run_variant(
             formal_template(), "below-threshold"
         )
-        self.assertEqual("completed", below_threshold.outcome)
+        self.assertEqual(
+            T1_STATES["completed"].casefold(), below_threshold.outcome
+        )
         below_model, below_arguments = below_client.submit_calls[0]
         self.assertEqual(fal_contract["model"], below_model)
         self.assertIn("image_urls", below_arguments)
@@ -1488,17 +1534,17 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         mixed, mixed_client = run_variant(
             multi_target_template(mixed_identity=True), "mixed-identity"
         )
-        self.assertEqual("completed", mixed.outcome)
+        self.assertEqual(T1_STATES["completed"].casefold(), mixed.outcome)
         mixed_model, mixed_arguments = mixed_client.submit_calls[0]
         self.assertEqual(fal_contract["model"], mixed_model)
         self.assertIn("image_urls", mixed_arguments)
 
         malformed = multi_target_template()
-        malformed["runtimeSemantics"]["inputBindings"]["pet_subject"][
-            "operation"
-        ] = "unknown_operation"
+        malformed[FORMAL_TOP_LEVEL["runtimeSemantics"]][
+            RUNTIME_FIELDS["inputBindings"]
+        ]["pet_subject"][BINDING_FIELDS["operation"]] = "unknown_operation"
         blocked, blocked_client = run_variant(malformed, "malformed-runtime")
-        self.assertEqual("blocked", blocked.outcome)
+        self.assertEqual(T1_STATES["blocked"].casefold(), blocked.outcome)
         self.assertEqual(CONTRACT["errorCodes"]["invalidTemplate"], blocked.error_code)
         self.assertEqual([], blocked_client.submit_calls)
 
@@ -1574,12 +1620,12 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         regeneration_model = RULES["generationExecutionContract"]["fal"][
             "contentRegenerationModel"
         ]
-        self.assertEqual("failed", first.outcome)
+        self.assertEqual(T1_STATES["failed"].casefold(), first.outcome)
         self.assertEqual(
             CONTRACT["errorCodes"]["generationRetryable"], first.error_code
         )
         self.assertEqual([regeneration_model], interrupted_client.submit_models)
-        self.assertEqual("completed", resumed.outcome)
+        self.assertEqual(T1_STATES["completed"].casefold(), resumed.outcome)
         self.assertEqual([regeneration_model], recovery_client.status_models)
 
 

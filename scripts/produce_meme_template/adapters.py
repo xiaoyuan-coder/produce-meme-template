@@ -16,6 +16,8 @@ from urllib.error import HTTPError
 from urllib.parse import quote, urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from jsonschema import Draft202012Validator
+
 from .artifacts import (
     canonical_json_bytes as _canonical_bytes,
     load_json_object as _read_json,
@@ -25,9 +27,11 @@ from .production_gates import (
     deterministic_authoring_contract_audit,
     deterministic_template_identity_resolution,
 )
+from .workflow_core import GALLERY_SCHEMA
 
 
 RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "machine-rules.json"
+TARGET_ID_VALIDATOR = Draft202012Validator(GALLERY_SCHEMA["$defs"]["targetId"])
 
 
 class _NoAutomaticRedirect(HTTPRedirectHandler):
@@ -855,10 +859,7 @@ class FalQueueWorkflowAdapters:
             if not (
                 isinstance(target_ids, list)
                 and target_ids
-                and all(
-                    isinstance(value, str) and value.strip()
-                    for value in target_ids
-                )
+                and all(TARGET_ID_VALIDATOR.is_valid(value) for value in target_ids)
             ):
                 return fal["model"], False
             if operation == runtime_contract["operations"]["replaceIdentity"]:

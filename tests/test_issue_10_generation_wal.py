@@ -806,10 +806,10 @@ class Issue10GenerationWalTest(unittest.TestCase):
                             "replaceContent"
                         ],
                         binding_fields["targetIdentities"]: [
-                            "panel-a",
-                            "panel-b",
-                            "panel-c",
-                            "panel-d",
+                            "panel_a",
+                            "panel_b",
+                            "panel_c",
+                            "panel_d",
                         ],
                     }
                 }
@@ -835,9 +835,31 @@ class Issue10GenerationWalTest(unittest.TestCase):
         self.assertEqual(model, submission[SUBMISSION_FIELDS["model"]])
 
         malformed_bindings = [
-            {"operation": "unknown_operation", "targetIds": ["other"]},
-            {"operation": "replace_content", "targetIds": []},
-            {"operation": "replace_content", "targetIds": [""]},
+            {
+                binding_fields["operation"]: "unknown_operation",
+                binding_fields["targetIdentities"]: ["other"],
+            },
+            {
+                binding_fields["operation"]: runtime["operations"][
+                    "replaceContent"
+                ],
+                binding_fields["targetIdentities"]: [],
+            },
+            *[
+                {
+                    binding_fields["operation"]: runtime["operations"][
+                        "replaceContent"
+                    ],
+                    binding_fields["targetIdentities"]: [value],
+                }
+                for value in (
+                    "",
+                    "a",
+                    "a" * 81,
+                    "1target",
+                    "bad-target",
+                )
+            ],
             "invalid-binding",
         ]
         package_fields = RULES["templateTestContract"][
