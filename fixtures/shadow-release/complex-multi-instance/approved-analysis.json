@@ -379,7 +379,7 @@
       }
     ],
     "visualContract": {
-      "medium": "褪色相纸与档案纸组合的旅行照片拼贴，保留颗粒、折痕和纸边",
+      "medium": "褪色相纸与档案纸组合的纪实照片拼贴，保留颗粒、折痕和纸边",
       "styleTraits": [
         "四格照片共享低细节纪实摄影质感，每格相纸边缘清晰且磨损程度一致"
       ],
@@ -407,7 +407,7 @@
   "renderingCoherenceDecision": {
     "mode": "unified",
     "approvedImageSha256": null,
-    "medium": "褪色相纸与档案纸组合的旅行照片拼贴，保留颗粒、折痕和纸边",
+    "medium": "褪色相纸与档案纸组合的纪实照片拼贴，保留颗粒、折痕和纸边",
     "renderingUnits": [
       {
         "unitId": "whole-approved-image",

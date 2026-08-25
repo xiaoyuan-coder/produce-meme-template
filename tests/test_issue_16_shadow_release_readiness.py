@@ -966,6 +966,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
             runtime_contract["contentDistributionPolicies"]["targetGroup"],
             prompt,
         )
+        self.assertNotIn("旅行", prompt)
         visual = runtime[runtime_fields["visualContract"]]
         visual_fields = runtime_contract["visualContractFields"]
         for relation in (
