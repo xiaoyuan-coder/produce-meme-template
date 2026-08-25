@@ -253,11 +253,9 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
         record = load_json(result.gallery_template)
         schema = load_json(
             ROOT
-            / "contracts"
-            / "upstream"
-            / "gallery-template"
-            / "agent-template-json-runtime-contract-2026-08-22"
-            / "gallery-template.schema.json"
+            / RULES["releaseManagementContract"][
+                "gallerySnapshotRelativePath"
+            ]
         )
         validator = Draft202012Validator(schema["$defs"]["targetId"])
         target_ids = [
