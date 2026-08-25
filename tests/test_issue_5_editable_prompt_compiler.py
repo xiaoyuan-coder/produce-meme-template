@@ -342,6 +342,18 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
 
         def assessed(analysis: dict) -> dict:
             analysis["subjectKind"] = PERSON_KIND
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"]["inheritFromUpload"].append(
+                "服装"
+            )
+            transfer = analysis["renderingCoherenceDecision"]["subjectTransfers"][0]
+            transfer["inheritFromUpload"] = subject[
+                "identityInheritanceDecision"
+            ]["inheritFromUpload"]
             analysis["subjectAttributeAssessments"] = {
                 role: {gate: False for gate in VALUE_GATE_ROLES.values()} | {
                     "includedAsSlot": False,
@@ -433,6 +445,52 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             relations,
         )
         self.assertFalse(any("沿用模板角色位" in value for value in relations))
+
+    def test_clothing_defaults_to_upload_and_only_core_play_feature_is_fixed(
+        self,
+    ) -> None:
+        def core_clothing_feature(analysis: dict) -> dict:
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"] = {
+                "inheritFromUpload": [
+                    "可辨认身份特征",
+                    "服装颜色与材质",
+                    "表情",
+                ],
+                "keepFromTemplate": ["撑起夸张斗篷轮廓的服装结构"],
+                "reason": "夸张斗篷轮廓构成模板核心玩法",
+            }
+            return add_unified_rendering_decision(analysis)
+
+        accepted = self.run_case(
+            "core-clothing-feature-is-minimal-exception",
+            core_clothing_feature,
+        )
+        self.assertEqual(RULES["resultStates"]["completed"], accepted.state)
+
+        def generic_template_clothing(analysis: dict) -> dict:
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            subject["identityInheritanceDecision"] = {
+                "inheritFromUpload": ["可辨认身份特征", "服装颜色与材质"],
+                "keepFromTemplate": ["模板服装"],
+                "reason": "保持模板美观",
+            }
+            return add_unified_rendering_decision(analysis)
+
+        blocked = self.run_case(
+            "generic-template-clothing-is-not-core-play",
+            generic_template_clothing,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], blocked.state)
+        self.assertFalse((blocked.output_dir / "editable-template-spec.json").exists())
 
     def test_subject_identity_inheritance_scope_is_required_and_disjoint(self) -> None:
         def remove_decision(analysis: dict) -> dict:

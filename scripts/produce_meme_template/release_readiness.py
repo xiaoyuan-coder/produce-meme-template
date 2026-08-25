@@ -1350,12 +1350,20 @@ def _template_test_report_valid(
     return True
 
 
-def _template_test_values(template: dict[str, Any]) -> dict[str, str] | None:
+def _template_test_values(
+    template: dict[str, Any], rules: dict[str, Any]
+) -> dict[str, str] | None:
     values: dict[str, str] = {}
-    input_schema = template.get("inputSchema")
+    top_level = rules["formalProjection"]["topLevel"]
+    input_contract = rules["slotCompilationContract"]["inputContract"]
+    input_fields = input_contract["fields"]
+    slot_fields = input_contract["slotFields"]
+    text_fields = input_contract["textFields"]
+    input_schema = template.get(top_level["userInputSchema"])
     input_slots = (
-        input_schema.get("slots")
-        if isinstance(input_schema, dict) and input_schema.get("version") == 2
+        input_schema.get(input_fields["slots"])
+        if isinstance(input_schema, dict)
+        and input_schema.get(input_fields["version"]) == input_contract["version"]
         else None
     )
     if not isinstance(input_slots, list) or not input_slots:
@@ -1363,13 +1371,21 @@ def _template_test_values(template: dict[str, Any]) -> dict[str, str] | None:
     for item in input_slots:
         if not isinstance(item, dict):
             return None
-        slot_id = item.get("id")
-        text = item.get("text")
-        suggestions = text.get("suggestions") if isinstance(text, dict) else None
+        slot_id = item.get(slot_fields["identity"])
+        text = item.get(slot_fields["text"])
+        if text is None:
+            continue
+        suggestions = (
+            text.get(text_fields["suggestions"])
+            if isinstance(text, dict)
+            else None
+        )
         value: Any = (
             suggestions[0]
             if isinstance(suggestions, list) and suggestions
-            else text.get("defaultValue") if isinstance(text, dict) else None
+            else text.get(text_fields["defaultValue"])
+            if isinstance(text, dict)
+            else None
         )
         if not (
             isinstance(slot_id, str)
@@ -1378,7 +1394,7 @@ def _template_test_values(template: dict[str, Any]) -> dict[str, str] | None:
         ):
             return None
         values[slot_id] = value.strip()
-    return values
+    return values or None
 
 
 def _template_test_request(
@@ -1389,7 +1405,7 @@ def _template_test_request(
     rules: dict[str, Any],
     readiness_contract: dict[str, Any],
 ) -> dict[str, Any] | None:
-    values = _template_test_values(template)
+    values = _template_test_values(template, rules)
     manifest = _load_object(
         _production_manifest_path(production_output, readiness_contract)
     )

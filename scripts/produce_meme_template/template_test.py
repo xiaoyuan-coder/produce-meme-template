@@ -142,31 +142,38 @@ def _safe_output_dir(root: Path, invocation_id: str) -> Path | None:
 def _formal_template_errors(template: Any) -> list[str]:
     if not isinstance(template, dict):
         return ["formal template must be an object"]
+    rules = _rules()
+    top_level = rules["formalProjection"]["topLevel"]
+    input_contract = rules["slotCompilationContract"]["inputContract"]
+    input_fields = input_contract["fields"]
+    slot_fields = input_contract["slotFields"]
     schema = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
     errors = [error.message for error in validator.iter_errors(template)]
-    cover = template.get("cover")
-    reference = template.get("referenceImage")
+    cover = template.get(top_level["coverAsset"])
+    reference = template.get(top_level["referenceAsset"])
     if not (
         isinstance(cover, str)
         and cover == reference
         and is_valid_https_url(cover)
     ):
         errors.append("cover and referenceImage must be the same HTTPS URL")
-    if not formal_template_contract_valid(template, _rules()):
+    if not formal_template_contract_valid(template, rules):
         errors.append("formal projection contract invalid")
-    input_schema = template.get("inputSchema")
+    input_schema = template.get(top_level["userInputSchema"])
     input_slots = (
-        input_schema.get("slots")
-        if isinstance(input_schema, dict) and input_schema.get("version") == 2
+        input_schema.get(input_fields["slots"])
+        if isinstance(input_schema, dict)
+        and input_schema.get(input_fields["version"]) == input_contract["version"]
         else None
     )
-    prompt_template = template.get("promptTemplate")
+    prompt_template = template.get(top_level["userPromptTemplate"])
     if isinstance(input_slots, list) and isinstance(prompt_template, str):
         input_ids = [
-            item.get("id")
+            item.get(slot_fields["identity"])
             for item in input_slots
-            if isinstance(item, dict) and isinstance(item.get("id"), str)
+            if isinstance(item, dict)
+            and isinstance(item.get(slot_fields["identity"]), str)
         ]
         referenced_heads: set[str] = set()
         for match in PLACEHOLDER.finditer(prompt_template):
@@ -235,7 +242,10 @@ def _resolve_prompt(
 
 
 def _case_prompt(
-    template: dict[str, Any], case: dict[str, Any], contract: dict[str, Any]
+    template: dict[str, Any],
+    case: dict[str, Any],
+    contract: dict[str, Any],
+    rules: dict[str, Any],
 ) -> tuple[str, dict[str, Any]]:
     fields = contract["caseFields"]
     mode = case[fields["mode"]]
@@ -247,11 +257,16 @@ def _case_prompt(
     slot_values = case.get(fields["slotValues"])
     if not isinstance(slot_values, dict):
         raise ValueError("slot edit requires slot values")
-    input_slots = template["inputSchema"]["slots"]
+    top_level = rules["formalProjection"]["topLevel"]
+    input_contract = rules["slotCompilationContract"]["inputContract"]
+    input_fields = input_contract["fields"]
+    slot_fields = input_contract["slotFields"]
+    input_slots = template[top_level["userInputSchema"]][input_fields["slots"]]
     input_ids = {
-        item.get("id")
+        item.get(slot_fields["identity"])
         for item in input_slots
-        if isinstance(item, dict) and isinstance(item.get("id"), str)
+        if isinstance(item, dict)
+        and isinstance(item.get(slot_fields["identity"]), str)
     }
     if not (
         slot_values
@@ -265,15 +280,20 @@ def _case_prompt(
     ):
         raise ValueError("slot values do not match the formal input schema")
     input_by_id = {
-        item["id"]: item for item in input_slots if isinstance(item, dict)
+        item[slot_fields["identity"]]: item
+        for item in input_slots
+        if isinstance(item, dict)
     }
-    if any("text" not in input_by_id[slot_id] for slot_id in slot_values):
+    if any(
+        slot_fields["text"] not in input_by_id[slot_id]
+        for slot_id in slot_values
+    ):
         raise ValueError(
             "image-only slots require a binary test asset and are not string slot values"
         )
     normalized = {key: value.strip() for key, value in slot_values.items()}
     return _resolve_prompt(
-        template["promptTemplate"], normalized, input_slots
+        template[top_level["userPromptTemplate"]], normalized, input_slots
     ), {
         fields["slotValues"]: normalized
     }
@@ -287,24 +307,31 @@ def _compile_actual_prompt(
     """Compile the author prompt and structured runtime contract for a real model call."""
     runtime_contract = rules["runtimeSemanticsContract"]
     runtime_fields = runtime_contract["fields"]
+    target_fields = runtime_contract["targetInstanceFields"]
+    binding_fields = runtime_contract["inputBindingFields"]
+    visual_fields = runtime_contract["visualContractFields"]
     targets = runtime_semantics[runtime_fields["targetInstances"]]
     bindings = runtime_semantics[runtime_fields["inputBindings"]]
     visual = runtime_semantics[runtime_fields["visualContract"]]
-    target_by_id = {target["id"]: target for target in targets}
+    target_by_id = {
+        target[target_fields["identity"]]: target for target in targets
+    }
 
     target_text = "；".join(
-        f"{target['role']}位于{target['region']}"
+        f"{target[target_fields['role']]}位于{target[target_fields['region']]}"
         for target in targets
     )
     binding_texts: list[str] = []
     for input_id, binding in bindings.items():
         target_roles = "、".join(
-            target_by_id[target_id]["role"]
-            for target_id in binding["targetIds"]
+            target_by_id[target_id][target_fields["role"]]
+            for target_id in binding[binding_fields["targetIdentities"]]
         )
-        operation = binding["operation"]
+        operation = binding[binding_fields["operation"]]
         if operation == runtime_contract["operations"]["replaceIdentity"]:
-            policy = binding["bindingPolicy"]
+            policy = binding[
+                binding_fields["identityBindingPolicy"]
+            ]
             policy_text = (
                 "一对一接管"
                 if policy == runtime_contract["identityBindingPolicies"]["oneToOne"]
@@ -317,18 +344,20 @@ def _compile_actual_prompt(
         else:
             binding_texts.append(
                 f"输入 {input_id} 接管{target_roles}，"
-                f"分布策略为 {binding['distributionPolicy']}"
+                f"分布策略为 {binding[binding_fields['distributionPolicy']]}"
             )
 
     sections = [
         resolved_prompt,
-        f"媒介：{visual['medium']}。",
-        f"画风特征：{'；'.join(visual['styleTraits'])}。",
-        f"构图：{'；'.join(visual['composition'])}。",
-        f"关系：{'；'.join(visual['relations'])}。",
+        f"媒介：{visual[visual_fields['medium']]}。",
+        f"画风特征：{'；'.join(visual[visual_fields['styleTraits']])}。",
+        f"构图：{'；'.join(visual[visual_fields['composition']])}。",
+        f"关系：{'；'.join(visual[visual_fields['relations']])}。",
     ]
-    if visual["colorAndLight"]:
-        sections.append(f"色彩与光线：{'；'.join(visual['colorAndLight'])}。")
+    if visual[visual_fields["colorAndLight"]]:
+        sections.append(
+            f"色彩与光线：{'；'.join(visual[visual_fields['colorAndLight']])}。"
+        )
     sections.extend(
         [
             f"目标实例：{target_text}。",
@@ -1894,13 +1923,16 @@ def run_template_test(
         )
     try:
         prompts = []
+        top_level = rules["formalProjection"]["topLevel"]
         for case in normalized_request[request_fields["cases"]]:
-            resolved_prompt, user_input = _case_prompt(template, case, contract)
+            resolved_prompt, user_input = _case_prompt(
+                template, case, contract, rules
+            )
             prompts.append(
                 (
                     _compile_actual_prompt(
                         resolved_prompt,
-                        template["runtimeSemantics"],
+                        template[top_level["runtimeSemantics"]],
                         rules,
                     ),
                     user_input,

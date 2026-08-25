@@ -489,6 +489,75 @@ class Issue9MultiInstanceOperationsTest(unittest.TestCase):
         self.assertEqual(len(SCENARIOS), len(source_hashes))
         self.assertEqual(len(SCENARIOS), len(approved_hashes))
 
+    def test_repeated_identity_binding_covers_every_visible_instance(self) -> None:
+        def omit_visible_repeat_from_control(analysis: dict) -> None:
+            graph = analysis[CONTRACT["approvedFields"]["componentGraph"]]
+            repeated = next(
+                component
+                for component in graph[GRAPH_FIELDS["components"]]
+                if component[COMPONENT_FIELDS["identity"]]
+                == "approved-pet-repeat-b"
+            )
+            repeated[COMPONENT_FIELDS["control"]] = None
+            repeated[COMPONENT_FIELDS["uploadAsset"]] = None
+
+        adapters = MultiInstanceAdapters(
+            SCENARIOS["repeatedPet"],
+            approved_mutator=omit_visible_repeat_from_control,
+        )
+        result = self.run_case("runtime-omits-visible-repeat", adapters)
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertEqual([], adapters.upload_calls)
+
+    def test_container_classification_matches_graph_and_active_binding(self) -> None:
+        classes = RULES["runtimeSemanticsContract"][
+            "containerDependencyDecision"
+        ]["classifications"]
+
+        def forged_dependency(classification: str):
+            def mutate(analysis: dict) -> None:
+                graph = analysis[CONTRACT["approvedFields"]["componentGraph"]]
+                held = next(
+                    component
+                    for component in graph[GRAPH_FIELDS["components"]]
+                    if component[COMPONENT_FIELDS["identity"]]
+                    == "approved-held-object"
+                )
+                held[COMPONENT_FIELDS["container"]] = (
+                    "approved-contact-background"
+                )
+                decision = analysis["containerDependencies"][0]
+                decision["classification"] = classification
+                decision["containerTargetId"] = (
+                    None
+                    if classification == classes["independent"]
+                    else "approved-contact-background"
+                )
+                decision["evidence"] = (
+                    "伪造分类只引用任意背景目标，未证明封闭容器与激活绑定。"
+                )
+
+            return mutate
+
+        for role in ("independent", "postEdit", "templateFixed"):
+            with self.subTest(classification=classes[role]):
+                adapters = MultiInstanceAdapters(
+                    SCENARIOS["personContactObject"],
+                    approved_mutator=forged_dependency(classes[role]),
+                )
+                result = self.run_case(
+                    f"forged-container-{classes[role].replace('_', '-')}",
+                    adapters,
+                )
+
+                self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+                self.assertEqual(
+                    RULES["errorCodes"]["contractFailure"], result.error_code
+                )
+                self.assertEqual([], adapters.upload_calls)
+
     def test_four_counts_are_derived_independently_from_the_approved_component_graph(self) -> None:
         for name in ("framedWholeImage", "multiPersonGrid", "repeatedPet", "personContactObject"):
             with self.subTest(name=name):

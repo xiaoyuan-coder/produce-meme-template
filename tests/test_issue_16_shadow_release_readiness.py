@@ -202,6 +202,35 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
             role_by_key[CONTRACT["liveSupplementScenarioRoleKeys"][0]],
         }
 
+    def test_readiness_slot_values_ignore_valid_image_only_slots(self) -> None:
+        input_contract = RULES["slotCompilationContract"]["inputContract"]
+        input_fields = input_contract["fields"]
+        slot_fields = input_contract["slotFields"]
+        text_fields = input_contract["textFields"]
+        template = {
+            RULES["formalProjection"]["topLevel"]["userInputSchema"]: {
+                input_fields["version"]: input_contract["version"],
+                input_fields["slots"]: [
+                    {
+                        slot_fields["identity"]: "photo_only",
+                        slot_fields["image"]: {"promptValue": "上传照片"},
+                    },
+                    {
+                        slot_fields["identity"]: "caption",
+                        slot_fields["text"]: {
+                            text_fields["defaultValue"]: "默认文案",
+                            text_fields["suggestions"]: ["全新文案"],
+                        },
+                    },
+                ],
+            }
+        }
+
+        self.assertEqual(
+            {"caption": "全新文案"},
+            readiness_module._template_test_values(template, RULES),
+        )
+
     def test_review_receipt_separates_comparison_base_from_reviewed_head(self) -> None:
         fields = CONTRACT["reviewReceiptFields"]
         comparison_base = "1" * 40

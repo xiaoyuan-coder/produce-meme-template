@@ -1096,6 +1096,7 @@
     "inputBindingFields": {
       "operation": "operation",
       "targetIdentities": "targetIds",
+      "identityBindingPolicy": "bindingPolicy",
       "distributionPolicy": "distributionPolicy"
     },
     "identityBindingBase": {
@@ -1272,6 +1273,30 @@
         "version": "version",
         "slots": "slots"
       },
+      "slotFields": {
+        "identity": "id",
+        "label": "label",
+        "required": "required",
+        "text": "text",
+        "image": "image",
+        "resolutionStrategy": "resolutionStrategy"
+      },
+      "textFields": {
+        "presentation": "presentation",
+        "allowCustom": "allowCustom",
+        "defaultValue": "defaultValue",
+        "placeholder": "placeholder",
+        "suggestions": "suggestions"
+      },
+      "imageFields": {
+        "promptValue": "promptValue",
+        "hint": "hint",
+        "maxCount": "maxCount",
+        "minimumWidth": "minWidth",
+        "minimumHeight": "minHeight",
+        "private": "private",
+        "sourceOptions": "sourceOptions"
+      },
       "modeAuthoringField": "inputModes",
       "modes": {
         "text": "text",
@@ -1291,7 +1316,12 @@
         "reason": "reason"
       },
       "requiredInheritedTrait": "可辨认身份特征",
-      "minimumSpecificInheritedTraits": 1
+      "minimumSpecificInheritedTraits": 1,
+      "clothingPolicy": {
+        "traitMarkers": ["服装", "衣服", "衣着", "衣物", "制服", "外套", "上衣", "裤", "裙", "领口", "衣领", "袖", "斗篷"],
+        "forbiddenGenericTemplateValues": ["服装", "衣服", "衣着", "衣物", "默认服装", "模板服装"],
+        "requiredReasonMarkers": ["核心玩法", "核心机制", "核心结构", "动作", "构图", "裁切", "轮廓", "受力", "接触", "遮挡", "视觉钩子"]
+      }
     },
     "subjectInputDefaults": {
       "required": false,
