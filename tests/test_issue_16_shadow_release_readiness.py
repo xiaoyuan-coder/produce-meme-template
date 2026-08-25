@@ -107,6 +107,70 @@ class AnimalOnlyReadinessAdapters:
         return workflow_adapters
 
 
+class ImageOnlySlotReadinessAdapters(RecordedShadowReadinessAdapters):
+    """Exercise an image-only subject through the public readiness seam."""
+
+    def workflow_adapters_for_scenario(self, scenario: dict):
+        adapters = super().workflow_adapters_for_scenario(scenario)
+        ordinary_role = CONTRACT["scenarioRoles"]["ordinaryPerson"]
+        if (
+            scenario[SCENARIO_FIELDS["role"]] != ordinary_role
+            or getattr(adapters, "_image_only_slots_installed", False)
+        ):
+            return adapters
+
+        mode_field = RULES["slotCompilationContract"]["inputContract"][
+            "modeAuthoringField"
+        ]
+        image_mode = RULES["slotCompilationContract"]["inputContract"][
+            "modes"
+        ]["image"]
+        original_analyze = adapters.analyze_approved
+        original_analyze_with_handoff = adapters.analyze_approved_with_handoff
+        original_audit = adapters.audit_semantics
+
+        def image_only(analysis: dict) -> dict:
+            subject_type = RULES["slotCompilationContract"]["slotTypes"][
+                "primarySubjectUpload"
+            ]
+            for slot in analysis["slotCandidates"]:
+                if slot["type"] == subject_type:
+                    slot[mode_field] = [image_mode]
+            return analysis
+
+        def analyze_approved(approved_image: Path) -> dict:
+            return image_only(original_analyze(approved_image))
+
+        def analyze_approved_with_handoff(
+            approved_image: Path, authoring_handoff: dict
+        ) -> dict:
+            return image_only(
+                original_analyze_with_handoff(
+                    approved_image, authoring_handoff
+                )
+            )
+
+        def audit_semantics(content: dict) -> dict:
+            audit = original_audit(content)
+            digest = hashlib.sha256(
+                json.dumps(
+                    content,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            audit["contentSha256"] = digest
+            audit["observedContentSha256"] = digest
+            return audit
+
+        adapters.analyze_approved = analyze_approved
+        adapters.analyze_approved_with_handoff = analyze_approved_with_handoff
+        adapters.audit_semantics = audit_semantics
+        adapters._image_only_slots_installed = True
+        return adapters
+
+
 class RelabeledRecordedReadinessAdapters(RecordedShadowReadinessAdapters):
     def __init__(self) -> None:
         super().__init__()
@@ -203,47 +267,66 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
             role_by_key[CONTRACT["liveSupplementScenarioRoleKeys"][0]],
         }
 
-    def test_readiness_slot_values_ignore_valid_image_only_slots(self) -> None:
-        input_contract = RULES["slotCompilationContract"]["inputContract"]
-        input_fields = input_contract["fields"]
-        slot_fields = input_contract["slotFields"]
-        text_fields = input_contract["textFields"]
-        template = {
-            RULES["formalProjection"]["topLevel"]["userInputSchema"]: {
-                input_fields["version"]: input_contract["version"],
-                input_fields["slots"]: [
-                    {
-                        slot_fields["identity"]: "photo_only",
-                        slot_fields["image"]: {"promptValue": "上传照片"},
-                    },
-                    {
-                        slot_fields["identity"]: "caption",
-                        slot_fields["text"]: {
-                            text_fields["defaultValue"]: "默认文案",
-                            text_fields["suggestions"]: ["全新文案"],
-                        },
-                    },
-                ],
-            }
-        }
+    def test_public_readiness_omits_an_image_only_slot_from_t1_values(self) -> None:
+        request = recorded_shadow_request()
+        with tempfile.TemporaryDirectory() as temporary:
+            output_root = Path(temporary) / "readiness"
+            report = run_release_readiness(
+                request,
+                output_root,
+                ImageOnlySlotReadinessAdapters(),
+            )
 
-        self.assertEqual(
-            {"caption": "全新文案"},
-            readiness_module._template_test_values(template, RULES),
-        )
+            self.assertTrue(report[REPORT_FIELDS["pass"]], report)
+            ordinary = next(
+                item
+                for item in report[REPORT_FIELDS["scenarios"]]
+                if item[SCENARIO_REPORT_FIELDS["role"]]
+                == CONTRACT["scenarioRoles"]["ordinaryPerson"]
+            )
+            formal_path = (
+                Path(ordinary[SCENARIO_REPORT_FIELDS["outputDirectory"]])
+                / "gallery-template.json"
+            )
+            formal = json.loads(formal_path.read_text(encoding="utf-8"))
+            input_contract = RULES["slotCompilationContract"]["inputContract"]
+            slot_fields = input_contract["slotFields"]
+            slots = formal[
+                RULES["formalProjection"]["topLevel"]["userInputSchema"]
+            ][input_contract["fields"]["slots"]]
+            self.assertTrue(slots)
+            image_only_slot = next(
+                slot for slot in slots if slot[slot_fields["identity"]] == "portrait_subject"
+            )
+            self.assertIn(slot_fields["image"], image_only_slot)
+            self.assertNotIn(slot_fields["text"], image_only_slot)
 
-        template[RULES["formalProjection"]["topLevel"]["userInputSchema"]][
-            input_fields["slots"]
-        ] = [
-            {
-                slot_fields["identity"]: "photo_only",
-                slot_fields["image"]: {"promptValue": "上传照片"},
-            }
-        ]
-        self.assertEqual(
-            {},
-            readiness_module._template_test_values(template, RULES),
-        )
+            test_contract = RULES["templateTestContract"]
+            test_request_path = (
+                Path(
+                    ordinary[
+                        SCENARIO_REPORT_FIELDS["templateTestOutputDirectory"]
+                    ]
+                )
+                / test_contract["artifactNames"]["request"]
+            )
+            test_request = json.loads(
+                test_request_path.read_text(encoding="utf-8")
+            )
+            request_fields = test_contract["requestFields"]
+            case_fields = test_contract["caseFields"]
+            slot_case = next(
+                item
+                for item in test_request[request_fields["cases"]]
+                if item[case_fields["mode"]] == test_contract["modes"]["slotEdit"]
+            )
+            slot_values = slot_case[case_fields["slotValues"]]
+            self.assertNotIn("portrait_subject", slot_values)
+            self.assertEqual({"portrait_frame", "studio_tone"}, set(slot_values))
+            self.assertEqual(
+                "completed",
+                ordinary[SCENARIO_REPORT_FIELDS["templateTestOutcome"]],
+            )
 
     def test_review_receipt_separates_comparison_base_from_reviewed_head(self) -> None:
         fields = CONTRACT["reviewReceiptFields"]

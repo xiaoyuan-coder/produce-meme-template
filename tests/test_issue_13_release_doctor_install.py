@@ -25,6 +25,7 @@ from scripts.produce_meme_template.release_management import (
     verify_compatible_release_completion,
     write_pin_migration_report,
 )
+from scripts.produce_meme_template import release_management
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
 
 
@@ -323,6 +324,32 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
                 built_at=BUILT_AT,
             )
 
+    def test_release_validation_uses_the_machine_timeout_budget(self) -> None:
+        completed = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        with mock.patch.object(
+            release_management.subprocess,
+            "run",
+            return_value=completed,
+        ) as runner:
+            passed, detail = release_management._run_release_validation(
+                self.source,
+                RELEASE_CONTRACT,
+                include_tests=True,
+            )
+
+        self.assertTrue(passed)
+        self.assertIsNone(detail)
+        self.assertEqual(2, runner.call_count)
+        self.assertTrue(
+            all(
+                call.kwargs["timeout"]
+                == RELEASE_CONTRACT["validationTimeoutSeconds"]
+                for call in runner.call_args_list
+            )
+        )
+
     def test_release_lock_binds_all_files_and_three_version_lines(self) -> None:
         result = self.build()
         package = Path(result["packageDir"])
@@ -617,6 +644,10 @@ class Issue13ReleaseDoctorInstallTest(unittest.TestCase):
             )
 
         self.assertTrue(promoted["pass"])
+        self.assertEqual(
+            RELEASE_CONTRACT["validationTimeoutSeconds"],
+            verifier.call_args.kwargs["timeout"],
+        )
         package = Path(promoted["packageDir"])
         lock = load_json(candidate / LOCK_NAME)
         for entry in lock[LOCK_FIELDS["files"]]:

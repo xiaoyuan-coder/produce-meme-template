@@ -9,6 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
+from jsonschema import Draft202012Validator
+
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
 from scripts.produce_meme_template.workflow import WorkflowStop, _formal_projection, _validate_final
 
@@ -220,6 +222,52 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
         for target in expected_targets:
             target["id"] = target["id"].replace("-", "_")
         self.assertEqual(expected_targets, record["runtimeSemantics"]["targetInstances"])
+
+    def test_public_workflow_normalizes_target_ids_from_the_frozen_schema(self) -> None:
+        replacements = {
+            "approved-animal-main": "A",
+            "approved-cushion": "Cushion-" + "X" * 160,
+            "approved-room": "123 room",
+        }
+
+        def replace_target_ids(value):
+            if isinstance(value, str):
+                return replacements.get(value, value)
+            if isinstance(value, list):
+                return [replace_target_ids(item) for item in value]
+            if isinstance(value, dict):
+                return {
+                    key: replace_target_ids(item) for key, item in value.items()
+                }
+            return value
+
+        def author_boundary_target_ids(analysis: dict) -> dict:
+            return replace_target_ids(analysis)
+
+        result = self.run_case(
+            "schema-driven-target-ids",
+            ApprovedAnalysisAdapters(author_boundary_target_ids),
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        record = load_json(result.gallery_template)
+        schema = load_json(
+            ROOT
+            / "contracts"
+            / "upstream"
+            / "gallery-template"
+            / "agent-template-json-runtime-contract-2026-08-22"
+            / "gallery-template.schema.json"
+        )
+        validator = Draft202012Validator(schema["$defs"]["targetId"])
+        target_ids = [
+            target["id"]
+            for target in record["runtimeSemantics"]["targetInstances"]
+        ]
+        self.assertTrue(all(validator.is_valid(target_id) for target_id in target_ids))
+        self.assertEqual(len(target_ids), len(set(target_ids)))
+        for binding in record["runtimeSemantics"]["inputBindings"].values():
+            self.assertTrue(set(binding["targetIds"]) <= set(target_ids))
 
     def test_public_workflow_rejects_targets_without_unique_visual_locations(self) -> None:
         generic_targets = [

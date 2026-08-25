@@ -39,6 +39,56 @@ from .workflow_core import (
     _stop,
 )
 
+
+def _schema_normalized_identifier(
+    value: str,
+    definition: dict[str, Any],
+    *,
+    fallback: str,
+) -> str:
+    """Normalize an authored identifier using its frozen Schema as the oracle."""
+
+    validator = Draft202012Validator(definition)
+    if not validator.is_valid(fallback) or len(fallback) < 2:
+        raise ValueError("schema identifier fallback is invalid")
+
+    lowered = (
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .lower()
+    )
+
+    def valid_start(character: str) -> bool:
+        return validator.is_valid(character + fallback[1:])
+
+    def valid_body(character: str) -> bool:
+        return validator.is_valid(fallback[0] + character + fallback[2:])
+
+    separator = "_" if valid_body("_") else fallback[1]
+    body = "".join(
+        character if valid_body(character) else separator
+        for character in lowered
+    ).strip(separator)
+    if body and valid_start(body[0]):
+        candidate = body
+    else:
+        candidate = fallback + (separator + body if body else "")
+    while separator * 2 in candidate:
+        candidate = candidate.replace(separator * 2, separator)
+    if validator.is_valid(candidate):
+        return candidate
+
+    search_space = candidate + separator + fallback
+    valid_prefixes = [
+        prefix
+        for length in range(1, len(search_space) + 1)
+        if (prefix := search_space[:length].rstrip(separator))
+        and validator.is_valid(prefix)
+    ]
+    return max(valid_prefixes, key=len, default=fallback)
+
+
 def _text_tokens_follow_source(
     source_text: str, tokens: list[str], common_punctuation: set[str]
 ) -> bool:
@@ -2404,13 +2454,15 @@ def _compile_runtime_semantics(
             "visualContract.relations 必须保持原子化且不重复。",
             {},
         )
+    gallery_schema = _load_json(GALLERY_SCHEMA_PATH)
+    target_id_definition = gallery_schema["$defs"]["targetId"]
+
     def formal_target_id(value: str) -> str:
-        normalized = re.sub(r"[^a-z0-9_]+", "_", value.lower()).strip("_")
-        if not normalized or not normalized[0].isalpha():
-            normalized = f"target_{normalized}"
-        if len(normalized) < 2:
-            normalized = f"{normalized}_target"
-        return normalized[:80].rstrip("_")
+        return _schema_normalized_identifier(
+            value,
+            target_id_definition,
+            fallback="target",
+        )
 
     target_id_map = {
         target_id: formal_target_id(target_id) for target_id in authored_target_by_id
