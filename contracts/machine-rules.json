@@ -1874,6 +1874,8 @@
     },
     "fal": {
       "model": "openai/gpt-image-2/edit",
+      "contentRegenerationModel": "openai/gpt-image-2",
+      "contentRegenerationMinimumTargetCount": 4,
       "quality": "high",
       "maximumDownloadRedirects": 3
     },

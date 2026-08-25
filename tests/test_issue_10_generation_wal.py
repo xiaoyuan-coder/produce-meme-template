@@ -777,6 +777,61 @@ class Issue10GenerationWalTest(unittest.TestCase):
         self.assertNotIn("TOPSECRET", persisted_text)
         self.assertNotIn("signature=ABC", persisted_text)
 
+    def test_real_fal_adapter_regenerates_pure_multi_target_content_from_contract(self) -> None:
+        class Handle:
+            request_id = "fal-content-regeneration-001"
+
+        class FakeFalClient:
+            def __init__(self) -> None:
+                self.submit_calls: list[tuple[str, dict]] = []
+
+            def submit(self, model: str, *, arguments: dict) -> Handle:
+                self.submit_calls.append((model, arguments))
+                return Handle()
+
+        runtime = RULES["runtimeSemanticsContract"]
+        runtime_fields = runtime["fields"]
+        binding_fields = runtime["inputBindingFields"]
+        client = FakeFalClient()
+        adapters = FalQueueWorkflowAdapters(
+            DeterministicFixtureAdapters(FIXTURE), client=client
+        )
+        package = {
+            "runtimeSemantics": {
+                runtime_fields["inputBindings"]: {
+                    "panel_subjects": {
+                        binding_fields["operation"]: runtime["operations"][
+                            "replaceContent"
+                        ],
+                        binding_fields["targetIdentities"]: [
+                            "panel-a",
+                            "panel-b",
+                            "panel-c",
+                            "panel-d",
+                        ],
+                    }
+                }
+            }
+        }
+        task = {
+            TASK_FIELDS["requestIntent"]: {
+                INTENT_FIELDS["prompt"]: "四位球队成员分别位于四格旧相片中。",
+                INTENT_FIELDS["imageSize"]: "1024x1024",
+                INTENT_FIELDS["imageCount"]: 1,
+                INTENT_FIELDS["outputFormat"]: "png",
+            }
+        }
+
+        submission = adapters.submit_generation(
+            FIXTURE / "source-image.ppm", package, task
+        )
+
+        self.assertEqual(1, len(client.submit_calls))
+        model, arguments = client.submit_calls[0]
+        self.assertEqual(CONTRACT["fal"]["contentRegenerationModel"], model)
+        self.assertNotIn("image_urls", arguments)
+        self.assertEqual(model, submission[SUBMISSION_FIELDS["model"]])
+
     def test_real_fal_adapter_resumes_a_submitted_request_without_resubmit(self) -> None:
         class Completed:
             pass

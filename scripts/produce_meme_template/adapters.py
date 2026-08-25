@@ -829,6 +829,46 @@ class FalQueueWorkflowAdapters:
             raise ValueError("generation image size must be WIDTHxHEIGHT or auto")
         return {"width": int(match.group(1)), "height": int(match.group(2))}
 
+    @staticmethod
+    def _generation_model(
+        generation_package: dict[str, Any], rules: dict[str, Any]
+    ) -> tuple[str, bool]:
+        execution = rules["generationExecutionContract"]
+        fal = execution["fal"]
+        runtime_contract = rules["runtimeSemanticsContract"]
+        runtime_fields = runtime_contract["fields"]
+        binding_fields = runtime_contract["inputBindingFields"]
+        runtime = generation_package.get("runtimeSemantics")
+        if not isinstance(runtime, dict):
+            return fal["model"], False
+        bindings = runtime.get(runtime_fields["inputBindings"])
+        if not isinstance(bindings, dict):
+            return fal["model"], False
+        content_targets: set[str] = set()
+        has_identity_replacement = False
+        for binding in bindings.values():
+            if not isinstance(binding, dict):
+                continue
+            operation = binding.get(binding_fields["operation"])
+            target_ids = binding.get(binding_fields["targetIdentities"])
+            if operation == runtime_contract["operations"]["replaceIdentity"]:
+                has_identity_replacement = True
+            elif (
+                operation == runtime_contract["operations"]["replaceContent"]
+                and isinstance(target_ids, list)
+                and all(isinstance(value, str) for value in target_ids)
+            ):
+                content_targets.update(target_ids)
+        regenerate = (
+            not has_identity_replacement
+            and len(content_targets)
+            >= fal["contentRegenerationMinimumTargetCount"]
+        )
+        return (
+            fal["contentRegenerationModel"] if regenerate else fal["model"],
+            regenerate,
+        )
+
     def _download(self, url: str) -> bytes:
         maximum_redirects = _read_json(RULES_PATH)["generationExecutionContract"][
             "fal"
@@ -988,15 +1028,18 @@ class FalQueueWorkflowAdapters:
         intent_fields = contract["requestIntentFields"]
         submission_fields = contract["submissionFields"]
         intent = generation_task[task_fields["requestIntent"]]
-        model = contract["fal"]["model"]
+        model, regenerate_from_contract = self._generation_model(
+            generation_package, rules
+        )
         arguments = {
             "prompt": intent[intent_fields["prompt"]],
-            "image_urls": [self._source_data_uri(source_image)],
             "image_size": self._image_size(intent[intent_fields["imageSize"]]),
             "quality": contract["fal"]["quality"],
             "num_images": intent[intent_fields["imageCount"]],
             "output_format": intent[intent_fields["outputFormat"]],
         }
+        if not regenerate_from_contract:
+            arguments["image_urls"] = [self._source_data_uri(source_image)]
         try:
             handle = self._fal_client().submit(model, arguments=arguments)
             provider_request_id = str(getattr(handle, "request_id", "")).strip()
