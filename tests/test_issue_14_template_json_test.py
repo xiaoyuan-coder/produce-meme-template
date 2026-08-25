@@ -363,6 +363,13 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertIn("本约束只作用于上述内容目标", slot_prompt)
         self.assertIn("旧人物类型、旧服装、旧道具和旧活动语义", slot_prompt)
         self.assertIn("媒介、画风特征、构图、关系与条件性色光", slot_prompt)
+        self.assertIn("pet_subject=垂耳兔", slot_prompt)
+        self.assertIn("cushion_look=深蓝色绒垫", slot_prompt)
+        self.assertIn("room_mood=清晨冷光", slot_prompt)
+        self.assertIn("必须把每个当前输入值明显呈现在对应目标中", slot_prompt)
+        self.assertIn("外观、服装、道具或动作线索", slot_prompt)
+        self.assertIn("禁止复制、轻改或保留参考图目标中的旧人物", slot_prompt)
+        self.assertIn("以当前输入为最高优先级", slot_prompt)
         self.assertNotIn("{{", slot_prompt)
         free_prompt = cases["free-change"][CASE_REPORT_FIELDS["resolvedPrompt"]]
         self.assertTrue(
@@ -372,6 +379,8 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 ]
             )
         )
+        self.assertIn("内容显性落地：见当前输入", free_prompt)
+        self.assertNotIn("pet_subject=垂耳兔", free_prompt)
         for item in cases.values():
             generation = item[CASE_REPORT_FIELDS["generationRequest"]]
             self.assertEqual(

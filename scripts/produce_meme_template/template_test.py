@@ -309,6 +309,7 @@ def _compile_actual_prompt(
     resolved_prompt: str,
     runtime_semantics: dict[str, Any],
     rules: dict[str, Any],
+    slot_values: dict[str, str] | None = None,
 ) -> str:
     """Compile the author prompt and structured runtime contract for a real model call."""
     runtime_contract = rules["runtimeSemanticsContract"]
@@ -329,6 +330,8 @@ def _compile_actual_prompt(
     )
     binding_texts: list[str] = []
     content_target_roles: list[str] = []
+    content_input_values: list[str] = []
+    current_slot_values = slot_values or {}
     for input_id, binding in bindings.items():
         target_roles = "、".join(
             target_by_id[target_id][target_fields["role"]]
@@ -350,6 +353,9 @@ def _compile_actual_prompt(
             )
         else:
             content_target_roles.append(target_roles)
+            input_value = current_slot_values.get(input_id)
+            if isinstance(input_value, str) and input_value.strip():
+                content_input_values.append(f"{input_id}={input_value.strip()}")
             binding_texts.append(
                 f"输入 {input_id} 完整接管{target_roles}，"
                 "先清除各目标的旧内容与残留，再由当前输入完整替换，"
@@ -374,6 +380,9 @@ def _compile_actual_prompt(
         ]
     )
     if content_target_roles:
+        visible_values = (
+            "；".join(content_input_values) if content_input_values else "见当前输入"
+        )
         sections.append(
             "内容优先级：当前输入是被内容接管目标（"
             f"{'、'.join(content_target_roles)}）的唯一内容事实源。"
@@ -381,6 +390,12 @@ def _compile_actual_prompt(
             "必须清除参考图中这些目标的旧人物类型、旧服装、旧道具和旧活动语义，"
             "最终只呈现当前输入指定的主体内容；模板仅保留视觉合同明确要求的媒介、"
             "画风特征、构图、关系与条件性色光。"
+        )
+        sections.append(
+            f"内容显性落地：{visible_values}。必须把每个当前输入值明显呈现在对应目标中，"
+            "逐个目标进行实质重绘；使用足以辨认当前输入类别的外观、服装、道具或动作线索。"
+            "禁止复制、轻改或保留参考图目标中的旧人物、旧服装、旧道具与旧活动。"
+            "当前输入与参考图内容冲突时，以当前输入为最高优先级。"
         )
     return "\n".join(sections)
 
@@ -1952,6 +1967,9 @@ def run_template_test(
                         resolved_prompt,
                         template[top_level["runtimeSemantics"]],
                         rules,
+                        case.get(
+                            contract["caseFields"]["slotValues"], {}
+                        ),
                     ),
                     user_input,
                 )

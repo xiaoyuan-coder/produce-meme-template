@@ -1049,6 +1049,12 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
         self.assertIn("本约束只作用于上述内容目标", prompt)
         self.assertIn("旧人物类型、旧服装、旧道具和旧活动语义", prompt)
         self.assertIn("媒介、画风特征、构图、关系与条件性色光", prompt)
+        self.assertIn("panel_subjects=四位球队成员", prompt)
+        self.assertIn("panel_frame=白边拍立得相纸", prompt)
+        self.assertIn("archive_tone=暖灰褪色胶片", prompt)
+        self.assertIn("必须把每个当前输入值明显呈现在对应目标中", prompt)
+        self.assertIn("禁止复制、轻改或保留参考图目标中的旧人物", prompt)
+        self.assertIn("以当前输入为最高优先级", prompt)
         self.assertIn(
             runtime_contract["contentDistributionPolicies"]["targetGroup"],
             prompt,
