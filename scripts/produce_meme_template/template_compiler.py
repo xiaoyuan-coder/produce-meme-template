@@ -1911,6 +1911,27 @@ def _identity_inheritance_relations(
     return relations
 
 
+def _source_isolation_formal_relations(
+    identity_inputs: list[str],
+    content_inputs: list[str],
+    rules: dict[str, Any],
+) -> list[str]:
+    contract = rules["runtimeSemanticsContract"]["sourceIsolationDecision"]
+    relation_templates = contract["formalRelations"]
+    identity_text = "、".join(sorted(identity_inputs))
+    return [
+        relation_templates["identityExclusion"].format(
+            identityInputs=identity_text
+        ),
+        *[
+            relation_templates["contentExclusive"].format(
+                contentInputId=input_id
+            )
+            for input_id in sorted(content_inputs)
+        ],
+    ]
+
+
 def _source_isolation_relations(
     analysis: dict[str, Any], editable: dict[str, Any], rules: dict[str, Any]
 ) -> list[str]:
@@ -1955,19 +1976,9 @@ def _source_isolation_relations(
                 "contentInputIds": content_inputs,
             },
         )
-    identity_text = "、".join(identity_inputs)
-    relation_templates = contract["formalRelations"]
-    return [
-        relation_templates["identityExclusion"].format(
-            identityInputs=identity_text
-        ),
-        *[
-            relation_templates["contentExclusive"].format(
-                contentInputId=input_id
-            )
-            for input_id in content_inputs
-        ],
-    ]
+    return _source_isolation_formal_relations(
+        identity_inputs, content_inputs, rules
+    )
 
 
 def _container_dependency_relations(
@@ -3460,19 +3471,13 @@ def _runtime_semantics_contract_errors(
             contract["visualContractFields"]["relations"], []
         )
         relation_set = set(relations) if isinstance(relations, list) else set()
-        source_contract = contract["sourceIsolationDecision"]
-        relation_templates = source_contract["formalRelations"]
-        identity_relation = relation_templates["identityExclusion"].format(
-            identityInputs="、".join(sorted(identity_image_inputs))
+        expected_relations = _source_isolation_formal_relations(
+            identity_image_inputs, content_image_inputs, rules
         )
+        identity_relation = expected_relations[0]
         if identity_relation not in relation_set:
             errors.append("身份图槽未完整进入来源隔离关系。")
-        if not all(
-            relation_templates["contentExclusive"].format(
-                contentInputId=input_id
-            ) in relation_set
-            for input_id in content_image_inputs
-        ):
+        if not set(expected_relations[1:]) <= relation_set:
             errors.append("内容图槽未声明目标唯一题材来源。")
     return sorted(set(errors))
 
