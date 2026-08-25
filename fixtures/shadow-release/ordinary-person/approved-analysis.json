@@ -121,6 +121,14 @@
       ],
       "identityInheritanceDecision": {
         "clothingVisible": true,
+        "traitClassifications": {
+          "可辨认身份特征": "identity",
+          "肤色": "other",
+          "发型": "other",
+          "服装": "clothing",
+          "表情": "other",
+          "正面居中的头肩肖像姿态": "other"
+        },
         "inheritFromUpload": [
           "可辨认身份特征",
           "肤色",

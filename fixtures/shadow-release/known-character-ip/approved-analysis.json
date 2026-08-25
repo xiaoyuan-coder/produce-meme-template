@@ -129,6 +129,12 @@
       ],
       "identityInheritanceDecision": {
         "clothingVisible": true,
+        "traitClassifications": {
+          "可辨认身份特征": "identity",
+          "角色服装与必要配饰": "clothing",
+          "表情": "other",
+          "完整站立并与地面稳定接触的动作": "other"
+        },
         "inheritFromUpload": [
           "可辨认身份特征",
           "角色服装与必要配饰",

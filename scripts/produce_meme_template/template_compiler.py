@@ -533,6 +533,11 @@ def _compile_editable_spec(
             if isinstance(decision, dict)
             else None
         )
+        trait_classifications = (
+            decision.get(inheritance_fields["traitClassifications"])
+            if isinstance(decision, dict)
+            else None
+        )
 
         def unique_clean_strings(value: Any, *, allow_empty: bool) -> bool:
             return bool(
@@ -546,22 +551,46 @@ def _compile_editable_spec(
             )
 
         clothing_policy = inheritance_contract["clothingPolicy"]
-        clothing_markers = clothing_policy["traitMarkers"]
+        trait_kinds = inheritance_contract["traitKinds"]
+        inherited_traits = (
+            set(inherited)
+            if isinstance(inherited, list)
+            and all(isinstance(value, str) for value in inherited)
+            else set()
+        )
+        fixed_traits = (
+            set(fixed)
+            if isinstance(fixed, list)
+            and all(isinstance(value, str) for value in fixed)
+            else set()
+        )
+        classifications_valid = bool(
+            isinstance(trait_classifications, dict)
+            and set(trait_classifications) == inherited_traits | fixed_traits
+            and all(
+                kind in set(trait_kinds.values())
+                for kind in trait_classifications.values()
+            )
+            and trait_classifications.get(
+                inheritance_contract["requiredInheritedTrait"]
+            )
+            == trait_kinds["identity"]
+        )
         inherited_clothing = bool(
-            isinstance(inherited, list)
+            classifications_valid
             and any(
-                marker in value
-                for value in inherited
-                for marker in clothing_markers
+                trait_classifications[value] == trait_kinds["clothing"]
+                for value in inherited_traits
             )
         )
         fixed_clothing = (
             [
                 value
-                for value in fixed
-                if any(marker in value for marker in clothing_markers)
+                for value in fixed_traits
+                if classifications_valid
+                and trait_classifications[value] == trait_kinds["clothing"]
             ]
-            if isinstance(fixed, list)
+            if fixed_traits
             else []
         )
         clothing_exception_valid = bool(
@@ -581,6 +610,7 @@ def _compile_editable_spec(
             isinstance(decision, dict)
             and set(decision) == set(inheritance_fields.values())
             and isinstance(clothing_visible, bool)
+            and classifications_valid
             and unique_clean_strings(inherited, allow_empty=False)
             and inheritance_contract["requiredInheritedTrait"] in inherited
             and len(inherited) - 1

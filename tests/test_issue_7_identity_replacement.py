@@ -229,6 +229,14 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                 ],
                 "identityInheritanceDecision": {
                     "clothingVisible": True,
+                    "traitClassifications": {
+                        "可辨认身份特征": "identity",
+                        "肤色": "other",
+                        "发型": "other",
+                        "服装": "clothing",
+                        "表情": "other",
+                        "动作": "other",
+                    },
                     "inheritFromUpload": [
                         "可辨认身份特征",
                         "肤色",

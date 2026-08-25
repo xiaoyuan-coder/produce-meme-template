@@ -181,6 +181,12 @@
       ],
       "identityInheritanceDecision": {
         "clothingVisible": false,
+        "traitClassifications": {
+          "可辨认身份特征": "identity",
+          "毛色与花纹": "other",
+          "表情": "other",
+          "蜷卧姿态与前爪搭住软垫的动作": "other"
+        },
         "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
         "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
         "reason": "蜷卧和搭爪动作构成模板核心玩法"

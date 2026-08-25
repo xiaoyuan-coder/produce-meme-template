@@ -181,6 +181,12 @@
       ],
       "identityInheritanceDecision": {
         "clothingVisible": false,
+        "traitClassifications": {
+          "可辨认身份特征": "identity",
+          "毛色与花纹": "other",
+          "表情": "other",
+          "四肢落地并稳定支撑躯干的坐姿": "other"
+        },
         "inheritFromUpload": [
           "可辨认身份特征",
           "毛色与花纹",

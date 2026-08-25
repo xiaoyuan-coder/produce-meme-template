@@ -130,6 +130,14 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 ```json
 {
   "clothingVisible": true,
+  "traitClassifications": {
+    "可辨认身份特征": "identity",
+    "肤色": "other",
+    "发型": "other",
+    "服装": "clothing",
+    "表情": "other",
+    "双手托腮动作": "other"
+  },
   "inheritFromUpload": ["可辨认身份特征", "肤色", "发型", "服装", "表情"],
   "keepFromTemplate": ["双手托腮动作"],
   "reason": "托腮动作构成模板核心玩法"
@@ -137,6 +145,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 ```
 
 - `clothingVisible` 是该 subject 在当前 Approved Template Image 中是否清晰露出服装的逐输入事实。值为 `true` 时，`inheritFromUpload` 必须包含服装范围；值为 `false` 时不强制补写不可见服装。动物、物体和角色同样逐个填写，避免用“人物”类型代替画面证据。
+- `traitClassifications` 必须逐条且精确覆盖两个特征列表，并把每条标为 `identity`、`clothing` 或 `other`；“可辨认身份特征”固定标为 `identity`。服装门禁读取这份结构化分类，纽扣、肩章、头纱等没有通用“服装”字样的局部细节也必须标为 `clothing`，不能依赖关键词猜测或归入 `other` 绕过核心玩法裁决。
 - `inheritFromUpload` 必须包含机器合同声明的“可辨认身份特征”，并至少按当前图补充一项肤色、毛色与花纹、发型、服装、配饰、表情或动作等清晰可辨范围。
 - `keepFromTemplate` 只列参与核心玩法的例外，可以为空；存在固定例外时，`reason` 必须用一句当前图事实说明其玩法、动作、关系、结构或视觉钩子依据。两个列表不得重叠。
 - 模板媒介、画风、造型比例和构图骨架继续属于 `visualContract`，不写入身份特征列表。

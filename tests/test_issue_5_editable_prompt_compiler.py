@@ -31,6 +31,10 @@ SUBJECT_PROMPT_VALUE_FIELD, SUBJECT_HINT_FIELD = tuple(
 )
 SUBJECT_DEFAULTS = SLOT_CONTRACT["subjectInputDefaults"]
 PERSON_ATTRIBUTE_ROLES = tuple(SLOT_CONTRACT["personAttributeRoles"].values())
+TRAIT_KINDS = SLOT_CONTRACT["identityInheritanceDecision"]["traitKinds"]
+IDENTITY_TRAIT_KIND, CLOTHING_TRAIT_KIND, OTHER_TRAIT_KIND = tuple(
+    TRAIT_KINDS.values()
+)
 SINGLE_SLOT_REVIEW_AXES = tuple(SLOT_CONTRACT["singleSlotReviewAxes"].values())
 ASSET_COUNT_FIELDS = SLOT_CONTRACT["assetUnitCountFields"]
 VISIBLE_TEXT_SLOT_TYPE = SLOT_CONTRACT["slotTypes"]["visibleTextPrompt"]
@@ -370,6 +374,12 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             )
             subject["identityInheritanceDecision"] = {
                 "clothingVisible": False,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                    "毛色与花纹": OTHER_TRAIT_KIND,
+                    "表情": OTHER_TRAIT_KIND,
+                    "蜷卧姿态与前爪搭住软垫的动作": OTHER_TRAIT_KIND,
+                },
                 "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
                 "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
                 "reason": "蜷卧和搭爪动作构成模板核心玩法",
@@ -390,6 +400,12 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         self.assertEqual(
             {
                 "clothingVisible": False,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                    "毛色与花纹": OTHER_TRAIT_KIND,
+                    "表情": OTHER_TRAIT_KIND,
+                    "蜷卧姿态与前爪搭住软垫的动作": OTHER_TRAIT_KIND,
+                },
                 "inheritFromUpload": ["可辨认身份特征", "毛色与花纹", "表情"],
                 "keepFromTemplate": ["蜷卧姿态与前爪搭住软垫的动作"],
                 "reason": "蜷卧和搭爪动作构成模板核心玩法",
@@ -417,6 +433,11 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             )
             subject["identityInheritanceDecision"] = {
                 "clothingVisible": False,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                    "毛色与花纹": OTHER_TRAIT_KIND,
+                    "表情与动作": OTHER_TRAIT_KIND,
+                },
                 "inheritFromUpload": [
                     "可辨认身份特征",
                     "毛色与花纹",
@@ -469,6 +490,12 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             )
             subject["identityInheritanceDecision"] = {
                 "clothingVisible": True,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                    "服装颜色与材质": CLOTHING_TRAIT_KIND,
+                    "表情": OTHER_TRAIT_KIND,
+                    "撑起夸张斗篷轮廓的服装结构": CLOTHING_TRAIT_KIND,
+                },
                 "inheritFromUpload": [
                     "可辨认身份特征",
                     "服装颜色与材质",
@@ -501,6 +528,34 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
         )
         self.assertEqual(RULES["resultStates"]["blocked"], contradictory.state)
 
+        def keyword_free_clothing_detail(analysis: dict) -> dict:
+            subject = next(
+                slot
+                for slot in analysis["slotCandidates"]
+                if slot["type"] == SUBJECT_TYPE
+            )
+            decision = subject["identityInheritanceDecision"]
+            decision["clothingVisible"] = False
+            decision["inheritFromUpload"].append("西装面料与配色")
+            decision["keepFromTemplate"] = ["西装的双排金属纽扣"]
+            decision["reason"] = "保持模板美观"
+            decision["traitClassifications"].update(
+                {
+                    "西装面料与配色": CLOTHING_TRAIT_KIND,
+                    "西装的双排金属纽扣": CLOTHING_TRAIT_KIND,
+                }
+            )
+            decision["traitClassifications"].pop(
+                "蜷卧姿态与前爪搭住软垫的动作"
+            )
+            return add_unified_rendering_decision(analysis)
+
+        keyword_free = self.run_case(
+            "keyword-free-clothing-detail-still-obeys-policy",
+            keyword_free_clothing_detail,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], keyword_free.state)
+
         def generic_template_clothing(analysis: dict) -> dict:
             subject = next(
                 slot
@@ -509,6 +564,11 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             )
             subject["identityInheritanceDecision"] = {
                 "clothingVisible": True,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                    "服装颜色与材质": CLOTHING_TRAIT_KIND,
+                    "模板服装": CLOTHING_TRAIT_KIND,
+                },
                 "inheritFromUpload": ["可辨认身份特征", "服装颜色与材质"],
                 "keepFromTemplate": ["模板服装"],
                 "reason": "保持模板美观",
@@ -540,6 +600,10 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             )
             subject["identityInheritanceDecision"] = {
                 "clothingVisible": True,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                    "服装": CLOTHING_TRAIT_KIND,
+                },
                 "inheritFromUpload": ["可辨认身份特征", "服装"],
                 "keepFromTemplate": ["服装"],
                 "reason": "伪造重叠范围",
@@ -556,6 +620,9 @@ class Issue5EditablePromptCompilerTest(unittest.TestCase):
             )
             subject["identityInheritanceDecision"] = {
                 "clothingVisible": False,
+                "traitClassifications": {
+                    "可辨认身份特征": IDENTITY_TRAIT_KIND,
+                },
                 "inheritFromUpload": ["可辨认身份特征"],
                 "keepFromTemplate": [],
                 "reason": "默认继承用户上传图",

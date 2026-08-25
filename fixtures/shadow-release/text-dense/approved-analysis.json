@@ -209,6 +209,12 @@
       ],
       "identityInheritanceDecision": {
         "clothingVisible": true,
+        "traitClassifications": {
+          "可辨认身份特征": "identity",
+          "服装与外形细节": "clothing",
+          "表情": "other",
+          "仰头并向画面中央伸出手臂的动作": "other"
+        },
         "inheritFromUpload": [
           "可辨认身份特征",
           "服装与外形细节",
