@@ -856,9 +856,27 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
+            generation_task = json.loads(
+                (result.output_dir / "generation-task.json").read_text(
+                    encoding="utf-8"
+                )
+            )
 
         self.assertIn(secondary_copy, formal["promptTemplate"])
         self.assertIn(secondary_copy, editable["freeEditableContent"])
+        generation_contract = RULES["generationExecutionContract"]
+        generation_prompt = generation_task[
+            generation_contract["taskFields"]["requestIntent"]
+        ][generation_contract["requestIntentFields"]["prompt"]]
+        for legacy_copy in (
+            "VIIe",
+            "Ouverte du 14 Janvier",
+            "Musée Moderne",
+            "place du Musée",
+            "Entrée 0.50 cent.",
+        ):
+            self.assertIn(legacy_copy, generation_prompt)
+        self.assertIn("仅保留逐字准确的 EXPOSITION 与 Peinture—Sculpture", generation_prompt)
         self.assertEqual(
             {"poster_figure", "headline_text", "poster_tone"},
             {item["id"] for item in formal["inputSchema"]["slots"]},
