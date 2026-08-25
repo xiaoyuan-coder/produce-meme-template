@@ -118,6 +118,60 @@ def formal_template() -> dict:
     }
 
 
+def multi_target_template(*, mixed_identity: bool = False) -> dict:
+    template = formal_template()
+    runtime = template["runtimeSemantics"]
+    runtime["targetInstances"].extend(
+        [
+            {
+                "id": "cushion_trim",
+                "kind": "content_element",
+                "role": "软垫外沿的装饰纹理",
+                "region": "画面下方软垫外沿区域",
+            },
+            {
+                "id": "cushion_corner",
+                "kind": "content_element",
+                "role": "软垫右侧的边角细节",
+                "region": "画面右下方软垫边角区域",
+            },
+        ]
+    )
+    runtime["inputBindings"]["cushion_look"] = {
+        "operation": "replace_content",
+        "targetIds": ["cushion", "cushion_trim", "cushion_corner"],
+        "distributionPolicy": "preserve_target_group",
+    }
+    if mixed_identity:
+        runtime["targetInstances"][0]["kind"] = "identity_subject"
+        runtime["inputBindings"]["pet_subject"] = {
+            "operation": "replace_identity",
+            "targetIds": ["pet"],
+            "bindingPolicy": "one_to_one",
+            "renderingMode": "illustration_redraw",
+            "allowedSourceGrouping": ["single_subject"],
+            "groupToSinglePolicy": "reject",
+        }
+        pet_slot = template["inputSchema"]["slots"][0]
+        pet_slot["image"] = {
+            "promptValue": "用户上传图中的主体",
+            "hint": "上传1张主体清晰的单主体图片",
+            "maxCount": 1,
+            "minWidth": 256,
+            "minHeight": 256,
+            "private": True,
+            "sourceOptions": ["upload", "recent_upload", "asset_library"],
+        }
+        pet_slot["resolutionStrategy"] = "image_over_text"
+        runtime["visualContract"]["relations"].extend(
+            [
+                "图片模式下，输入 pet_subject 的可辨认身份特征读取用户上传图并按模板媒介重绘",
+                "输入 pet_subject 的蜷卧姿态沿用模板角色位，软垫承托关系构成模板核心结构",
+            ]
+        )
+    return template
+
+
 def t1_request(template_path: Path) -> dict:
     return {
         REQUEST_FIELDS["templateJsonPath"]: str(template_path),
@@ -1346,6 +1400,187 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertIn("主体蜷卧在软垫上", actual_prompt)
         self.assertEqual(0, recovery_client.submit_calls)
         self.assertEqual([Handle.request_id], recovery_client.status_ids)
+
+    def test_public_t1_routes_content_regeneration_and_fails_closed(self) -> None:
+        class Completed:
+            pass
+
+        class Handle:
+            request_id = "fal-routing-matrix-001"
+
+        class RecordingClient:
+            def __init__(self) -> None:
+                self.submit_calls: list[tuple[str, dict]] = []
+                self.status_calls: list[tuple[str, str]] = []
+
+            def submit(self, model, *, arguments):
+                self.submit_calls.append((model, copy.deepcopy(arguments)))
+                return Handle()
+
+            def status(self, model, request_id):
+                self.status_calls.append((model, request_id))
+                return Completed()
+
+            def result(self, _model, _request_id):
+                return {"images": [{"url": "https://fal.example/t1.png"}]}
+
+        image_bytes = DeterministicFixtureAdapters._fixture_image_result(
+            FIXTURE / "approved-template-image.ppm"
+        )["imageBytes"]
+        fal_contract = RULES["generationExecutionContract"]["fal"]
+
+        def run_variant(template: dict, name: str):
+            path = self.production_dir / f"gallery-template-{name}.json"
+            path.write_text(
+                json.dumps(template, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            request = t1_request(path)
+            request[REQUEST_FIELDS["invocationIdentity"]] = f"t1-{name}"
+            request[REQUEST_FIELDS["cases"]] = request[
+                REQUEST_FIELDS["cases"]
+            ][:1]
+            client = RecordingClient()
+            result = run_template_test(
+                request,
+                self.root / f"output-{name}",
+                FalQueueWorkflowAdapters(
+                    DeterministicFixtureAdapters(FIXTURE),
+                    client=client,
+                    download_bytes=lambda _url: image_bytes,
+                    sleep=lambda _seconds: None,
+                ),
+                clock=lambda: FIXED_TIME,
+            )
+            return result, client
+
+        regenerated, regenerated_client = run_variant(
+            multi_target_template(), "regenerated"
+        )
+        self.assertEqual("completed", regenerated.outcome)
+        regeneration_model, regeneration_arguments = (
+            regenerated_client.submit_calls[0]
+        )
+        self.assertEqual(
+            fal_contract["contentRegenerationModel"], regeneration_model
+        )
+        self.assertNotIn("image_urls", regeneration_arguments)
+        case_dir = regenerated.output_dir / "case-slot-change"
+        submission = load_json(case_dir / "generation-submission.json")
+        wal = load_json(case_dir / "generation-wal.json")
+        execution = RULES["generationExecutionContract"]
+        self.assertEqual(
+            regeneration_model,
+            submission[execution["submissionFields"]["model"]],
+        )
+        self.assertEqual(
+            regeneration_model, wal[execution["walFields"]["model"]]
+        )
+
+        below_threshold, below_client = run_variant(
+            formal_template(), "below-threshold"
+        )
+        self.assertEqual("completed", below_threshold.outcome)
+        below_model, below_arguments = below_client.submit_calls[0]
+        self.assertEqual(fal_contract["model"], below_model)
+        self.assertIn("image_urls", below_arguments)
+
+        mixed, mixed_client = run_variant(
+            multi_target_template(mixed_identity=True), "mixed-identity"
+        )
+        self.assertEqual("completed", mixed.outcome)
+        mixed_model, mixed_arguments = mixed_client.submit_calls[0]
+        self.assertEqual(fal_contract["model"], mixed_model)
+        self.assertIn("image_urls", mixed_arguments)
+
+        malformed = multi_target_template()
+        malformed["runtimeSemantics"]["inputBindings"]["pet_subject"][
+            "operation"
+        ] = "unknown_operation"
+        blocked, blocked_client = run_variant(malformed, "malformed-runtime")
+        self.assertEqual("blocked", blocked.outcome)
+        self.assertEqual(CONTRACT["errorCodes"]["invalidTemplate"], blocked.error_code)
+        self.assertEqual([], blocked_client.submit_calls)
+
+    def test_public_t1_resumes_content_regeneration_with_the_frozen_model(self) -> None:
+        class Handle:
+            request_id = "fal-regeneration-resume-001"
+
+        class InterruptedClient:
+            def __init__(self) -> None:
+                self.submit_models: list[str] = []
+
+            def submit(self, model, *, arguments):
+                self.submit_models.append(model)
+                return Handle()
+
+            def status(self, _model, _request_id):
+                raise TimeoutError("temporary provider timeout")
+
+        class Completed:
+            pass
+
+        class RecoveryClient:
+            def __init__(self) -> None:
+                self.status_models: list[str] = []
+
+            def submit(self, _model, *, arguments):
+                raise AssertionError("recovery cannot submit a second request")
+
+            def status(self, model, _request_id):
+                self.status_models.append(model)
+                return Completed()
+
+            def result(self, _model, _request_id):
+                return {"images": [{"url": "https://fal.example/t1.png"}]}
+
+        self.template_path.write_text(
+            json.dumps(multi_target_template(), ensure_ascii=False, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+        request = t1_request(self.template_path)
+        request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][
+            :1
+        ]
+        image_bytes = DeterministicFixtureAdapters._fixture_image_result(
+            FIXTURE / "approved-template-image.ppm"
+        )["imageBytes"]
+        interrupted_client = InterruptedClient()
+        first = run_template_test(
+            request,
+            self.output,
+            FalQueueWorkflowAdapters(
+                DeterministicFixtureAdapters(FIXTURE),
+                client=interrupted_client,
+                download_bytes=lambda _url: image_bytes,
+                sleep=lambda _seconds: None,
+            ),
+            clock=lambda: FIXED_TIME,
+        )
+        recovery_client = RecoveryClient()
+        resumed = run_template_test(
+            request,
+            self.output,
+            FalQueueWorkflowAdapters(
+                DeterministicFixtureAdapters(FIXTURE),
+                client=recovery_client,
+                download_bytes=lambda _url: image_bytes,
+                sleep=lambda _seconds: None,
+            ),
+            clock=lambda: FIXED_TIME,
+        )
+
+        regeneration_model = RULES["generationExecutionContract"]["fal"][
+            "contentRegenerationModel"
+        ]
+        self.assertEqual("failed", first.outcome)
+        self.assertEqual(
+            CONTRACT["errorCodes"]["generationRetryable"], first.error_code
+        )
+        self.assertEqual([regeneration_model], interrupted_client.submit_models)
+        self.assertEqual("completed", resumed.outcome)
+        self.assertEqual([regeneration_model], recovery_client.status_models)
 
 
 if __name__ == "__main__":

@@ -797,7 +797,9 @@ class Issue10GenerationWalTest(unittest.TestCase):
             DeterministicFixtureAdapters(FIXTURE), client=client
         )
         package = {
-            "runtimeSemantics": {
+            RULES["templateTestContract"]["generationRequestFields"][
+                "runtimeSemantics"
+            ]: {
                 runtime_fields["inputBindings"]: {
                     "panel_subjects": {
                         binding_fields["operation"]: runtime["operations"][
@@ -831,6 +833,39 @@ class Issue10GenerationWalTest(unittest.TestCase):
         self.assertEqual(CONTRACT["fal"]["contentRegenerationModel"], model)
         self.assertNotIn("image_urls", arguments)
         self.assertEqual(model, submission[SUBMISSION_FIELDS["model"]])
+
+        malformed_bindings = [
+            {"operation": "unknown_operation", "targetIds": ["other"]},
+            {"operation": "replace_content", "targetIds": []},
+            {"operation": "replace_content", "targetIds": [""]},
+            "invalid-binding",
+        ]
+        package_fields = RULES["templateTestContract"][
+            "generationRequestFields"
+        ]
+        for index, malformed_binding in enumerate(malformed_bindings):
+            with self.subTest(index=index):
+                invalid_package = json.loads(json.dumps(package))
+                invalid_package[package_fields["runtimeSemantics"]][
+                    runtime_fields["inputBindings"]
+                ]["malformed"] = malformed_binding
+                fallback_client = FakeFalClient()
+                fallback = FalQueueWorkflowAdapters(
+                    DeterministicFixtureAdapters(FIXTURE),
+                    client=fallback_client,
+                )
+                fallback_submission = fallback.submit_generation(
+                    FIXTURE / "source-image.ppm", invalid_package, task
+                )
+                fallback_model, fallback_arguments = (
+                    fallback_client.submit_calls[0]
+                )
+                self.assertEqual(CONTRACT["fal"]["model"], fallback_model)
+                self.assertIn("image_urls", fallback_arguments)
+                self.assertEqual(
+                    fallback_model,
+                    fallback_submission[SUBMISSION_FIELDS["model"]],
+                )
 
     def test_real_fal_adapter_resumes_a_submitted_request_without_resubmit(self) -> None:
         class Completed:

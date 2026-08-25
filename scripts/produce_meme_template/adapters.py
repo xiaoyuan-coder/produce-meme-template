@@ -838,27 +838,37 @@ class FalQueueWorkflowAdapters:
         runtime_contract = rules["runtimeSemanticsContract"]
         runtime_fields = runtime_contract["fields"]
         binding_fields = runtime_contract["inputBindingFields"]
-        runtime = generation_package.get("runtimeSemantics")
+        package_fields = rules["templateTestContract"]["generationRequestFields"]
+        runtime = generation_package.get(package_fields["runtimeSemantics"])
         if not isinstance(runtime, dict):
             return fal["model"], False
         bindings = runtime.get(runtime_fields["inputBindings"])
-        if not isinstance(bindings, dict):
+        if not isinstance(bindings, dict) or not bindings:
             return fal["model"], False
         content_targets: set[str] = set()
         has_identity_replacement = False
         for binding in bindings.values():
             if not isinstance(binding, dict):
-                continue
+                return fal["model"], False
             operation = binding.get(binding_fields["operation"])
             target_ids = binding.get(binding_fields["targetIdentities"])
+            if not (
+                isinstance(target_ids, list)
+                and target_ids
+                and all(
+                    isinstance(value, str) and value.strip()
+                    for value in target_ids
+                )
+            ):
+                return fal["model"], False
             if operation == runtime_contract["operations"]["replaceIdentity"]:
                 has_identity_replacement = True
             elif (
                 operation == runtime_contract["operations"]["replaceContent"]
-                and isinstance(target_ids, list)
-                and all(isinstance(value, str) for value in target_ids)
             ):
                 content_targets.update(target_ids)
+            else:
+                return fal["model"], False
         regenerate = (
             not has_identity_replacement
             and len(content_targets)
