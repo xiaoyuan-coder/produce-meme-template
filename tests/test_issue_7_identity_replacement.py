@@ -547,8 +547,12 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
                 self.assertIn("replacementPriority", package["sections"])
                 replacement_priority = package["sections"]["replacementPriority"]
                 self.assertIn(scenario["replacementValue"], replacement_priority)
-                operation_fields = RULES["multiInstanceContract"]["operationFields"]
-                for operation in plan["imageOperations"]:
+                multi_contract = RULES["multiInstanceContract"]
+                operation_fields = multi_contract["operationFields"]
+                image_operations_field = multi_contract["planFields"][
+                    "imageOperations"
+                ]
+                for operation in plan[image_operations_field]:
                     for requirement in operation[
                         operation_fields["clearRequirements"]
                     ]:

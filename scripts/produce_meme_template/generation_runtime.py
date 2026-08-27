@@ -255,11 +255,13 @@ def _compile_generation_package(
     context_contract = rules["sourceAuthoringContextContract"]
     visual_fields = context_contract["sourceVisualContractFields"]
     visual = source_analysis["visualContract"]
-    operation_fields = rules["multiInstanceContract"]["operationFields"]
+    multi_contract = rules["multiInstanceContract"]
+    operation_fields = multi_contract["operationFields"]
+    image_operations_field = multi_contract["planFields"]["imageOperations"]
     clear_requirements = list(
         dict.fromkeys(
             requirement
-            for operation in plan["imageOperations"]
+            for operation in plan[image_operations_field]
             for requirement in operation[operation_fields["clearRequirements"]]
         )
     )
