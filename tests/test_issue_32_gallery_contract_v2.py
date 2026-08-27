@@ -3,6 +3,8 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime
@@ -159,6 +161,99 @@ class Issue32GalleryContractV2Test(unittest.TestCase):
             )
         self.assertTrue(_validate_final(migrated, RULES)["pass"])
         self.assertEqual(original, source)
+
+    def test_migration_rejects_a_v2_record_with_broken_cross_references(self) -> None:
+        record = json.loads(
+            (UPSTREAM_EXAMPLES / "agent-v2-example.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        binding = next(iter(record["runtimeSemantics"]["inputBindings"].values()))
+        binding["targetIds"] = ["missing-target"]
+
+        result = migrate_gallery_template_to_runtime_v2(record)
+
+        self.assertEqual("invalid", result.status)
+        self.assertIsNone(result.migrated)
+        self.assertTrue(result.errors)
+
+    def test_migration_cli_accepts_the_official_v2_bundle_shape(self) -> None:
+        source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
+        audit = migrate_gallery_template_to_runtime_v2(source)
+        decisions = {
+            source["key"]: {
+                input_id: "source" for input_id in audit.required_decisions
+            }
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_path = root / "bundle.json"
+            decisions_path = root / "decisions.json"
+            output_root = root / "output"
+            input_path.write_text(
+                json.dumps({"version": 2, "templates": [source]}),
+                encoding="utf-8",
+            )
+            decisions_path.write_text(json.dumps(decisions), encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "migrate_gallery_contract_v2.py"),
+                    "--input",
+                    str(input_path),
+                    "--decisions",
+                    str(decisions_path),
+                    "--output",
+                    str(output_root),
+                    "--apply",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stdout)
+            self.assertTrue((output_root / f"{source['key']}.json").is_file())
+
+    def test_migration_cli_rejects_a_template_key_that_escapes_output(self) -> None:
+        source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
+        source["key"] = "../escaped"
+        audit = migrate_gallery_template_to_runtime_v2(source)
+        decisions = {
+            source["key"]: {
+                input_id: "source" for input_id in audit.required_decisions
+            }
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_path = root / "input.json"
+            decisions_path = root / "decisions.json"
+            output_root = root / "isolated-output"
+            input_path.write_text(json.dumps(source), encoding="utf-8")
+            decisions_path.write_text(json.dumps(decisions), encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "migrate_gallery_contract_v2.py"),
+                    "--input",
+                    str(input_path),
+                    "--decisions",
+                    str(decisions_path),
+                    "--output",
+                    str(output_root),
+                    "--apply",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(2, completed.returncode, completed.stdout)
+            self.assertFalse((root / "escaped.json").exists())
 
 
 if __name__ == "__main__":

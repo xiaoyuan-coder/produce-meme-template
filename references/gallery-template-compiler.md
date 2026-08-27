@@ -85,7 +85,7 @@ P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/
 
 `cover` 与 `referenceImage` 写入 Asset Receipt 中同一个 HTTPS URL。投影源若含未知顶层字段、未知 metadata、空 `needsReview` 或非 HTTPS URL，直接阻断；冻结 Schema 允许但业务白名单未开放的 metadata 同样不能静默进入正式记录。最终验证还拒绝 Data URL、文件 URL、临时/用户绝对路径、生成 request 字段和审计字段。
 
-`coverUrl`、`promptEnhancement`、`inputSchema.slots[].image.extract`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在存量迁移输入或 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结研发已验证的 v2 正式样例及显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的 metadata sidecar，未分类数保持为 0。expected 执行白名单投影和中性文案纠偏，并继续通过冻结 Gallery Schema 与最终业务门禁。
+`coverUrl`、`promptEnhancement`、`inputSchema.slots[].image.extract`、Replacement Pool、六维分析、推荐理由、版本 pin、候选策划和审计证据只保留在存量迁移输入或 sidecar。`fixtures/contracts/latest-gallery-samples/` 冻结研发已验证的 v2 正式样例及显式 expected 投影；全部标量叶子必须归入正式字段或机器声明的 metadata sidecar，未分类数保持为 0。expected 执行白名单投影和中性文案纠偏，并继续通过冻结 Gallery Schema 与最终业务门禁。存量迁移器读取同一 `runtimeSemanticsContract` 字段和枚举，迁移前后执行该验证链；CLI 接受单模板、裸数组和正式 v2 bundle，只在安全的隔离根内原子 create-once 写入正典 key 对应文件。
 
 ## 5. 正式记录拆分交付
 

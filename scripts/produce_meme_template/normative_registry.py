@@ -127,8 +127,29 @@ def scan_authority_units(path: Path) -> list[str]:
     return units
 
 
-def _unit_rows(relative: str, units: list[str]) -> list[list[str]]:
+def _semantic_family(
+    unit: str,
+    *,
+    default_family: str,
+    routing: dict[str, Any],
+) -> str:
+    folded = unit.casefold()
+    for rule in routing["orderedRules"]:
+        if any(value.casefold() in folded for value in rule["containsAny"]):
+            return rule["familyId"]
+    return default_family or routing["defaultFamily"]
+
+
+def _unit_rows(
+    relative: str,
+    units: list[str],
+    *,
+    default_family: str,
+    contract: dict[str, Any],
+) -> list[dict[str, str]]:
     alias = re.sub(r"[^a-z0-9]+", "-", relative.lower()).strip("-")[-32:]
+    unit_fields = contract["unitFields"]
+    routing = contract["semanticRouting"]
     seen: dict[str, int] = {}
     rows = []
     for unit in units:
@@ -136,7 +157,17 @@ def _unit_rows(relative: str, units: list[str]) -> list[list[str]]:
         occurrence = seen.get(digest, 0) + 1
         seen[digest] = occurrence
         rule_id = f"NR-{alias}-{digest[:12]}-{occurrence}"
-        rows.append([rule_id, digest])
+        rows.append(
+            {
+                unit_fields["identity"]: rule_id,
+                unit_fields["sha256"]: digest,
+                unit_fields["family"]: _semantic_family(
+                    unit,
+                    default_family=default_family,
+                    routing=routing,
+                ),
+            }
+        )
     return rows
 
 
@@ -177,7 +208,10 @@ def refresh_registry(
                 source_fields["sha256"]: _sha_bytes(path.read_bytes()),
                 source_fields["family"]: family_by_path[relative],
                 source_fields["units"]: _unit_rows(
-                    relative, scan_authority_units(path)
+                    relative,
+                    scan_authority_units(path),
+                    default_family=family_by_path[relative],
+                    contract=contract,
                 ),
             }
         )
@@ -242,6 +276,7 @@ def validate_registry_snapshot(
     family_fields = contract["familyFields"]
     owner_fields = contract["ownerFields"]
     source_fields = contract["sourceFields"]
+    unit_fields = contract["unitFields"]
     errors: list[str] = []
     if set(registry) != set(fields.values()):
         errors.append("registry top-level fields mismatch")
@@ -258,6 +293,24 @@ def validate_registry_snapshot(
         return errors
     if not isinstance(sources, list) or not sources:
         errors.append("authority sources missing")
+        return errors
+
+    routing = contract.get("semanticRouting")
+    if not (
+        isinstance(routing, dict)
+        and isinstance(routing.get("defaultFamily"), str)
+        and isinstance(routing.get("orderedRules"), list)
+        and all(
+            isinstance(rule, dict)
+            and set(rule) == {"familyId", "containsAny"}
+            and isinstance(rule["familyId"], str)
+            and isinstance(rule["containsAny"], list)
+            and rule["containsAny"]
+            and all(isinstance(value, str) and value for value in rule["containsAny"])
+            for rule in routing.get("orderedRules", [])
+        )
+    ):
+        errors.append("semantic family routing invalid")
         return errors
 
     valid_classes = set(contract["enforcementClasses"].values())
@@ -339,15 +392,50 @@ def validate_registry_snapshot(
             errors.append(f"authority family missing: {relative}")
         if source[source_fields["sha256"]] != _sha_bytes(path.read_bytes()):
             errors.append(f"authority source drift: {relative}")
-        expected_units = _unit_rows(relative, scan_authority_units(path))
+        expected_units = _unit_rows(
+            relative,
+            scan_authority_units(path),
+            default_family=source[source_fields["family"]],
+            contract=contract,
+        )
         if source[source_fields["units"]] != expected_units:
-            errors.append(f"authority unit coverage drift: {relative}")
+            actual_units = source[source_fields["units"]]
+            actual_without_families = [
+                {
+                    unit_fields["identity"]: unit.get(unit_fields["identity"]),
+                    unit_fields["sha256"]: unit.get(unit_fields["sha256"]),
+                }
+                for unit in actual_units
+                if isinstance(unit, dict)
+            ] if isinstance(actual_units, list) else []
+            expected_without_families = [
+                {
+                    unit_fields["identity"]: unit[unit_fields["identity"]],
+                    unit_fields["sha256"]: unit[unit_fields["sha256"]],
+                }
+                for unit in expected_units
+            ]
+            errors.append(
+                (
+                    "authority unit enforcement drift: "
+                    if actual_without_families == expected_without_families
+                    else "authority unit coverage drift: "
+                )
+                + relative
+            )
         if not expected_units:
             errors.append(f"authority source has no indexed units: {relative}")
-        rule_ids.extend(row[0] for row in expected_units)
+        rule_ids.extend(row[unit_fields["identity"]] for row in expected_units)
     if len(rule_ids) != len(set(rule_ids)):
         errors.append("normative rule ids are not unique")
-    if set(source.get(source_fields["family"]) for source in sources) != set(families):
+    represented_families = {
+        unit.get(unit_fields["family"])
+        for source in sources
+        if isinstance(source, dict)
+        for unit in source.get(source_fields["units"], [])
+        if isinstance(unit, dict)
+    }
+    if represented_families != set(families):
         errors.append("unused or unrepresented enforcement family")
     return errors
 

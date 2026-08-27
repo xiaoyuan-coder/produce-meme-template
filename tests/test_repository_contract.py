@@ -61,6 +61,39 @@ class RepositoryContractTest(unittest.TestCase):
             validate_registry_snapshot(ROOT, tampered, rules),
         )
 
+    def test_normative_registry_routes_each_semantic_unit_to_its_real_family(self) -> None:
+        from scripts.produce_meme_template.normative_registry import (
+            validate_registry_snapshot,
+        )
+
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        registry = load(ROOT / "contracts" / "normative-rule-registry.json")
+        spec = next(
+            source
+            for source in registry["sources"]
+            if source["path"] == "specs/新模板生产Skill实施规格.md"
+        )
+        unit_family_ids = {unit["familyId"] for unit in spec["units"]}
+        self.assertGreater(len(unit_family_ids), 5)
+
+        tampered = copy.deepcopy(registry)
+        tampered_spec = next(
+            source
+            for source in tampered["sources"]
+            if source["path"] == "specs/新模板生产Skill实施规格.md"
+        )
+        candidate = next(
+            unit
+            for unit in tampered_spec["units"]
+            if unit["familyId"] != "governance"
+        )
+        candidate["familyId"] = "governance"
+
+        self.assertIn(
+            "authority unit enforcement drift: specs/新模板生产Skill实施规格.md",
+            validate_registry_snapshot(ROOT, tampered, rules),
+        )
+
     def test_production_execution_contract_is_the_only_execution_mode_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["productionExecutionContract"]
