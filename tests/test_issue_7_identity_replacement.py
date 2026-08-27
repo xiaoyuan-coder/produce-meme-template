@@ -258,7 +258,7 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
             "slotPortability": True,
             "evidence": "标题只保留当前画面的主角、多重派生实例和光影机制，替换人物后仍成立",
         }
-        analysis["neutralDescription"] = "中央人物与重复剪影形成层次，光影和边框保留戏剧感"
+        analysis["neutralDescription"] = "中央人物与重复剪影、光影边框形成戏剧感"
         analysis["promptTemplate"] = (
             f'一位{{{{ portrait_subject | "{scenario["subjectDefault"]}" }}}}站在画面中央，'
             '{{ cushion_look | "暖黄色软垫" }}作为前景承托，'
@@ -292,7 +292,16 @@ class IdentityScenarioAdapters(DeterministicFixtureAdapters):
                 "colorAndLight": [],
             }
         }
-        analysis["tags"] = ["人物", "光影", "多重实例"]
+        analysis["tags"] = ["人物", "光影", "多重实例", "剪影", "肖像合成"]
+        tag_contract = RULES["authoringContractAudit"]["tagAuthoringContract"]
+        evidence_fields = tag_contract["evidenceFields"]
+        analysis[tag_contract["evidenceAnalysisField"]] = [
+            {
+                evidence_fields["tag"]: tag,
+                evidence_fields["evidence"]: f"当前确认图可见人物光影与重复肖像机制：{tag}",
+            }
+            for tag in analysis["tags"]
+        ]
         if scenario["omitSubject"]:
             analysis["slotCandidates"] = analysis["slotCandidates"][1:]
             analysis["promptTemplate"] = analysis["promptTemplate"].replace(
@@ -892,7 +901,7 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
 
     def test_fixed_public_identity_may_use_the_synchronized_identity_outside_the_title(self) -> None:
         def use_synchronized_identity(analysis: dict) -> dict:
-            analysis["neutralDescription"] = "林俊杰站在中央，重复倒影与身份徽标保持同步"
+            analysis["neutralDescription"] = "林俊杰居中，倒影与身份徽标同步"
             analysis["promptTemplate"] += " 固定玩法中的主人物为林俊杰。"
             return analysis
 

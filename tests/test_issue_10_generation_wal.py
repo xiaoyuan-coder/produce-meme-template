@@ -757,6 +757,8 @@ class Issue10GenerationWalTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["completed"], result.state)
         self.assertEqual(CONTRACT["fal"]["model"], client.submit_calls[0][0])
         submitted_arguments = client.submit_calls[0][1]
+        self.assertEqual("low", CONTRACT["fal"]["quality"])
+        self.assertEqual("low", submitted_arguments["quality"])
         self.assertEqual(CONTRACT["defaultImageCount"], submitted_arguments["num_images"])
         self.assertTrue(submitted_arguments["image_urls"][0].startswith("data:image/"))
         self.assertEqual(

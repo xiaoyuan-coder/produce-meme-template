@@ -406,6 +406,46 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         if self.approved_mutator:
             self.approved_mutator(analysis)
         analysis = rebuild_runtime_targets(analysis, RULES)
+        if self.scenario["operationRole"] in {"identityReplace", "orderedSet"}:
+            descriptive = self.scenario["operationRole"] == "orderedSet"
+            analysis["groupStrategyDecisions"] = [
+                {
+                    "inputId": "pet_subject",
+                    "targetId": target_id,
+                    "route": (
+                        "descriptive_content_group"
+                        if descriptive
+                        else "same_source_repeated"
+                    ),
+                    "identityFidelityRequired": not descriptive,
+                    "wholeGroupUploadNatural": False,
+                    "memberCountMayVary": False,
+                    "rolesIndependentlyAddressable": descriptive,
+                    "homogeneousMemberKind": True,
+                    "sameIdentityRepeated": not descriptive,
+                    "coreGameplayEvidence": (
+                        "四个独立内容位构成有序描述组，无需保留真实成员身份"
+                        if descriptive
+                        else "全部可见目标是同一宠物的重复实例，需由一个身份输入同步"
+                    ),
+                    "highValueSlotEvidence": (
+                        "一个文字内容槽统一控制整组，避免展开为多个图片槽"
+                        if descriptive
+                        else "单一主体槽同步所有重复实例，可保留相同身份关系"
+                    ),
+                }
+                for target_id in [
+                    component[COMPONENT_FIELDS["identity"]]
+                    for component in approved_graph[GRAPH_FIELDS["components"]]
+                    if component[COMPONENT_FIELDS["control"]] == "pet_subject"
+                    and component[COMPONENT_FIELDS["visualInstance"]] is True
+                    and (
+                        descriptive
+                        or component[COMPONENT_FIELDS["role"]]
+                        != CONTRACT["componentRoles"]["shadow"]
+                    )
+                ]
+            ]
         return rebuild_rendering_coherence_decision(analysis, RULES)
 
     def audit_semantics(self, content: dict) -> dict:

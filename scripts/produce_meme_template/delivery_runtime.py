@@ -355,6 +355,25 @@ def _current_item_fact_errors(
         errors.extend(
             f"template identity replay: {error}" for error in identity_errors
         )
+    identity_contract = rules["templateIdentityContract"]
+    identity_fields = identity_contract["fields"]
+    preserved_title_field = identity_contract["preservedTitleRequestField"]
+    preserved_title = template_analysis.get(preserved_title_field)
+    if (
+        identity_resolution.get(identity_fields["status"])
+        == identity_contract["statuses"]["existing"]
+    ):
+        if not (
+            isinstance(preserved_title, str)
+            and preserved_title
+            and template_analysis.get("neutralTitle") == preserved_title
+            and manifest.get(preserved_title_field) == preserved_title
+        ):
+            errors.append(
+                "stored template replay does not preserve the registered title"
+            )
+    elif preserved_title is not None or preserved_title_field in manifest:
+        errors.append("new template replay unexpectedly declares a preserved title")
     if source_analysis.get("sourceImageSha256") != manifest.get(
         "sourceImageSha256"
     ):

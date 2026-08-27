@@ -123,6 +123,20 @@ def _production_request_errors(
         is None
     ):
         errors.append("非法标识符：productionItemId")
+    preserved_title_field = rules["templateIdentityContract"][
+        "preservedTitleRequestField"
+    ]
+    if preserved_title_field in request:
+        preserved_title = request[preserved_title_field]
+        title_schema = schema["properties"]["title"]
+        if not (
+            isinstance(preserved_title, str)
+            and preserved_title.strip() == preserved_title
+            and title_schema["minLength"]
+            <= len(preserved_title)
+            <= title_schema["maxLength"]
+        ):
+            errors.append(f"非法存量标题：{preserved_title_field}")
     source_image = request.get("sourceImage")
     if not isinstance(source_image, (str, os.PathLike)) or not str(
         source_image

@@ -204,6 +204,7 @@ def _run_template_data_stage(
     timestamp: str,
     target_stage: int,
     *,
+    preserved_title: str | None,
     resumed: bool,
 ) -> ProductionResult:
     p3, p4, p5, p6 = (item["phase"] for item in rules["productionPhases"][3:7])
@@ -282,6 +283,43 @@ def _run_template_data_stage(
         approved_sha,
         handoff_request,
     )
+    preserved_title_field = rules["templateIdentityContract"][
+        "preservedTitleRequestField"
+    ]
+    analyzed_preserved_title = analysis.get(preserved_title_field)
+    if preserved_title is None and analyzed_preserved_title is not None:
+        raise _stop(
+            rules,
+            "needs_input",
+            "riskNeedsReview",
+            "新模板分析不得声明存量标题，请复核模板身份。",
+            {"analyzedPreservedTitle": analyzed_preserved_title},
+        )
+    if preserved_title is not None:
+        if analyzed_preserved_title not in (None, preserved_title):
+            raise _stop(
+                rules,
+                "needs_input",
+                "riskNeedsReview",
+                "存量标题与分析结果中的 preservedTitle 不一致。",
+                {
+                    "requestedPreservedTitle": preserved_title,
+                    "analyzedPreservedTitle": analyzed_preserved_title,
+                },
+            )
+        analysis = copy.deepcopy(analysis)
+        analysis[preserved_title_field] = preserved_title
+        if analysis.get("neutralTitle") != preserved_title:
+            raise _stop(
+                rules,
+                "needs_input",
+                "riskNeedsReview",
+                "存量模板重编译必须逐字保留旧正式 title。",
+                {
+                    "preservedTitle": preserved_title,
+                    "analyzedTitle": analysis.get("neutralTitle"),
+                },
+            )
     if (
         analysis.get("visualFactSourceSha256") != approved_sha
         or _sha_bytes(_canonical_bytes(handoff_request)) != handoff_sha
@@ -1634,6 +1672,11 @@ def _run_single_production(
                 plan,
                 timestamp,
                 target_stage,
+                preserved_title=manifest.get(
+                    rules["templateIdentityContract"][
+                        "preservedTitleRequestField"
+                    ]
+                ),
                 resumed=True,
             )
         if not any(
@@ -1719,6 +1762,34 @@ def _run_single_production(
                     "模板身份与语义 key 门禁未通过。",
                     {"errors": identity_errors},
                 )
+            preserved_title_field = identity_contract[
+                "preservedTitleRequestField"
+            ]
+            preserved_title = request.get(preserved_title_field)
+            identity_status = identity_resolution[
+                identity_contract["fields"]["status"]
+            ]
+            existing_status = identity_contract["statuses"]["existing"]
+            if identity_status == existing_status and not isinstance(
+                preserved_title, str
+            ):
+                raise _stop(
+                    rules,
+                    "needs_input",
+                    "riskNeedsReview",
+                    "存量模板重编译缺少旧正式 title，已转人工复核。",
+                    {"requiredField": preserved_title_field},
+                )
+            if identity_status != existing_status and preserved_title is not None:
+                raise _stop(
+                    rules,
+                    "needs_input",
+                    "riskNeedsReview",
+                    "新模板请求携带了 preservedTitle，请复核模板身份。",
+                    {"field": preserved_title_field},
+                )
+            if preserved_title is not None:
+                manifest[preserved_title_field] = preserved_title
             pin = _build_pin(rules, release)
             _atomic_write_new(output_dir / "production-pin.json", _json_bytes(pin))
             _record_artifact(
@@ -2458,6 +2529,11 @@ def _run_single_production(
             plan,
             timestamp,
             target_stage,
+            preserved_title=manifest.get(
+                rules["templateIdentityContract"][
+                    "preservedTitleRequestField"
+                ]
+            ),
             resumed=resumed,
         )
     except WorkflowStop as stop:

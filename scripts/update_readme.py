@@ -66,6 +66,7 @@ def render() -> str:
     key_pattern = gallery_schema["properties"]["key"]["pattern"]
     object_key_prefix = rules["objectStorageContract"]["objectKeyPrefix"]
     execution_contract = rules["productionExecutionContract"]
+    fal_contract = rules["generationExecutionContract"]["fal"]
 
     return f"""# produce-meme-template
 
@@ -83,6 +84,8 @@ def render() -> str:
 | Gallery Template 合同 | `{supported_contract}` | `release.json` |
 | 默认生产阶段 | `{stage_contract['defaultSelector']}`（完整生产） | `contracts/machine-rules.json` |
 | 正式执行模式 | `{execution_contract['executionModes']['liveExternal']}` | `contracts/machine-rules.json` |
+| P2 Fal 模型 | `{fal_contract['model']}` | `contracts/machine-rules.json` |
+| P2 默认质量 | `{fal_contract['quality']}` | `contracts/machine-rules.json` |
 | Manifest 更新时间 | `{manifest['updated_at']}` | `skill-manifest.json` |
 | Manifest 跟踪文件 | `{len(manifest['tracked_files'])}` 个 | `skill-manifest.json` |
 

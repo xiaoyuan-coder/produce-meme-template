@@ -288,7 +288,7 @@ def approved_scenario(
             "slotPortability": True,
             "evidence": f"标题“{title}”只概括当前场景的可见机制，三个开放轴替换后仍成立",
         }
-        analysis["neutralDescription"] = "主要可编辑区域位于画面核心，外围留白与空间层级清晰"
+        analysis["neutralDescription"] = "核心区域可编辑，外围留白层级清晰"
         analysis["hasPrimarySubject"] = True
         first, second, third = analysis["slotCandidates"]
         first.update(

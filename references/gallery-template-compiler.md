@@ -34,7 +34,7 @@ P6 必须确认全部 `freeEditableContent` 原样进入 Prompt Template，并�
 
 Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存于 `editable-template-spec.json`。两个集合独立编译，正式 JSON 只包含产品合同支持的槽位建议。
 
-`metadata.tags` 在 P4 执行逐图独立审核，详细编写规则读取 `template-authoring.md`。审核请求同时绑定 Approved Image SHA、当前图标题、描述和标签；审核结果必须与当前标签精确一对一，每项都确认图像事实根据和分类价值。泛标签、重复标签、批次复用且无单图证据的标签不能进入 draft。
+`metadata.tags` 在 P4 执行逐图独立审核，详细编写规则读取 `template-authoring.md`。审核请求同时绑定 Approved Image SHA、当前图标题、描述和标签；审核结果必须与当前标签精确一对一，每项都确认图像事实根据和分类价值。标签固定为 5–8 项，至少一项来自机器合同列出的十一大类；泛标签、重复标签、批次复用且无单图证据的标签不能进入 draft。`description` 固定为 20 个字符以内，并在作者审计和最终 JSON 验证两处执行。
 
 ## 3. runtimeSemantics
 
@@ -42,7 +42,7 @@ Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存
 
 Artifact Schema `0.22.0` 起，P3 还必须提交 `renderingCoherenceDecision`。它把当前组件图完整划分为统一或刻意混合的渲染单元，并为每个 subject 精确绑定 target、身份继承范围、模板保留范围和完整重绘结论。编译器只从这份决策生成正式 `visualContract.medium/styleTraits`；组件遗漏、单元重叠、混合媒介缺少边界依据、subject 未完整重绘或权限与槽位不一致都会在 draft 前阻断。该 sidecar 不改变正式 Gallery Schema。
 
-固定 subject binding 使用 `replace_identity + one_to_one|same_source_repeated + illustration_redraw + single_subject + reject`。动态合照使用一个 `identity_group` 和 `preserve_group + group_photo + reject`；成员类别只允许 person/pet，人数范围满足 `1 <= minMembers <= maxMembers <= 20`。每个身份 binding 都由 `identityInheritanceDecision` 确定性投影 `clothingOwnership=source|template`；同时保留更细的结构例外关系。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。合照选单人、像素保留、人宠混合自动拆组和未经客户端确认的多图分组保持关闭。
+固定 subject binding 使用 `replace_identity + one_to_one|same_source_repeated + illustration_redraw + single_subject + reject`。`groupStrategyDecisions` 必须精确覆盖实际 binding：两个以上 `one_to_one` 走 `independent_subjects`，一个输入绑定多个同源身份目标走 `same_source_repeated`，文字输入绑定多个内容目标走 `descriptive_content_group`，动态合照走 `dynamic_group_photo`。只有真实身份整组上传、人数可变、成员同类且无需逐角色寻址时，才使用一个 `identity_group` 和 `preserve_group + group_photo + reject`。成员类别只允许 person/pet，人数范围满足 `1 <= minMembers < maxMembers <= 20`。对应 `inputSchema` 必须是纯图片槽；编译器会清除 `text` 与 `resolutionStrategy`，最终验证器也会拒绝外部写回的复合槽。每个身份 binding 都由 `identityInheritanceDecision` 确定性投影 `clothingOwnership=source|template`；同时保留更细的结构例外关系。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。合照选单人、像素保留、人宠混合自动拆组和未经客户端确认的多图分组保持关闭。
 
 `visualContract` 的作者语义与逐图画风标准读取 `template-authoring.md`，正式结构精确包含：
 
@@ -64,7 +64,7 @@ P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pas
 
 P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-26/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前作者合同的只读快照，来源、取得时间、兼容范围、上游文档/运行 Schema 差异和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
 
-存量 v1 先运行 `python3 scripts/migrate_gallery_contract_v2.py --input <file-or-dir>` 生成审计清单。每个身份槽补齐 `source|template` 决策后，传入 `--decisions <json> --apply --output <new-dir>` 写出 v2；工具拒绝覆盖原文件或已存在的输出。动态群组不能从 v1 自动推导，需重新执行作者分析。
+存量 v1 先运行 `python3 scripts/migrate_gallery_contract_v2.py --input <file-or-dir>` 生成审计清单。每个身份槽补齐 `source|template` 决策后，传入 `--decisions <json> --apply --output <new-dir>` 写出 v2；工具拒绝覆盖原文件或已存在的输出。动态群组不能从 v1 自动推导，需重新执行双层群体策略分析。存量重新编译时，调用方将旧正式 `title` 作为 `preservedTitle` 传入同一 seam；编译器仅在它与 `neutralTitle` 逐字相同时继续。
 
 决策文件按模板 key 和 input id 两级映射，例如：
 

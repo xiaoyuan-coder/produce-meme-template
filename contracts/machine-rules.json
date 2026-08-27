@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "0.35.0",
+  "schemaVersion": "0.36.0",
   "normativeRuleRegistryContract": {
     "artifactName": "contracts/normative-rule-registry.json",
     "artifactType": "normative-rule-registry",
@@ -44,7 +44,7 @@
       "sha256": "sha256",
       "family": "familyId"
     },
-    "assignmentDigest": "fcb86b6ad807a7e1ffddef16b25f06ce7eaa22009f9953fb6bd93dce96e93081",
+    "assignmentDigest": "4cbe650c78afd2033bfaede8241ba003ca06d35e58af9f81dc70df7c8dfd2a47",
     "enforcementClasses": {
       "runtimeGate": "runtime_gate",
       "repositoryGate": "repository_gate",
@@ -719,6 +719,7 @@
   "templateIdentityContract": {
     "artifactName": "template-key-resolution.json",
     "artifactType": "template-key-resolution",
+    "preservedTitleRequestField": "preservedTitle",
     "operationalOnlyKeyPatterns": [
       "^(?:material|asset|source)-[0-9]+$",
       "^(?:batch|template)-[0-9]{4}(?:-[0-9]{1,2}){1,2}(?:-[0-9]+)?$",
@@ -749,8 +750,10 @@
     "requestFields": {
       "approvedImageSha256": "approvedImageSha256",
       "neutralTitle": "neutralTitle",
+      "preservedTitle": "preservedTitle",
       "neutralDescription": "neutralDescription",
       "classificationTags": "classificationTags",
+      "tagGroundingEvidence": "tagGroundingEvidence",
       "promptTemplate": "promptTemplate",
       "freeEditableContent": "freeEditableContent",
       "slotCandidates": "slotCandidates",
@@ -758,7 +761,8 @@
       "visibleTextRegions": "visibleTextRegions",
       "componentGraph": "componentGraph",
       "visualContract": "visualContract",
-      "subjectPresenceContext": "subjectPresenceContext"
+      "subjectPresenceContext": "subjectPresenceContext",
+      "groupStrategyDecisions": "groupStrategyDecisions"
     },
     "reviewFields": {
       "artifactType": "artifactType",
@@ -771,6 +775,7 @@
       "identityInheritanceReviews": "identityInheritanceReviews",
       "defaultValueReviews": "defaultValueReviews",
       "subjectPresenceReview": "subjectPresenceReview",
+      "groupStrategyReviews": "groupStrategyReviews",
       "tagReviews": "tagReviews",
       "pass": "pass",
       "evidence": "evidence"
@@ -806,6 +811,7 @@
       "visuallyVisible": "visuallyVisible",
       "modelControllable": "modelControllable",
       "mechanismPreserved": "mechanismPreserved",
+      "textRoutingValid": "textRoutingValid",
       "evidence": "evidence"
     },
     "identityInheritanceReviewFields": {
@@ -843,6 +849,13 @@
       "slotPolicyValid": "subjectSlotPolicyValid",
       "evidence": "evidence"
     },
+    "groupStrategyReviewFields": {
+      "inputIdentity": "inputId",
+      "targetIdentity": "targetId",
+      "coreGameplayValid": "coreGameplayValid",
+      "highValueSlotRouteValid": "highValueSlotRouteValid",
+      "evidence": "evidence"
+    },
     "tagReviewFields": {
       "tag": "tag",
       "groundedInApprovedImage": "groundedInApprovedImage",
@@ -850,10 +863,31 @@
       "evidence": "evidence"
     },
     "tagAuthoringContract": {
-      "minimumItems": 2,
-      "maximumItems": 5,
+      "minimumItems": 5,
+      "maximumItems": 8,
       "maximumCharacters": 12,
+      "minimumCategoryItems": 1,
+      "evidenceAnalysisField": "tagGroundingEvidence",
+      "evidenceFields": {"tag": "tag", "evidence": "evidence"},
+      "minimumEvidenceCharacters": 8,
+      "categoryValues": [
+        "人物",
+        "动物",
+        "二次元",
+        "粉丝应援",
+        "情侣",
+        "亲子家庭",
+        "美食",
+        "风景建筑",
+        "搞怪meme",
+        "文字设计",
+        "创意艺术"
+      ],
       "genericOnlyValues": ["人物", "动物", "物件", "图片", "模板", "表情包", "热门", "有趣", "好看"]
+    },
+    "copyAuthoringContract": {
+      "descriptionMaximumCharacters": 20,
+      "preservedTitleAnalysisField": "preservedTitle"
     },
     "productionClausePatterns": [
       "最终(?:只|仅)输出",
@@ -1445,7 +1479,8 @@
     "identityGroupContract": {
       "memberKinds": ["person", "pet"],
       "minimumMembers": 1,
-      "maximumMembers": 20
+      "maximumMembers": 20,
+      "requireVariableMemberCount": true
     },
     "targetGrounding": {
       "minimumRoleCharacters": 5,
@@ -1478,6 +1513,57 @@
       "renderingMode": "illustration_redraw",
       "allowedSourceGrouping": ["group_photo"],
       "groupToSinglePolicy": "reject"
+    },
+    "dynamicIdentityInputContract": {
+      "requireImage": true,
+      "allowText": false,
+      "allowResolutionStrategy": false,
+      "validationMessage": "动态群像仅支持纯图片，请删除 text 和 resolutionStrategy。"
+    },
+    "groupStrategyDecisionContract": {
+      "analysisField": "groupStrategyDecisions",
+      "fields": {
+        "inputIdentity": "inputId",
+        "targetIdentity": "targetId",
+        "route": "route",
+        "identityFidelityRequired": "identityFidelityRequired",
+        "wholeGroupUploadNatural": "wholeGroupUploadNatural",
+        "memberCountMayVary": "memberCountMayVary",
+        "rolesIndependentlyAddressable": "rolesIndependentlyAddressable",
+        "homogeneousMemberKind": "homogeneousMemberKind",
+        "sameIdentityRepeated": "sameIdentityRepeated",
+        "coreGameplayEvidence": "coreGameplayEvidence",
+        "highValueSlotEvidence": "highValueSlotEvidence"
+      },
+      "routes": {
+        "dynamicGroupPhoto": "dynamic_group_photo",
+        "independentSubjects": "independent_subjects",
+        "sameSourceRepeated": "same_source_repeated",
+        "descriptiveContentGroup": "descriptive_content_group"
+      },
+      "descriptiveContentGroupInputModes": [
+        "text"
+      ],
+      "routeDecisionRequirements": {
+        "dynamic_group_photo": {
+          "requiredTruths": ["identityFidelityRequired", "wholeGroupUploadNatural", "memberCountMayVary", "homogeneousMemberKind"],
+          "requiredFalsehoods": ["rolesIndependentlyAddressable", "sameIdentityRepeated"]
+        },
+        "independent_subjects": {
+          "requiredTruths": ["rolesIndependentlyAddressable"],
+          "requiredFalsehoods": []
+        },
+        "same_source_repeated": {
+          "requiredTruths": ["identityFidelityRequired", "sameIdentityRepeated"],
+          "requiredFalsehoods": ["memberCountMayVary"]
+        },
+        "descriptive_content_group": {
+          "requiredTruths": [],
+          "requiredFalsehoods": ["identityFidelityRequired"]
+        }
+      },
+      "minimumEvidenceCharacters": 8,
+      "validationMessage": "动态群像必须先证明核心玩法需要整组真实身份、自然输入是一张合照、人数允许变化、成员同类且无需逐角色寻址。"
     },
     "clothingOwnershipValues": {
       "source": "source",
@@ -1876,7 +1962,12 @@
       "\"", "'", "“", "”", "‘", "’", "(", ")", "（", "）", "[", "]", "【", "】",
       "<", ">", "《", "》", "-"
     ],
-    "wholeRegionSlotHardMaximum": 36,
+    "wholeRegionSlotHardMaximum": 28,
+    "openSlotMaximumCharactersByValueClass": {
+      "identity_related": 12,
+      "primary_visual": 28,
+      "high_value_span": 12
+    },
     "semanticAuditFields": {
       "reviewedRegionIdentities": "reviewedRegionIds",
       "decisions": "roleActionDecisions",
@@ -2275,7 +2366,7 @@
       "model": "openai/gpt-image-2/edit",
       "contentRegenerationModel": "openai/gpt-image-2",
       "contentRegenerationMinimumTargetCount": 4,
-      "quality": "high",
+      "quality": "low",
       "maximumDownloadRedirects": 3
     },
     "persistedErrorSanitization": {
@@ -2620,7 +2711,7 @@
     "artifactType": "historical-experience-regression",
     "matrixRelativePath": "fixtures/regression/historical-experience-matrix.json",
     "evidenceRunnerRelativePath": "scripts/experience_evidence_runner.py",
-    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52", "E53", "E54", "E55", "E56", "E57", "E58", "E59", "E60", "E61", "E62"],
+    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52", "E53", "E54", "E55", "E56", "E57", "E58", "E59", "E60", "E61", "E62", "E63", "E64", "E65"],
     "requiredCorpusRoles": {
       "latestHeartInput": "latest-heart-input",
       "latestHeartExpected": "latest-heart-expected",
@@ -2796,7 +2887,10 @@
       "E59": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}],
       "E60": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/visualHardFailure"}],
       "E61": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/normativeRuleRegistryContract/artifactName"}],
-      "E62": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}]
+      "E62": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}],
+      "E63": [{"polarityRole":"goodCase","expectedGateLocator":null}],
+      "E64": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/runtimeSemanticsContract/dynamicIdentityInputContract"}],
+      "E65": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"},{"polarityRole":"badCase","expectedGateLocator":"/resultStates/blocked"}]
     },
     "requiredExperienceSha256ById": {
       "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
@@ -2860,7 +2954,10 @@
       "E59": "48f9431e81084940334b7f264ee6d7f8eeb01af00fc9911e40b89d629b14d1bf",
       "E60": "adbb911d5fea4a6e26fc92a58000da2c67b9397d1ca84a634dfcf710b9b6d565",
       "E61": "16843b14d90827ee714090d022cc42b79d5b1aec4f43b46ba2f06d6a1bdb0fc8",
-      "E62": "e8c76701c67acb32775f3d0907dcd324da50cccc8e85ca7fe399ff254e14afbb"
+      "E62": "e8c76701c67acb32775f3d0907dcd324da50cccc8e85ca7fe399ff254e14afbb",
+      "E63": "c479f8919cb2aafe7a753316319a5e82cc8db5fd08ffd98c100620f2b570f648",
+      "E64": "d55e85fe403d15b7862b9d91fd219941266c48f3503d2b72b8264a230ef7b7ea",
+      "E65": "7ac8648decd3334bdda9d88b1ee3d6c67b4437e3b578f2d111fb70b3876c3563"
     },
     "implementationKinds": {
       "machineRule": "machine-rule",

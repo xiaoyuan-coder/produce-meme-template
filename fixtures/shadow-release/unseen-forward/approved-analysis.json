@@ -137,7 +137,7 @@
     "slotPortability": true,
     "evidence": "标题只使用当前图可见的树根、安静状态和瞬间性，替换主体、树根外观和林地光线后仍成立"
   },
-  "neutralDescription": "主体坐在树根旁的地面上，侧面光线强化平静专注的神态",
+  "neutralDescription": "动物坐在树根旁的安静瞬间",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}坐在{{ ground_look | \"暖黄色地面\" }}上，四肢稳定支撑身体，{{ room_mood | \"柔和日光\" }}从侧面照入，背景保留户外林地和轻微景深。",
   "freeEditableContent": [
     "四肢稳定支撑身体",
@@ -266,9 +266,11 @@
     }
   ],
   "tags": [
+    "动物",
     "户外动物",
     "树根",
-    "平静"
+    "平静",
+    "侧面光线"
   ],
   "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd",
   "runtimeSemantics": {

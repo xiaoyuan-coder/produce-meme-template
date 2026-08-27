@@ -190,7 +190,8 @@
         "tests.test_issue_10_generation_wal.Issue10GenerationWalTest.test_active_recovery_rejects_malformed_generation_package_stably"
       ],
       "experienceIds": [
-        "E09"
+        "E09",
+        "E63"
       ],
       "criticalOutcomeRoles": [
         "generationPromptFrozen",
@@ -351,7 +352,8 @@
       ],
       "experienceIds": [
         "E35",
-        "E36"
+        "E36",
+        "E64"
       ],
       "criticalOutcomeRoles": [
         "resolvedPromptIntegrity",
@@ -378,7 +380,9 @@
         "E52",
         "E53",
         "E54",
-        "E56"
+        "E56",
+        "E64",
+        "E65"
       ],
       "criticalOutcomeRoles": [
         "userVisibleCopy",
@@ -405,7 +409,8 @@
       ],
       "experienceIds": [
         "E43",
-        "E55"
+        "E55",
+        "E65"
       ],
       "criticalOutcomeRoles": [
         "visibleTextRouting",
@@ -416,7 +421,7 @@
   "sources": [
     {
       "path": "CONTEXT.md",
-      "sha256": "da5cb01797cb9c742d7515e4c791b06bd362e0c3f0aa4ad27c2cab7f585c287e",
+      "sha256": "de2dc2543e05d5b01b961326fc387c4db292b6b9620cbf44369e002e44c16ec8",
       "familyId": "domain-model",
       "units": [
         {
@@ -765,13 +770,23 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-context-md-965357fbe2e8-1",
-          "sha256": "965357fbe2e816e87b290daaaf93764ce542245ecfec559ef14aa2df1a2f7bc1",
+          "ruleId": "NR-context-md-615131a3aded-1",
+          "sha256": "615131a3adedbb1236e8a0584dd726cfcb40816d9a5da5372012b95bb3ea5d8a",
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-context-md-af1ddc16c059-1",
-          "sha256": "af1ddc16c0594278d9129b66fa00674aed2c6e1d6213fc1cb9df59f72d14d4c8",
+          "ruleId": "NR-context-md-b78003712d3b-1",
+          "sha256": "b78003712d3bd1d8d8de1ec0c5bbcb091b312e7d156f0dac4fdeb96f148675cc",
+          "familyId": "template-compilation"
+        },
+        {
+          "ruleId": "NR-context-md-b27064acee26-1",
+          "sha256": "b27064acee26cb9cbf18b4d76825a5a0476c101755a75a6b47f48c690da4598c",
+          "familyId": "template-compilation"
+        },
+        {
+          "ruleId": "NR-context-md-64ecf80778b9-1",
+          "sha256": "64ecf80778b95fd46e2d634655445b459ac98887f05a269eabbfbdeb1aee01ca",
           "familyId": "template-compilation"
         },
         {
@@ -2142,7 +2157,7 @@
     },
     {
       "path": "references/gallery-template-compiler.md",
-      "sha256": "eac93a41c1e25f108ae0b3dbbc60d763050cec496fc2e8d04b433bdafcd43872",
+      "sha256": "719c7458173278a2a827ee439d935e5c8a347596bfe2623f92d48147af5d2e6d",
       "familyId": "template-compilation",
       "units": [
         {
@@ -2231,8 +2246,8 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-ces-gallery-template-compiler-md-53fb6f8a5a37-1",
-          "sha256": "53fb6f8a5a3756eeb119b9f7bae6f5855f0111fa1ff2c19fdce488c72da7c2f9",
+          "ruleId": "NR-ces-gallery-template-compiler-md-d97f1396aeca-1",
+          "sha256": "d97f1396aeca29631a16c84a2a2c29792e4ada9ebe5f0b2cf39a54441d28cf70",
           "familyId": "template-compilation"
         },
         {
@@ -2246,8 +2261,8 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-ces-gallery-template-compiler-md-2ea71cf97289-1",
-          "sha256": "2ea71cf972893a53e47329d5839663b28899777ec6ff8a6fa714e7bcb13ef8a7",
+          "ruleId": "NR-ces-gallery-template-compiler-md-310b3b6000a6-1",
+          "sha256": "310b3b6000a6a79ef0d49c98fef4370f20fa4679eda5de39b20c2dc060a0c5c5",
           "familyId": "template-compilation"
         },
         {
@@ -2306,8 +2321,8 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-ces-gallery-template-compiler-md-53ab0848bad8-1",
-          "sha256": "53ab0848bad8cf23d7256d25348bc3bbfc401093c7415bc1f07de66068986237",
+          "ruleId": "NR-ces-gallery-template-compiler-md-b50f4017c8ce-1",
+          "sha256": "b50f4017c8cebae91a8d4fbdcec45dbca0a70e1800bf05583a4bb9915ab6f92c",
           "familyId": "template-compilation"
         },
         {
@@ -3951,7 +3966,7 @@
     },
     {
       "path": "references/template-authoring.md",
-      "sha256": "b35241d647948471494b39aa2ae24f52debc76b30f26b9669eae136f6f271ff0",
+      "sha256": "24e082ee68860246504984a67e849ad03d23c92d0bfb9f58d2a01f3870ccf131",
       "familyId": "template-authoring",
       "units": [
         {
@@ -4055,6 +4070,46 @@
           "familyId": "template-authoring"
         },
         {
+          "ruleId": "NR-references-template-authoring-md-6b0c88d22888-1",
+          "sha256": "6b0c88d228883aa04f6914f01696d89e6c0de59c64f4eceaf5f6fb2b06280c3d",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-c5ed0cca5f36-1",
+          "sha256": "c5ed0cca5f36d0185b567bc876642c644dc10d49167549a513f8268f68818793",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-49321ea4b268-1",
+          "sha256": "49321ea4b26896b867eae1e9b3da13857f7b0deb373ea0f7ad9bc9518beb55aa",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-0f86723ee647-1",
+          "sha256": "0f86723ee64729b4a76c6e973874414d6656db2e045cf1c9f4ae286fd4b858fd",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-bc52d10cad76-1",
+          "sha256": "bc52d10cad769cca5bec3827cfe41b96c226770875530f0126710d23b1bcedd2",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-fea1382f62d1-1",
+          "sha256": "fea1382f62d1e04a2866bc1c1401d8d9e2167be910c1d993414df43533995072",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-f16bf8b28066-1",
+          "sha256": "f16bf8b28066c4f0b542180d1bfb3638e775fe14dd703010c64f95cc21124584",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-f05557a52b16-1",
+          "sha256": "f05557a52b16ef5e57873bfd78bf02ef4a4b2bc76442402ca09d53775d98ef16",
+          "familyId": "template-authoring"
+        },
+        {
           "ruleId": "NR-references-template-authoring-md-1ccd58db3a84-1",
           "sha256": "1ccd58db3a84fd32cf0b95750e7de1c6230b2878f4de61b37fabd4163a1262ec",
           "familyId": "template-authoring"
@@ -4120,8 +4175,8 @@
           "familyId": "template-authoring"
         },
         {
-          "ruleId": "NR-references-template-authoring-md-a2928ef6c059-1",
-          "sha256": "a2928ef6c059ff42975f386ab1ff1c1fc870d21448900604a22463a473430b75",
+          "ruleId": "NR-references-template-authoring-md-f65e8a0ebca3-1",
+          "sha256": "f65e8a0ebca382a7fffda3821135f192fdb4c335c3243eb2d5b7a4e94bf01379",
           "familyId": "template-authoring"
         },
         {
@@ -4202,6 +4257,11 @@
         {
           "ruleId": "NR-references-template-authoring-md-df08dc8df6cb-1",
           "sha256": "df08dc8df6cbe29c1ee793a2498e6a59f9633dfd70292d0a181a93bff8451b66",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-e1fdcde54f1f-1",
+          "sha256": "e1fdcde54f1fc499e7cc33e1626befe7bedb276a591d7bcc8816079d2f79367d",
           "familyId": "template-authoring"
         },
         {
@@ -4345,6 +4405,16 @@
           "familyId": "template-authoring"
         },
         {
+          "ruleId": "NR-references-template-authoring-md-e789fdc59820-1",
+          "sha256": "e789fdc5982041524d35c05fc233bf7d0333ae83e194f71e8da3ea9bad333d1e",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-references-template-authoring-md-09913f8606b8-1",
+          "sha256": "09913f8606b8ceed2b1fc7e32db1a88aaaa1ef87102e4d45b15a326680c894b4",
+          "familyId": "template-authoring"
+        },
+        {
           "ruleId": "NR-references-template-authoring-md-84a949b75f94-1",
           "sha256": "84a949b75f942c09897b10f0a85017532a3a07211a3539cd4a75ab81b78fb580",
           "familyId": "template-authoring"
@@ -4365,8 +4435,8 @@
           "familyId": "template-authoring"
         },
         {
-          "ruleId": "NR-references-template-authoring-md-86f65db4bf55-1",
-          "sha256": "86f65db4bf552ef6d1360e96effd6869d558c97d926b41d83321957404e3110e",
+          "ruleId": "NR-references-template-authoring-md-1439ed1124e6-1",
+          "sha256": "1439ed1124e68d2471a26fe34686bd29b963d501fe72a0d70322b681dc987ca4",
           "familyId": "template-authoring"
         },
         {
@@ -4375,13 +4445,13 @@
           "familyId": "template-authoring"
         },
         {
-          "ruleId": "NR-references-template-authoring-md-b720962df7ad-1",
-          "sha256": "b720962df7adebcaad8ed6c2048a8bca0e1c6b0b5b70762656816a8cf7362378",
+          "ruleId": "NR-references-template-authoring-md-260b821990c5-1",
+          "sha256": "260b821990c5f3c6b08ea100e45c92b7effca013d285e27769d6402f2c9412bd",
           "familyId": "template-authoring"
         },
         {
-          "ruleId": "NR-references-template-authoring-md-85bce32789f9-1",
-          "sha256": "85bce32789f9e294825c34a82c288b756be308c7946c77e0a499aef57b9b9e18",
+          "ruleId": "NR-references-template-authoring-md-aae810c00177-1",
+          "sha256": "aae810c001778155ad479823adfd0e9c269dec19d80c75204e85a8f56cf740c8",
           "familyId": "template-authoring"
         },
         {
@@ -4879,7 +4949,7 @@
     },
     {
       "path": "references/visible-text-contract.md",
-      "sha256": "4bb93125a9144c668f481ee13642c375491f39e2cc124a890329e69779dc2aba",
+      "sha256": "39723481976c01f0e4b5d73f834c3a15c87afbf88161169b48adbe4baa94ed9a",
       "familyId": "visible-text",
       "units": [
         {
@@ -4918,6 +4988,16 @@
           "familyId": "visible-text"
         },
         {
+          "ruleId": "NR-erences-visible-text-contract-md-109f173e4f53-1",
+          "sha256": "109f173e4f53f5a4b8b0bf3c7fa815bb0fdfcfc5338df8c5b5d71f3364107bc9",
+          "familyId": "visible-text"
+        },
+        {
+          "ruleId": "NR-erences-visible-text-contract-md-fb2efb43e4aa-1",
+          "sha256": "fb2efb43e4aac4fae45bc3ddc99bbbcb545d574b8abdfd9bdda87323f809b659",
+          "familyId": "visible-text"
+        },
+        {
           "ruleId": "NR-erences-visible-text-contract-md-a07d6b020c7c-1",
           "sha256": "a07d6b020c7c65af42624e4f99b424d50a815892734868b30700fcd0b1b2c407",
           "familyId": "visible-text"
@@ -4933,8 +5013,8 @@
           "familyId": "visible-text"
         },
         {
-          "ruleId": "NR-erences-visible-text-contract-md-40ae20bb3792-1",
-          "sha256": "40ae20bb3792300c089a9ca1b631dafb122ef9b46fb5ca82cfa1fc080417eb9e",
+          "ruleId": "NR-erences-visible-text-contract-md-b98b2a5d8950-1",
+          "sha256": "b98b2a5d8950fe18c4eabfec6aac382df42650ef0fe53bc729f574d898cdfdd6",
           "familyId": "visible-text"
         },
         {
@@ -4946,7 +5026,7 @@
     },
     {
       "path": "specs/新模板生产Skill实施规格.md",
-      "sha256": "b5b286e95a8481c2e09e4b0851c59c0412c0d39dab0e325ac0587ddc75781eb6",
+      "sha256": "b6ebadec01cda1bac100fa85f044175e5c27e0dd02ee1b9f0615d25c2cca3389",
       "familyId": "governance",
       "units": [
         {
@@ -5600,6 +5680,11 @@
           "familyId": "template-authoring"
         },
         {
+          "ruleId": "NR-specs-skill-md-6ce53db5d695-1",
+          "sha256": "6ce53db5d69530563bdcff8c5bdc53c33f962213f4fd77e723630df708ec25b2",
+          "familyId": "template-compilation"
+        },
+        {
           "ruleId": "NR-specs-skill-md-3d6aa391cc78-1",
           "sha256": "3d6aa391cc78c0a5d97dd949623022ef9d8ba39337a6a2ce459d5f96663b1b73",
           "familyId": "template-authoring"
@@ -5610,8 +5695,8 @@
           "familyId": "template-authoring"
         },
         {
-          "ruleId": "NR-specs-skill-md-f215f8297654-1",
-          "sha256": "f215f82976545bf6695a0dd0cff295c6c1ab1526d19775c4089476bc7cef745a",
+          "ruleId": "NR-specs-skill-md-ce22e74af0ea-1",
+          "sha256": "ce22e74af0eaa82323166c31d141888f880fa36f5757283d8feda6ddc58832ff",
           "familyId": "visible-text"
         },
         {
@@ -5627,6 +5712,11 @@
         {
           "ruleId": "NR-specs-skill-md-b030cb6184f5-1",
           "sha256": "b030cb6184f59a7d0069731c7022fd1b4694f59fc7137304079977b5c283d2fe",
+          "familyId": "template-authoring"
+        },
+        {
+          "ruleId": "NR-specs-skill-md-9d7c753623cb-1",
+          "sha256": "9d7c753623cbfb5835adc62afc28154ca1c80e573e40b41d4fbaca38e518fbe2",
           "familyId": "template-authoring"
         },
         {
@@ -5655,8 +5745,8 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-specs-skill-md-4337bb45d519-1",
-          "sha256": "4337bb45d51967c2a991fbe1aaf796f077afe52f1264b5b1375c80677d8519f4",
+          "ruleId": "NR-specs-skill-md-069004bd1e9f-1",
+          "sha256": "069004bd1e9fa4b9424395ca18bdb85e3f60d84b9ca94768a4eccf88a92e187c",
           "familyId": "template-authoring"
         },
         {
@@ -5925,8 +6015,8 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR-specs-skill-md-02ba5d214627-1",
-          "sha256": "02ba5d2146273a730430c526847572ba7a0eaeff63a7780a795c4f1be56b2484",
+          "ruleId": "NR-specs-skill-md-722299a1e1a3-1",
+          "sha256": "722299a1e1a31e9820a186bd3a5f5d6e58ee4c4cf7ba0db435d73a1c3b8410f8",
           "familyId": "template-compilation"
         },
         {

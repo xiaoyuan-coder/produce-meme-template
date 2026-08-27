@@ -1,8 +1,8 @@
 {
   "name": "produce-meme-template",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "updated_at": "2026-08-27",
-  "description": "新生产稳定写 runtimeSemantics v2，显式冻结服装归属与动态群组；T1 兼容读取 v1/v2，存量通过可审计工具迁移。",
+  "description": "第二阶段 Fal 生图恢复 low 成本档；作者门禁增加双层群体策略、纯图片动态群像、十一大类标签、短描述与高价值文字槽约束。",
   "tracked_files": [
     ".gitignore",
     "AGENTS.md",
@@ -56,6 +56,7 @@
     "docs/agents/domain.md",
     "docs/agents/issue-tracker.md",
     "docs/agents/triage-labels.md",
+    "docs/incidents/2026-08-27-fal-quality-regression.md",
     "fixtures/contracts/latest-gallery-samples/README.md",
     "fixtures/contracts/latest-gallery-samples/heart.expected.json",
     "fixtures/contracts/latest-gallery-samples/heart.input.json",

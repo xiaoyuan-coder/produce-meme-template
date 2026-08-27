@@ -96,7 +96,7 @@
     "slotPortability": true,
     "evidence": "标题保留手持与互动机制，对具体人物和手中物件保持中性"
   },
-  "neutralDescription": "手中目标可以替换，手指接触边界、遮挡层级与人物其他内容保持稳定。",
+  "neutralDescription": "人物手持物件的近景互动",
   "promptTemplate": "人物双手在画面中央握住{{ held_object | \"小束鲜花\" }}，手指保持原有接触和遮挡，{{ indoor_mood | \"柔和室内自然光\" }}照亮双手与物件，人物眼镜、面部、服装、戒指和浅灰背景保持稳定。",
   "freeEditableContent": [
     "手指保持原有接触和遮挡",
@@ -189,9 +189,11 @@
     "evidence": "人物双手是握持机制的固定锚点；仅开放手持内容图片替换。"
   },
   "tags": [
+    "人物",
     "手持物件",
     "生活方式摄影",
-    "浅景深"
+    "浅景深",
+    "近景互动"
   ],
   "visualFactSourceSha256": "ebd657aae8267d901ea15794c8fdb59d1d36a7a695c3216d86f8ce2ba4760d2a",
   "runtimeSemantics": {

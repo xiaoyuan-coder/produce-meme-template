@@ -999,6 +999,116 @@
           "expectedGateLocator": "/errorCodes/externalFailure"
         }
       ]
+    },
+    {
+      "experienceId": "E63",
+      "topic": "第二阶段 Fal 默认质量必须保持 low 成本档",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "2026-08-17 的 Skill 迁移把历史 low 默认值误写为 high，且缺少显式用户授权与请求级回归断言；修复后机器事实源固定为 low，公共 Fal 流程同时断言合同值和实际提交参数。",
+      "authority": {
+        "path": "docs/incidents/2026-08-27-fal-quality-regression.md",
+        "anchor": "## 纠正与防复发"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/generationExecutionContract/fal/quality"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_10_generation_wal.Issue10GenerationWalTest.test_real_fal_adapter_runs_submit_status_result_and_download_through_public_flow",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-image.ppm",
+            "tests/test_issue_10_generation_wal.py"
+          ]
+        }
+      ]
+    },
+    {
+      "experienceId": "E64",
+      "topic": "动态群体必须经过双层策略裁决并生成纯图片槽",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "多人或多宠物不能按检测数量随机建槽；只有整组真实身份、单张合照自然输入、人数可变、成员同类且无需逐角色寻址时，才生成纯图片 identity_group。固定角色、同源重复和描述性密集内容分别走独立 subject、same_source_repeated 和文字内容组。",
+      "authority": {
+        "path": "references/template-authoring.md",
+        "anchor": "### 3.1 群体策略的双层裁决"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/runtimeSemanticsContract/groupStrategyDecisionContract"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_32_gallery_contract_v2.Issue32GalleryContractV2Test.test_public_production_compiles_an_authored_dynamic_group",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_32_gallery_contract_v2.py"
+          ]
+        },
+        {
+          "testId": "tests.test_issue_32_gallery_contract_v2.Issue32GalleryContractV2Test.test_dynamic_group_rejects_fixed_member_count_and_compound_input",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "tests/test_issue_32_gallery_contract_v2.py"
+          ],
+          "expectedGateLocator": "/runtimeSemanticsContract/dynamicIdentityInputContract"
+        }
+      ]
+    },
+    {
+      "experienceId": "E65",
+      "topic": "检索文案和文字槽必须由不可绕过的作者门禁约束",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "标签从固定三项改为 5–8 项并至少包含十一大类之一；description 限制为 20 字；身份文字与高价值 span 限 12 字、真正承担玩法的主视觉大标题限 28 字，精确文字证据不能放开普通长条或整段文字槽。",
+      "authority": {
+        "path": "references/visible-text-contract.md",
+        "anchor": "## 2. 文字槽准入"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_gates.py",
+        "locator": "deterministic_authoring_contract_audit"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_authoring_audit_is_bound_to_approved_image_and_review_request",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ]
+        },
+        {
+          "testId": "tests.test_issue_8_text_dense_templates.Issue8TextDenseTemplatesTest.test_high_value_span_over_twelve_characters_cannot_bypass_the_gate",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/text-dense/scenarios.json",
+            "tests/test_issue_8_text_dense_templates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        },
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_tags_require_five_to_eight_items_and_one_big_category",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        },
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_description_over_twenty_characters_is_blocked",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
     }
   ],
   "corpus": {
@@ -1010,6 +1120,6 @@
     "known-character-ip": {"path": "fixtures/e2e/identity-routes/scenarios.json", "selector": "/ip/routeRole", "sha256": "dd6635ff85fa9a433a6c596c4f64086ee0e8090ca2851e2b23bace668bb949ee"},
     "animal": {"path": "fixtures/e2e/simple-animal/source-image.ppm", "selector": null, "sha256": "b24c23d936effa3a455065e2be41498f85fe5b59204f80448daca56ec1e2f3b0"},
     "visible-text": {"path": "fixtures/e2e/text-dense/scenarios.json", "selector": "/textCard/regionId", "sha256": "bea0b903b48d15c355b589bbb93e5069cee258d7593259e1548f3f89b3a27523"},
-    "complex-composition": {"path": "fixtures/e2e/multi-instance/scenarios.json", "selector": "/multiPersonGrid/operationRole", "sha256": "a0312b43123ef19edf1352cd04f79a2807a49d5fcdf9a1cadac1432b4624b919"}
+    "complex-composition": {"path": "fixtures/e2e/multi-instance/scenarios.json", "selector": "/multiPersonGrid/operationRole", "sha256": "a5cbba1cfba477c0a7efd2a0672b2d1cd67240671378839caf738ca4ae3125fe"}
   }
 }

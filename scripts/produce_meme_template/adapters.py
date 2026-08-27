@@ -532,10 +532,22 @@ class DeterministicFixtureAdapters:
 
     def analyze_approved(self, approved_image: Path) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "approved-analysis.json")
-        result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
+        rules = _read_json(RULES_PATH)
+        result["schemaVersion"] = rules["schemaVersion"]
         image_sha = hashlib.sha256(approved_image.read_bytes()).hexdigest()
         result["visualFactSourceSha256"] = image_sha
-        decision_contract = _read_json(RULES_PATH).get(
+        tag_contract = rules["authoringContractAudit"]["tagAuthoringContract"]
+        tag_evidence_fields = tag_contract["evidenceFields"]
+        result[tag_contract["evidenceAnalysisField"]] = [
+            {
+                tag_evidence_fields["tag"]: tag,
+                tag_evidence_fields["evidence"]: (
+                    f"fixture 已逐项对照当前 Approved Image 核对标签：{tag}"
+                ),
+            }
+            for tag in result.get("tags", [])
+        ]
+        decision_contract = rules.get(
             "renderingCoherenceDecisionContract", {}
         )
         decision = result.get(decision_contract.get("authoringField"))

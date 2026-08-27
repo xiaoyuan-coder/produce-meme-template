@@ -21,8 +21,10 @@ from .replacement_planning import (
 )
 from .production_gates import (
     _subject_presence_context,
+    group_strategy_decision_valid,
     slot_input_modes,
     subject_presence_context_errors,
+    visible_text_open_slot_selection_valid,
 )
 from .workflow_core import (
     CJK_CHARACTER,
@@ -38,6 +40,30 @@ from .workflow_core import (
     _public_asset_url_valid,
     _stop,
 )
+
+
+def _identity_group_members_valid(
+    target: dict[str, Any], runtime_contract: dict[str, Any]
+) -> bool:
+    group_fields = runtime_contract["identityGroupFields"]
+    group_contract = runtime_contract["identityGroupContract"]
+    minimum = target.get(group_fields["minimumMembers"])
+    maximum = target.get(group_fields["maximumMembers"])
+    return bool(
+        target.get(group_fields["memberKind"])
+        in set(group_contract["memberKinds"])
+        and isinstance(minimum, int)
+        and not isinstance(minimum, bool)
+        and isinstance(maximum, int)
+        and not isinstance(maximum, bool)
+        and group_contract["minimumMembers"] <= minimum
+        and (
+            minimum < maximum
+            if group_contract["requireVariableMemberCount"]
+            else minimum <= maximum
+        )
+        and maximum <= group_contract["maximumMembers"]
+    )
 
 
 def _schema_normalized_identifier(
@@ -268,18 +294,12 @@ def _validate_visible_text_contract(
         if action == actions["openSlot"]:
             slot_id = region.get(region_fields["slotIdentity"])
             if (
-                value_class not in set(contract["openSlotValueClasses"])
-                or not isinstance(slot_id, str)
+                not isinstance(slot_id, str)
                 or not slot_id.strip()
-                or not selected_text
-                or selected_text not in source_text
+                or not visible_text_open_slot_selection_valid(region, rules)
                 or (
                     value_class == contract["valueClasses"]["highValueSpan"]
                     and selected_text == source_text
-                )
-                or (
-                    selected_text == source_text
-                    and len(source_text) > contract["wholeRegionSlotHardMaximum"]
                 )
             ):
                 invalid_route_ids.append(region_id)
@@ -385,10 +405,22 @@ def _validate_visible_text_contract(
     over_capacity_text_slots = sorted(
         slot["id"]
         for slot in text_slots
-        if any(
-            not isinstance(value, str)
-            or len(value.strip()) > contract["wholeRegionSlotHardMaximum"]
-            for value in slot.get("suggestions", [])
+        if (
+            (region_id := slot_bindings.get(slot["id"])) is None
+            or (
+                value_class := next(
+                    region[region_fields["valueClass"]]
+                    for region in regions
+                    if region[region_fields["identity"]] == region_id
+                )
+            )
+            not in contract["openSlotMaximumCharactersByValueClass"]
+            or any(
+                not isinstance(value, str)
+                or len(value.strip())
+                > contract["openSlotMaximumCharactersByValueClass"][value_class]
+                for value in slot.get("suggestions", [])
+            )
         )
     )
     if over_capacity_text_slots:
@@ -520,6 +552,22 @@ def _compile_editable_spec(
             "contractFailure",
             "Prompt Template 含有只应进入隐藏视觉合同的媒介、画风、构图或清理指令。",
             {"forbiddenFragments": leaked_hidden_fragments},
+        )
+    description = analysis.get("neutralDescription")
+    description_maximum = rules["authoringContractAudit"][
+        "copyAuthoringContract"
+    ]["descriptionMaximumCharacters"]
+    if not (
+        isinstance(description, str)
+        and description.strip() == description
+        and 0 < len(description) <= description_maximum
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            f"description 必须保持在 {description_maximum} 字以内。",
+            {},
         )
     title_contract = rules["titleAuthoringContract"]
     title_gate_fields = set(title_contract["gateFields"].values())
@@ -1600,6 +1648,23 @@ def _compile_editable_spec(
             "needsReview 仅在确有人工复核原因时保留非空字符串。",
             {},
         )
+    preserved_title_field = rules["authoringContractAudit"][
+        "copyAuthoringContract"
+    ]["preservedTitleAnalysisField"]
+    preserved_title = analysis.get(preserved_title_field)
+    if preserved_title is not None and not (
+        isinstance(preserved_title, str)
+        and preserved_title.strip() == preserved_title
+        and preserved_title
+        and analysis.get("neutralTitle") == preserved_title
+    ):
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "存量重编译必须把旧正式 title 作为 preservedTitle 原样传入。",
+            {},
+        )
     default_slot_values = {slot["id"]: slot["defaultValue"] for slot in slots}
     editable = {
         "artifactType": "editable-template-spec",
@@ -2289,18 +2354,7 @@ def _compile_runtime_semantics(
         ):
             return False
         if kind == identity_group_kind:
-            minimum = target.get(group_fields["minimumMembers"])
-            maximum = target.get(group_fields["maximumMembers"])
-            return bool(
-                target.get(group_fields["memberKind"])
-                in set(group_contract["memberKinds"])
-                and isinstance(minimum, int)
-                and not isinstance(minimum, bool)
-                and isinstance(maximum, int)
-                and not isinstance(maximum, bool)
-                and group_contract["minimumMembers"] <= minimum <= maximum
-                <= group_contract["maximumMembers"]
-            )
+            return _identity_group_members_valid(target, runtime_contract)
         return all(
             isinstance(target.get(optional_field), str)
             and target[optional_field].strip()
@@ -2391,6 +2445,54 @@ def _compile_runtime_semantics(
             "contractFailure",
             "动态群像 binding 引用了不存在的开放槽。",
             {"slotIds": unknown_dynamic_slots},
+        )
+    strategy_contract = runtime_contract["groupStrategyDecisionContract"]
+    strategy_fields = strategy_contract["fields"]
+    strategy_decisions = analysis.get(strategy_contract["analysisField"], [])
+    dynamic_strategy_by_input: dict[str, dict[str, Any]] = {}
+    decision_pairs: set[tuple[str, str]] = set()
+    strategy_route_by_pair: dict[tuple[str, str], str] = {}
+    strategy_shape_valid = isinstance(strategy_decisions, list)
+    for decision in strategy_decisions if isinstance(strategy_decisions, list) else []:
+        if not group_strategy_decision_valid(decision, rules):
+            strategy_shape_valid = False
+            continue
+        input_id = decision[strategy_fields["inputIdentity"]]
+        target_id = decision[strategy_fields["targetIdentity"]]
+        pair = (input_id, target_id)
+        if pair in decision_pairs:
+            strategy_shape_valid = False
+            continue
+        decision_pairs.add(pair)
+        strategy_route_by_pair[pair] = decision[strategy_fields["route"]]
+        if (
+            decision[strategy_fields["route"]]
+            == strategy_contract["routes"]["dynamicGroupPhoto"]
+        ):
+            if input_id in dynamic_strategy_by_input:
+                strategy_shape_valid = False
+                continue
+            dynamic_strategy_by_input[input_id] = decision
+    input_contract = rules["slotCompilationContract"]["inputContract"]
+    image_only_mode = [input_contract["modes"]["image"]]
+    dynamic_strategy_valid = bool(
+        strategy_shape_valid
+        and set(dynamic_strategy_by_input) == set(authored_dynamic_slots)
+        and all(
+            dynamic_strategy_by_input[input_id][strategy_fields["targetIdentity"]]
+            == target_id
+            and slot_by_id[input_id].get(input_contract["modeAuthoringField"])
+            == image_only_mode
+            for input_id, target_id in authored_dynamic_slots.items()
+        )
+    )
+    if not dynamic_strategy_valid:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            strategy_contract["validationMessage"],
+            {"dynamicInputIds": sorted(authored_dynamic_slots)},
         )
 
     def primary_subject_targets(components: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -2534,6 +2636,71 @@ def _compile_runtime_semantics(
                     "singleTarget" if len(target_ids) == 1 else "targetGroup"
                 ],
             }
+    expected_strategy_route_by_pair: dict[tuple[str, str], str] = {}
+    one_to_one_pairs: list[tuple[str, str]] = []
+    policies = runtime_contract["identityBindingPolicies"]
+    distributions = runtime_contract["contentDistributionPolicies"]
+    routes = strategy_contract["routes"]
+    for input_id, binding in bindings.items():
+        target_ids = binding[binding_fields["targetIdentities"]]
+        if binding[binding_fields["operation"]] == operations["replaceIdentity"]:
+            policy = binding[binding_fields["identityBindingPolicy"]]
+            if policy == policies["preserveGroup"]:
+                for target_id in target_ids:
+                    expected_strategy_route_by_pair[(input_id, target_id)] = routes[
+                        "dynamicGroupPhoto"
+                    ]
+            elif policy == policies["sameSourceRepeated"]:
+                for target_id in target_ids:
+                    expected_strategy_route_by_pair[(input_id, target_id)] = routes[
+                        "sameSourceRepeated"
+                    ]
+            elif policy == policies["oneToOne"]:
+                one_to_one_pairs.extend((input_id, target_id) for target_id in target_ids)
+        elif (
+            binding[binding_fields["operation"]] == operations["replaceContent"]
+            and binding[binding_fields["distributionPolicy"]]
+            == distributions["targetGroup"]
+        ):
+            if slot_input_modes(slot_by_id[input_id], rules) != (
+                strategy_contract["descriptiveContentGroupInputModes"]
+            ):
+                raise _stop(
+                    rules,
+                    "blocked",
+                    "contractFailure",
+                    "描述性内容组只允许一个纯文字槽绑定多个同类内容目标。",
+                    {
+                        strategy_contract["fields"]["inputIdentity"]: input_id,
+                        "targetIds": target_ids,
+                    },
+                )
+            for target_id in target_ids:
+                expected_strategy_route_by_pair[(input_id, target_id)] = routes[
+                    "descriptiveContentGroup"
+                ]
+    if len(one_to_one_pairs) >= 2:
+        for pair in one_to_one_pairs:
+            expected_strategy_route_by_pair[pair] = routes["independentSubjects"]
+    if strategy_route_by_pair != expected_strategy_route_by_pair:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "群体策略必须精确覆盖动态合照、独立主体、同源重复和描述性内容组绑定。",
+            {
+                "expected": sorted(
+                    (input_id, target_id, route)
+                    for (input_id, target_id), route
+                    in expected_strategy_route_by_pair.items()
+                ),
+                "observed": sorted(
+                    (input_id, target_id, route)
+                    for (input_id, target_id), route
+                    in strategy_route_by_pair.items()
+                ),
+            },
+        )
     missing_authored_targets = sorted(
         set(bound_target_kinds) - set(authored_target_by_id)
     )
@@ -2638,6 +2805,38 @@ def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rul
     slot_contract = rules["slotCompilationContract"]
     input_contract = slot_contract["inputContract"]
     compiled_slots = [_slot_to_input(slot, rules) for slot in editable["slots"]]
+    runtime_semantics = _compile_runtime_semantics(analysis, editable, rules)
+    runtime_contract = rules["runtimeSemanticsContract"]
+    runtime_fields = runtime_contract["fields"]
+    binding_fields = runtime_contract["inputBindingFields"]
+    dynamic_input_contract = runtime_contract["dynamicIdentityInputContract"]
+    dynamic_slot_ids = {
+        input_id
+        for input_id, binding in runtime_semantics[
+            runtime_fields["inputBindings"]
+        ].items()
+        if binding.get(binding_fields["identityBindingPolicy"])
+        == runtime_contract["identityBindingPolicies"]["preserveGroup"]
+    }
+    slot_fields = input_contract["slotFields"]
+    for compiled_slot in compiled_slots:
+        if compiled_slot[slot_fields["identity"]] not in dynamic_slot_ids:
+            continue
+        if (
+            dynamic_input_contract["requireImage"]
+            and slot_fields["image"] not in compiled_slot
+        ):
+            raise _stop(
+                rules,
+                "blocked",
+                "contractFailure",
+                dynamic_input_contract["validationMessage"],
+                {"slotIds": [compiled_slot[slot_fields["identity"]]]},
+            )
+        if not dynamic_input_contract["allowText"]:
+            compiled_slot.pop(slot_fields["text"], None)
+        if not dynamic_input_contract["allowResolutionStrategy"]:
+            compiled_slot.pop(slot_fields["resolutionStrategy"], None)
     invalid_subject_counts = sorted(
         item["id"]
         for item, slot in zip(compiled_slots, editable["slots"], strict=True)
@@ -2660,7 +2859,7 @@ def _compile_hidden_spec(analysis: dict[str, Any], editable: dict[str, Any], rul
             input_contract["fields"]["version"]: input_contract["version"],
             input_contract["fields"]["slots"]: compiled_slots,
         },
-        "runtimeSemantics": _compile_runtime_semantics(analysis, editable, rules),
+        "runtimeSemantics": runtime_semantics,
     }
 
 
@@ -3682,6 +3881,26 @@ def _runtime_semantics_contract_errors(
                     errors.append(
                         f"{input_id} 的动态群像必须以 preserve_group 精确绑定一个 identity_group。"
                     )
+                dynamic_input_contract = contract["dynamicIdentityInputContract"]
+                invalid_dynamic_input = bool(
+                    (
+                        dynamic_input_contract["requireImage"]
+                        and input_slot_fields["image"] not in item
+                    )
+                    or (
+                        not dynamic_input_contract["allowText"]
+                        and input_slot_fields["text"] in item
+                    )
+                    or (
+                        not dynamic_input_contract["allowResolutionStrategy"]
+                        and input_slot_fields["resolutionStrategy"] in item
+                    )
+                )
+                if invalid_dynamic_input:
+                    errors.append(
+                        f"{dynamic_input_contract['validationMessage']}"
+                        f" @ runtimeSemantics.inputBindings.{input_id}"
+                    )
             else:
                 expected_policy = contract["identityBindingPolicies"][
                     "oneToOne" if len(target_ids) == 1 else "sameSourceRepeated"
@@ -3727,23 +3946,12 @@ def _runtime_semantics_contract_errors(
             errors.append(f"{input_id} 的绑定操作无效。")
     if len(identity_targets_owned) != len(set(identity_targets_owned)):
         errors.append("同一身份目标不能由多个 subject 输入接管。")
-    group_fields = contract["identityGroupFields"]
-    group_contract = contract["identityGroupContract"]
     for target_id, target in target_by_id.items():
         if target.get(target_fields["kind"]) != contract["targetKinds"]["identityGroup"]:
             continue
-        minimum = target.get(group_fields["minimumMembers"])
-        maximum = target.get(group_fields["maximumMembers"])
         if not (
             runtime_version == contract["version"]
-            and target.get(group_fields["memberKind"])
-            in set(group_contract["memberKinds"])
-            and isinstance(minimum, int)
-            and not isinstance(minimum, bool)
-            and isinstance(maximum, int)
-            and not isinstance(maximum, bool)
-            and group_contract["minimumMembers"] <= minimum <= maximum
-            <= group_contract["maximumMembers"]
+            and _identity_group_members_valid(target, contract)
         ):
             errors.append(f"{target_id} 的动态群像成员范围无效。")
     if (
@@ -3825,6 +4033,19 @@ def _validate_final(
     runtime_semantics_errors = _runtime_semantics_contract_errors(
         record, rules, require_current=require_current
     )
+    description = record.get(top_level["userDescription"])
+    description_maximum = rules["authoringContractAudit"][
+        "copyAuthoringContract"
+    ]["descriptionMaximumCharacters"]
+    copy_policy_errors = []
+    if require_current and not (
+        isinstance(description, str)
+        and description.strip() == description
+        and 0 < len(description) <= description_maximum
+    ):
+        copy_policy_errors.append(
+            f"description 必须保持在 {description_maximum} 字以内。"
+        )
     passed = bool(
         not errors
         and not forbidden_keys
@@ -3837,6 +4058,7 @@ def _validate_final(
         and cover_matches_reference
         and asset_urls_valid
         and not runtime_semantics_errors
+        and not copy_policy_errors
     )
     return {
         "artifactType": "final-validation-report",
@@ -3852,6 +4074,7 @@ def _validate_final(
         "needsReviewValid": needs_review_valid,
         "coverMatchesReferenceImage": cover_matches_reference,
         "assetUrlsValid": asset_urls_valid,
+        "copyPolicyErrors": copy_policy_errors,
         "runtimeSemanticsErrors": runtime_semantics_errors,
     }
 

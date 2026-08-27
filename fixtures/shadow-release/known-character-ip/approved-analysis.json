@@ -90,7 +90,7 @@
     "slotPortability": true,
     "evidence": "标题保留展会大厅和奇趣角色的可见机制，未锁定来源 IP 身份"
   },
-  "neutralDescription": "夸张充气角色站在会场中央，地面接触、展位结构与旁观人群共同保留现场感",
+  "neutralDescription": "会场中央的夸张充气角色",
   "promptTemplate": "一个{{ character_subject | \"白兔充气角色\" }}全身站在画面中央的{{ convention_floor | \"灰色展厅地面\" }}上，保留{{ convention_mood | \"明亮会展顶灯\" }}、展位建筑与旁观人群，角色底部完整接触地面。",
   "freeEditableContent": [
     "全身站在画面中央",
@@ -214,9 +214,11 @@
     }
   ],
   "tags": [
+    "二次元",
     "角色装置",
     "展会现场",
-    "充气造型"
+    "充气造型",
+    "大型装置"
   ],
   "visualFactSourceSha256": "23978bfb83123e7c964b8c40dd086368aa9805c367342add201f8d1b6bcbfa0f",
   "subjectAttributeAssessments": {

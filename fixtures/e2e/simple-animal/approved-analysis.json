@@ -137,7 +137,7 @@
     "slotPortability": true,
     "evidence": "标题只描述软垫承托与困倦情绪，替换动物、软垫外观和氛围后仍自然成立"
   },
-  "neutralDescription": "主体蜷卧在软垫上，侧面光线强化安静又疲惫的神态",
+  "neutralDescription": "宠物蜷卧软垫，侧光营造困倦感",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}蜷卧在{{ cushion_look | \"暖黄色软垫\" }}上，前爪搭住垫边，{{ room_mood | \"午后窗光\" }}从侧面照入，背景保留安静的客厅和轻微景深。",
   "freeEditableContent": [
     "前爪搭住垫边",
@@ -260,9 +260,11 @@
     }
   ],
   "tags": [
-    "治愈",
+    "动物",
     "宠物",
-    "慵懒"
+    "蜷卧",
+    "软垫",
+    "治愈"
   ],
   "renderingCoherenceDecision": {
     "mode": "unified",

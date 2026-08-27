@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import tempfile
@@ -125,6 +126,18 @@ class IdentityResolutionTransformAdapters(DeterministicFixtureAdapters):
         )
 
 
+class ExistingTemplateAnalysisTransformAdapters(AnalysisTransformAdapters):
+    def resolve_template_identity(
+        self, source_image: Path, request: dict
+    ) -> dict:
+        result = super().resolve_template_identity(source_image, request)
+        contract = RULES["templateIdentityContract"]
+        fields = contract["fields"]
+        result[fields["status"]] = contract["statuses"]["existing"]
+        result[fields["sourceMatch"]] = True
+        return result
+
+
 class ProductionReadinessGateTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -213,6 +226,7 @@ class ProductionReadinessGateTest(unittest.TestCase):
                 **self.request,
                 "productionItemId": "registered-legacy-key",
                 "templateKey": "material-1376",
+                "preservedTitle": "软垫上的困倦瞬间",
             },
             self.output_root,
             IdentityResolutionTransformAdapters(registered_existing),
@@ -471,7 +485,14 @@ class ProductionReadinessGateTest(unittest.TestCase):
 
     def test_generic_batch_tags_are_blocked_before_formal_compilation(self) -> None:
         def reuse_generic_tags(analysis: dict) -> dict:
-            analysis["tags"] = ["人物", "热门", "好看"]
+            analysis["tags"] = ["动物", "热门", "好看", "宠物", "蜷卧"]
+            analysis["tagGroundingEvidence"] = [
+                {
+                    "tag": tag,
+                    "evidence": f"当前确认图的可见内容支持标签「{tag}」的分类价值",
+                }
+                for tag in analysis["tags"]
+            ]
             return analysis
 
         result = run_production(
@@ -484,6 +505,106 @@ class ProductionReadinessGateTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["blocked"], result.state)
         self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_tag_grounding_evidence_rejects_duplicate_rows(self) -> None:
+        def duplicate_tag_evidence(analysis: dict) -> dict:
+            analysis["tagGroundingEvidence"].append(
+                copy.deepcopy(analysis["tagGroundingEvidence"][0])
+            )
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "duplicate-tag-evidence"},
+            self.output_root,
+            AnalysisTransformAdapters(duplicate_tag_evidence),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_tags_require_five_to_eight_items_and_one_big_category(self) -> None:
+        def five_tags_without_category(analysis: dict) -> dict:
+            analysis["tags"] = ["宠物", "蜷卧", "软垫", "侧面光线", "治愈氛围"]
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "tags-without-big-category"},
+            self.output_root,
+            AnalysisTransformAdapters(five_tags_without_category),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_description_over_twenty_characters_is_blocked(self) -> None:
+        def use_long_description(analysis: dict) -> dict:
+            analysis["neutralDescription"] = "这是一条超过二十个字符并且罗列了很多无关细节的模板描述"
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "description-too-long"},
+            self.output_root,
+            AnalysisTransformAdapters(use_long_description),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_stored_recompilation_cannot_rewrite_preserved_title(self) -> None:
+        def rewrite_stored_title(analysis: dict) -> dict:
+            analysis["neutralTitle"] = "重新分析后的新标题"
+            return analysis
+
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "stored-title-rewritten",
+                "preservedTitle": "旧正式标题",
+            },
+            self.output_root,
+            ExistingTemplateAnalysisTransformAdapters(rewrite_stored_title),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["needs_input"], result.state)
+        self.assertEqual(RULES["errorCodes"]["riskNeedsReview"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_stored_recompilation_without_preserved_title_needs_review(self) -> None:
+        contract = RULES["templateIdentityContract"]
+        fields = contract["fields"]
+
+        def registered_existing(resolution: dict) -> dict:
+            resolution[fields["status"]] = contract["statuses"]["existing"]
+            resolution[fields["sourceMatch"]] = True
+            return resolution
+
+        result = run_production(
+            {**self.request, "productionItemId": "stored-title-missing"},
+            self.output_root,
+            IdentityResolutionTransformAdapters(registered_existing),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["needs_input"], result.state)
+        self.assertEqual(RULES["errorCodes"]["riskNeedsReview"], result.error_code)
+        self.assertFalse((result.output_dir / "source-analysis.json").exists())
+
+    def test_new_template_cannot_claim_a_preserved_title(self) -> None:
+        result = run_production(
+            {
+                **self.request,
+                "productionItemId": "new-template-with-preserved-title",
+                "preservedTitle": "软垫上的困倦瞬间",
+            },
+            self.output_root,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+        self.assertEqual(RULES["resultStates"]["needs_input"], result.state)
+        self.assertEqual(RULES["errorCodes"]["riskNeedsReview"], result.error_code)
+        self.assertFalse((result.output_dir / "source-analysis.json").exists())
 
     def test_authoring_audit_is_bound_to_approved_image_and_review_request(self) -> None:
         result = run_production(

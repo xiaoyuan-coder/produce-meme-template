@@ -38,6 +38,21 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 多主体分析先分开“身份成员”和“显示实例”。爱丽丝与白兔、两位人物或两只可独立辨识的宠物是两个身份单元；同一角色在手机外、屏幕内、镜像或反射中再次出现是同一身份的重复实例。当“身份单元数 + 其他高价值槽位数”不超过机器上限时，每个身份成员建立独立 `subject`，同一成员的多个显示实例继续共享一份上传资产和一个控件。
 
+### 3.1 群体策略的双层裁决
+
+群体策略属于例外路由，必须在两个阶段分别给出当前图证据，并写入 `groupStrategyDecisions`。编译器将四种路由与真实 `inputBindings` 的 input/target 组合精确对账：动态合照、两个以上独立主体、同源重复和多目标文字内容组都必须有逐目标决策；多写、少写或引用不存在的 input/target 都在 draft 前阻断。
+
+第一层是核心玩法分析。只有同时满足以下条件，才把玩法判为动态群体：用户需要保留上传成员的真实身份；最自然的输入是一张完整合照；上传人数可能与模板默认人数不同；成员属于同一类别（全人物或全宠物）；各成员没有必须逐一指定的固定角色位。典型例子是“一家人整整齐齐”：模板图有三人，用户上传四人家庭合照后，应按四人整体重绘并保持模板画风、动作关系和构图机制。
+
+第一层未通过时按以下路由处理：
+
+- 人数、位置或角色各自有独立语义，例如左右人物、三位固定角色、两排成员逐个做不同手势：每个可寻址身份建立独立 `subject`。
+- 同一身份在多个固定位置重复出现：建立一个 `subject`，绑定 `same_source_repeated`。
+- 十二只猫、密集气球、鸟群等只要求“内容数量与群聚效果”，且不要求上传真实成员身份：建立一个文字内容槽，绑定 `content_element + preserve_target_group`；不创建十二个图片槽，也不使用 `identity_group`。
+- 人物与宠物混合、身份成员需要分别替换或固定人数玩法：分别建槽，或在超出槽位预算时进入明确复核。
+
+第二层是高价值槽位挖掘。即使核心玩法判为动态群体，也要再次证明“整张合照”本身满足用户动机、结果可见、模型可控和机制保持四道门禁，并且比逐主体槽或文字内容槽更符合实际输入。通过后只建立一个 `inputModes: ["image"]` 的群体图片槽；该槽不得生成 `text` 或 `resolutionStrategy`。`coreGameplayEvidence` 解释玩法为何需要动态人数和整组身份，`highValueSlotEvidence` 解释为何一张合照是高价值且合适的输入单位。
+
 `inseparable_multi_identity_unit` 只在至少两个身份单元确实存在，且将每个成员开放为独立 subject 会超过槽位硬上限时才成立。`no_stable_subject_boundary` 要求 `modelControllable=false`；`fixed_identity_is_mechanism_anchor` 要求 `mechanismPreserved=false`。类型代码与可计算前提不一致时，P3 在产出可编辑侧车前阻断。
 
 结构化槽位的四道门禁固定为：
@@ -61,7 +76,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 | --- | --- |
 | `id` | 使用稳定英文语义 ID，字母开头；表达角色或位置，不写当前默认身份。多实例用稳定空间角色区分，例如 `person_left`。同一模板重跑保持不变。 |
 | `type` | 仅作生产 sidecar 中的身份/内容语义分类；正式 JSON 不输出 `type`。 |
-| `inputModes` | 从 `text`、`image` 中选择一种或两种。身份槽默认两种模式，内容槽默认文字；完整可见内容需要图片替换时显式加入 `image`。 |
+| `inputModes` | 从 `text`、`image` 中选择一种或两种。固定身份槽默认两种模式，内容槽默认文字；完整可见内容需要图片替换时显式加入 `image`；动态群体槽固定为纯 `image`。 |
 | `semanticRole` | 从机器合同枚举中选择当前组件实际承担的职责，并与 `componentGraph.controlId`、目标类型和输入绑定一致。 |
 | `label` | 用户可见的短名词短语，明确当前图中的对象或区域；保持身份中性，不复用其他模板标签。正式上限读取 Gallery Schema。 |
 | `required` | 当前正式投影固定为 `false`，因为 Prompt Template 内联默认值提供可执行 fallback。 |
@@ -110,6 +125,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 - `image.promptValue` 是图片模式提供给运行时/LLM 的中性主体说明；`image.hint` 是上传 UI 文案。它们都不承担目标定位、身份绑定或画风约束。目标位置和接管关系只由 `runtimeSemantics.targetInstances + inputBindings` 表达。
 - 作者可省略这两项，编译器分别回填“用户上传图中的主体”和“上传1张主体清晰的单主体图片”。需要让界面更清楚时可提供非空短文本覆盖，例如“用户上传图中的人物”；无需逐图复述容器、动作和空间位置。
 - `maxCount` 当前固定为 `1`。多个独立身份或素材使用独立 subject 槽；当前合同不把多人合照静默压成单主体。
+- 动态群体槽同样只上传一张图，这一张图代表完整合照。正式槽只保留 `image`，不生成 `text` 和 `resolutionStrategy`；动态人数由合照分析与 `identity_group` 上下界共同控制。
 - 一个身份的多个重复实例共享单张上传图；每个实例都在 `componentGraph` 和 `repeated_identity` 关系中建模，正式绑定使用 `same_source_repeated`。
 - `minWidth/minHeight`、`private` 和 `sourceOptions` 由机器合同统一投影，作者分析不得按批次随意改写。
 
@@ -180,6 +196,12 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 
 具体人物、IP、物种、年龄、性别、服装、颜色和默认文字只要属于开放轴，就退出标题骨架。标题优先使用动作或关系，其次使用容器或视觉钩子，再使用中性情绪和场景。批次差异化只在显式共享策略授权时作为第五项措辞检查，并且不能改变单图事实。
 
+存量模板重新编译时，调用方必须把旧正式记录的 `title` 通过 `preservedTitle` 原样传入同一生产 seam。编译器要求 `neutralTitle == preservedTitle`；不一致、缺失、为空或违反正式 Schema 时进入复核。新模板不传 `preservedTitle`，继续执行上述四个单图门禁。
+
+### 7.1 描述规范
+
+`description` 使用一句不超过 20 个字符的中文短句，概括核心主体、动作或画面玩法。描述需要绑定当前确认图，避免罗列全部组件、生产约束、槽位操作方式和内部合同术语；超过 20 个字符在作者审计与最终验证两处阻断。
+
 ## 8. Prompt Template 编译规范
 
 Prompt Template 是用户可见且可全文替换的完整自然语言画面描述。按当前确认图的阅读顺序编写：主要目标与动作、容器和关系、其他开放内容、具有编辑价值的自由内容。每个结构化槽恰好以 `{{ id | "默认值" }}` 出现，所有 `freeEditableContent` 原样出现。
@@ -192,7 +214,7 @@ Prompt Template 的每个字面都应是用户可编辑的内容或它们之间�
 
 ### 8.1 内容标签
 
-`metadata.tags` 是面向分类、筛选和审核的单图内容标签。每张 Approved Template Image 独立编写 2–5 个标签，优先覆盖该图最有辨识度的主体类型、动作或关系、场景、媒介或视觉钩子。每个标签必须能由当前图像事实证明，并能帮助用户区分该模板与其他模板。
+`metadata.tags` 是面向分类、筛选和审核的单图内容标签。每张 Approved Template Image 独立编写机器合同规定数量的标签，其中至少一项必须从 `tagAuthoringContract.categoryValues` 选择。其余标签优先覆盖该图最有辨识度的主体类型、动作或关系、场景、媒介、用途或视觉钩子。`tagGroundingEvidence` 必须按标签精确覆盖，逐项说明当前图像事实和分类价值；审计器会对账标签、证据与 Approved Image 摘要。
 
 “人物、动物、物件、图片、模板、表情包、热门、有趣、好看”这类泛标签不能单独构成有效分类。批量生产中重复同一组标签不能替代逐图编写。P4 将每个标签与 Approved Image 独立对照，记录 `groundedInApprovedImage`、`classificationUseful` 和非空证据；标签数量、长度、唯一性、逐项证据或任一结论不合格时，在正式编译前阻断当前项。
 
@@ -200,11 +222,11 @@ Prompt Template 的每个字面都应是用户可编辑的内容或它们之间�
 
 ### 9.1 targetInstances
 
-每个开放目标和关键身份边界使用稳定 ID。固定目标绑定当前 `componentGraph` 中的实际组件；动态合照以一个 `identity_group` 描述可伸缩区域，并写出 `memberKind/minMembers/maxMembers`。`role` 描述当前图中可观察的职责，`region` 描述可定位的空间范围；两者分别达到机器合同的最小信息长度，且“主体、背景、画面元素、主体区域、画面区域、对应位置”这类通用词不能单独形成定位。重复实例、镜像、阴影、容器和分格继续按多实例合同建立关系。
+每个开放目标和关键身份边界使用稳定 ID。固定目标绑定当前 `componentGraph` 中的实际组件；通过双层群体裁决的动态合照以一个 `identity_group` 描述可伸缩区域，并写出 `memberKind/minMembers/maxMembers`，其中 `minMembers < maxMembers`。`role` 描述当前图中可观察的职责，`region` 描述可定位的空间范围；两者分别达到机器合同的最小信息长度，且“主体、背景、画面元素、主体区域、画面区域、对应位置”这类通用词不能单独形成定位。重复实例、镜像、阴影、容器和分格继续按多实例合同建立关系。
 
 ### 9.2 inputBindings
 
-每个正式 input ID 恰好出现一次。身份输入绑定一个 `identity_subject` 时使用 `one_to_one`；同一来源身份覆盖两个及以上固定可见实例时使用 `same_source_repeated`；一张合照的全部同类成员随人数变化时，使用一个 `identity_group` 和 `preserve_group + group_photo`。每个身份 binding 显式写服装归属。内容输入绑定一个 `content_element`，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
+每个正式 input ID 恰好出现一次。身份输入绑定一个 `identity_subject` 时使用 `one_to_one`；同一来源身份覆盖两个及以上固定可见实例时使用 `same_source_repeated`；通过双层群体裁决的一张合照使用一个纯图片输入、一个 `identity_group` 和 `preserve_group + group_photo`。每个身份 binding 显式写服装归属。内容输入绑定一个 `content_element`，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
 
 ### 9.3 renderingCoherenceDecision
 

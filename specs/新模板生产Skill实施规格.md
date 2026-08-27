@@ -147,18 +147,20 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - P3 从确认模板图重新分析，来源网图实例描述不能作为默认值、标题、描述或 Prompt Template 的事实输入。来源身份只保留为 forbidden legacy claims 和残留检查依据。
 - Template Analysis 保存事实置信度、机制、组件图、四个数量、文字区域、身份拓扑、六维视觉合同、专项合同、固定结构和编辑边界。
 - 高价值槽位常态 2–5 个且通常约 3 个。首次只发现一个候选时继续复核主体、内容物、颜色、文字、服装、道具、场景和嵌套内容；穷尽后确实只有一个时允许单槽并保存例外证据。
+- 群体策略在核心玩法分析和高价值槽位挖掘两处分别裁决。动态群体必须证明整组真实身份、单张合照自然输入、人数可变、成员同类且无需逐角色寻址；通过后只生成纯图片槽。固定角色分别建 subject，同一身份重复使用 `same_source_repeated`，十二只猫等无身份要求的密集内容使用一个文字内容槽。
 - 主体通常属于高价值槽位。服装、造型、发型、姿势、颜色和配饰分别通过独立价值与可生成性检查，禁止按人物类型批量套用。
 - 每个身份图片输入在 P3 裁决特征继承范围：默认继承用户上传图中清晰可见的特征，只将构成模板核心玩法的特征列为最小模板固定例外。服装默认跟随上传图；特定服装特征承担核心玩法时才进入 `keepFromTemplate`。细粒度裁决保留于 sidecar 并编译为 `runtimeSemantics.relations`，二态归属确定性写入每个身份 binding 的 `clothingOwnership`。
-- 文字区域先分类角色和操作，再决定是否开放。只有身份绑定文字、主要视觉文字、承担笑点的关键句和长文中的高价值词组可以进入文字槽；装饰微字、版权出处、氛围填充和低价值说明保持固定或清理。
+- 文字区域先分类角色和操作，再决定是否开放。只有身份绑定文字、主要视觉文字、承担笑点的关键句和长文中的高价值词组可以进入文字槽；身份文字和高价值 span 最多 12 个字符，主视觉大标题最多 28 个字符，超过 28 个字符的完整区域不得整体开槽。装饰微字、版权出处、氛围填充和低价值说明保持固定或清理。
 - 默认值优先使用 2–8 个中文字符，原则上不超过 12 个字符；精确画内文字按实际内容处理。文字槽另外受角色和版面容量约束。
 - 主体开放时，确认模板图和正式 JSON 默认态中的具体身份文字必须删除、中性化或转为具有中性默认值的独立短文字槽。正式合同没有声明自动联动时，不生成身份解析、别名推导和计算默认值字段。
 - title 统一使用中性的画面机制、动作、关系、容器、视觉钩子或场景，通过最大差异输入测试。具体 IP、姓名、年龄、性别、物种、发型、服装和身份配色不进入标题。
+- 存量模板重新编译时，调用方通过 `preservedTitle` 传入旧正式 title；编译器要求它与 `neutralTitle` 逐字相同。旧标题缺失或无效时进入人工复核。description 使用不超过 20 个字符的单图玩法短句。
 - Prompt Template 是用户可见、可全文编辑的完整自然语言画面描述。它包含全部结构化槽位和未入槽但仍有编辑价值的内容；结构化编辑和全文编辑最终编译为同一种 resolved prompt。
 - Prompt Template 拥有用户内容权限。隐藏字段不能恢复用户修改后的主体、文字、颜色、配饰、服装、道具和场景。
 - `inputSchema` 固定为 `{version: 2, slots: [...]}`，每个槽的 `text` 与 `image` 模式正交组合。`targetInstances`、`inputBindings` 和 `visualContract` 从同一中间模型确定性编译。身份输入绑定一个目标时使用 `one_to_one`，同一来源身份覆盖多个固定实例时使用 `same_source_repeated`。
 - 内容图片输入绑定 `content_element`；身份图与内容图并存时必须提交来源隔离裁决，每个内容图目标必须提交 `post_edit/template_fixed/independent` 容器分类。
 - `visualContract` 使用正向、可观察的媒介、画风、构图、关系和条件性色光事实；编译器必须检查它与开放槽位和自由编辑内容的冲突。
-- `metadata.tags` 每图独立编写 2–5 项，逐项绑定 Approved Image 可见事实与分类价值；泛标签、重复标签和无单图证据的批量共用标签在 draft 前阻断。
+- `metadata.tags` 每图独立编写 5–8 项，至少一项来自机器合同中的十一大类；`tagGroundingEvidence` 按标签精确覆盖并逐项绑定 Approved Image 可见事实与分类价值。泛标签、重复标签、证据遗漏和批量共用标签在 draft 前阻断。
 - P6 产出 27 项关键结果资格账本，P8 从冻结生图包、视觉审核、作者审核和验证报告重算并精确对账后才可上传。
 - 正式模板记录使用白名单投影，只保留 `key`、`status`、`title`、`description`、`imageSize`、`imageN`、`kind`、`promptTemplate`、`inputSchema`、`preprocessSteps`、`runtimeSemantics`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover` 和 `referenceImage`。
 - 新模板的 `inputSchema.slots[].image` 不输出 `enabled` 或 `extract`；`runtimeSemantics` 是输入目标、绑定和视觉约束的唯一正式运行权威，正式 JSON 不输出 `promptEnhancement`。新生产只写 runtimeSemantics v2；T1 可读 v1/v2；存量 v1 以显式服装裁决迁移到隔离输出，不覆盖原数据。
@@ -215,7 +217,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 建立关键结果资格重放测试，删除或篡改账本后重试 P8，确认不上传且不产生正式 JSON。
 - 建立两种编辑模式等价测试，证明槽位编辑与全文编辑最后都得到完整 resolved prompt。
 - 建立用户权限冲突测试，证明 `visualContract` 不会恢复用户修改过的主体、文字、颜色、服装、道具和场景。
-- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、`one_to_one`、`same_source_repeated`、`identity_group + preserve_group + group_photo`、内容组分配、来源隔离、容器分类、媒介、画风、构图、关系、`clothingOwnership` 和 v1→v2 显式迁移。
+- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、`one_to_one`、`same_source_repeated`、双层群体策略、纯图片 `identity_group + preserve_group + group_photo`、固定人数排除、内容组分配、来源隔离、容器分类、媒介、画风、构图、关系、`clothingOwnership` 和 v1→v2 显式迁移。
 - 建立正式投影测试，对两份最新正式样例的全部 110 类归一化叶子路径执行分类；未分类数必须保持为 0。
 - 建立字段白名单测试，正式 JSON 只允许当前合同字段；旧流程 metadata、临时路径、Data URL、生产术语和 `coverUrl` 必须失败。
 - 建立 Schema 测试，正式 JSON 通过冻结的 runtimeSemantics v2 Schema；`image.extract` 与 `promptEnhancement` 均被拒绝，placeholder 全部可解析。

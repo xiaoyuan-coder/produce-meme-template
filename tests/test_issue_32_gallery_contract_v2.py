@@ -39,6 +39,10 @@ E2E_FIXTURE = ROOT / "fixtures/e2e/simple-animal"
 class DynamicGroupAdapters(DeterministicFixtureAdapters):
     def analyze_approved(self, approved_image: Path) -> dict:
         analysis = super().analyze_approved(approved_image)
+        subject_slot = next(
+            slot for slot in analysis["slotCandidates"] if slot["id"] == "pet_subject"
+        )
+        subject_slot["inputModes"] = ["image"]
         runtime = analysis["runtimeSemantics"]
         runtime["targetInstances"] = [
             {
@@ -63,6 +67,21 @@ class DynamicGroupAdapters(DeterministicFixtureAdapters):
                 "bindingPolicy": "preserve_group",
             }
         }
+        analysis["groupStrategyDecisions"] = [
+            {
+                "inputId": "pet_subject",
+                "targetId": "uploaded_pet_group",
+                "route": "dynamic_group_photo",
+                "identityFidelityRequired": True,
+                "wholeGroupUploadNatural": True,
+                "memberCountMayVary": True,
+                "rolesIndependentlyAddressable": False,
+                "homogeneousMemberKind": True,
+                "sameIdentityRepeated": False,
+                "coreGameplayEvidence": "核心玩法是让整组合照成员共同进入软垫群像，人数可随上传图变化",
+                "highValueSlotEvidence": "一个纯图片群体槽比逐成员槽更符合用户上传整张合照的操作习惯",
+            }
+        ]
         return analysis
 
     def audit_semantics(self, content: dict) -> dict:
@@ -106,6 +125,14 @@ class Issue32GalleryContractV2Test(unittest.TestCase):
         self.assertEqual("preserve_group", binding["bindingPolicy"])
         self.assertEqual(["group_photo"], binding["allowedSourceGrouping"])
         self.assertEqual("source", binding["clothingOwnership"])
+        group_input = next(
+            slot
+            for slot in record["inputSchema"]["slots"]
+            if slot["id"] == "pet_subject"
+        )
+        self.assertIn("image", group_input)
+        self.assertNotIn("text", group_input)
+        self.assertNotIn("resolutionStrategy", group_input)
 
     def test_frozen_snapshot_matches_both_official_v2_examples(self) -> None:
         validator = Draft202012Validator(SCHEMA)
@@ -131,6 +158,72 @@ class Issue32GalleryContractV2Test(unittest.TestCase):
             f"{target['id']} 的动态群像成员范围无效。",
             report["runtimeSemanticsErrors"],
         )
+
+    def test_dynamic_group_rejects_fixed_member_count_and_compound_input(self) -> None:
+        dynamic_contract = RULES["runtimeSemanticsContract"][
+            "dynamicIdentityInputContract"
+        ]
+        record = json.loads(
+            (UPSTREAM_EXAMPLES / "agent-v2-dynamic-group-example.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        fixed_count = copy.deepcopy(record)
+        target = fixed_count["runtimeSemantics"]["targetInstances"][0]
+        target["maxMembers"] = target["minMembers"]
+        self.assertFalse(_validate_final(fixed_count, RULES)["pass"])
+
+        compound = copy.deepcopy(record)
+        slot = compound["inputSchema"]["slots"][0]
+        slot["resolutionStrategy"] = "image_over_text"
+        slot["text"] = {
+            "presentation": "suggestions",
+            "allowCustom": True,
+            "defaultValue": "一家人",
+            "placeholder": "描述群体",
+            "suggestions": ["一家人", "朋友们", "同事们"],
+        }
+        report = _validate_final(compound, RULES)
+        self.assertFalse(report["pass"])
+        self.assertIn(
+            dynamic_contract["validationMessage"]
+            + " @ runtimeSemantics.inputBindings.family_group",
+            report["runtimeSemanticsErrors"],
+        )
+
+    def test_group_strategy_decision_cannot_reference_unbound_targets(self) -> None:
+        class UnboundDecisionAdapters(DynamicGroupAdapters):
+            def analyze_approved(self, approved_image: Path) -> dict:
+                analysis = super().analyze_approved(approved_image)
+                analysis["groupStrategyDecisions"].append(
+                    {
+                        "inputId": "invented_cat_group_text",
+                        "targetId": "invented_cat_group",
+                        "route": "descriptive_content_group",
+                        "identityFidelityRequired": False,
+                        "wholeGroupUploadNatural": False,
+                        "memberCountMayVary": True,
+                        "rolesIndependentlyAddressable": False,
+                        "homogeneousMemberKind": True,
+                        "sameIdentityRepeated": False,
+                        "coreGameplayEvidence": "密集猫群只需要数量与群聚效果，不保留每只猫的身份",
+                        "highValueSlotEvidence": "文字内容槽比逐只图片槽更符合用户的编辑动机",
+                    }
+                )
+                return analysis
+
+        request = json.loads((E2E_FIXTURE / "request.json").read_text(encoding="utf-8"))
+        request["sourceImage"] = str(E2E_FIXTURE / request["sourceImage"])
+        request["productionItemId"] = "unbound-group-strategy-decision"
+        with tempfile.TemporaryDirectory() as temporary:
+            result = run_production(
+                request,
+                Path(temporary),
+                UnboundDecisionAdapters(E2E_FIXTURE),
+                clock=lambda: datetime.fromisoformat("2026-08-27T08:00:00+00:00"),
+            )
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
 
     def test_v1_remains_readable_by_t1_but_is_not_a_new_production_record(self) -> None:
         record = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))

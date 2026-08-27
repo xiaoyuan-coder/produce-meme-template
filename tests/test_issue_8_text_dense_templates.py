@@ -501,6 +501,29 @@ class Issue8TextDenseTemplatesTest(unittest.TestCase):
         self.assertEqual(RULES["resultStates"]["blocked"], generic_result.state)
         self.assertEqual([], generic_adapters.upload_calls)
 
+    def test_high_value_span_over_twelve_characters_cannot_bypass_the_gate(self) -> None:
+        oversized_span = "从现在开始完成最重要的一件事"
+
+        def oversized_high_value_span(analysis: dict) -> dict:
+            analysis = self.long_poster(analysis)
+            scenario = SCENARIOS["longPoster"]
+            slot = analysis["slotCandidates"][1]
+            slot["defaultValue"] = oversized_span
+            slot["exactVisibleTextEvidence"]["visibleText"] = oversized_span
+            analysis["promptTemplate"] = analysis["promptTemplate"].replace(
+                scenario["selectedSpan"], oversized_span
+            )
+            analysis[ANALYSIS_FIELDS["regions"]][0][
+                REGION_FIELDS["selectedText"]
+            ] = oversized_span
+            return analysis
+
+        result, adapters = self.run_case(
+            "oversized-high-value-span", oversized_high_value_span
+        )
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual([], adapters.upload_calls)
+
     def test_exact_text_fidelity_rejects_language_token_line_case_and_symbol_drift(self) -> None:
         mutations = {
             "language": lambda region: region[REGION_FIELDS["exactTextEvidence"]].update({EVIDENCE_FIELDS["language"]: LANGUAGES["english"]}),

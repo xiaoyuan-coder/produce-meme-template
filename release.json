@@ -1,8 +1,8 @@
 {
   "skillName": "produce-meme-template",
-  "skillVersion": "6.0.0",
-  "releaseReadinessProfile": "live_external",
-  "artifactSchemaVersion": "0.35.0",
+  "skillVersion": "6.0.1",
+  "releaseReadinessProfile": "compatible_minor",
+  "artifactSchemaVersion": "0.36.0",
   "supportedContracts": {
     "galleryTemplate": "agent-template-json-runtime-contract-2026-08-26"
   }

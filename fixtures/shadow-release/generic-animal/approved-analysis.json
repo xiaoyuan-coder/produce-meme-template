@@ -90,7 +90,7 @@
     "slotPortability": true,
     "evidence": "标题只使用可见的抬头、看镜头与好奇情绪，替换具体动物后仍成立"
   },
-  "neutralDescription": "动物以近距离半身构图抬头注视镜头，自然光、浅灰地面与红色斜线背景保留户外现场感",
+  "neutralDescription": "动物抬头直视镜头的户外近景",
   "promptTemplate": "一只{{ pet_subject | \"柯基犬\" }}以近距离半身构图抬头看向镜头，身体下缘接触{{ ground_look | \"浅灰户外地面\" }}，{{ outdoor_mood | \"均匀自然日光\" }}照亮短毛，背景保留两条红色斜线和轻微景深。",
   "freeEditableContent": [
     "背景保留两条红色斜线",
@@ -218,9 +218,11 @@
     }
   ],
   "tags": [
+    "动物",
     "动物近景",
     "直视镜头",
-    "户外自然光"
+    "户外自然光",
+    "抬头姿态"
   ],
   "visualFactSourceSha256": "46a4163fb246992fd671801143de8dde8b92c1fd82b7f2ef6643fe5f10b4bdfd",
   "runtimeSemantics": {

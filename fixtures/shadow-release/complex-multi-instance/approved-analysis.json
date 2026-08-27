@@ -168,7 +168,7 @@
     "slotPortability": true,
     "evidence": "标题锦括四格排列和旅行档案机制，不依赖任一开放人物或场景默认值"
   },
-  "neutralDescription": "四组旅人按二乘二面板顺序组成褪色档案拼贴，每个上传单元与实际控件计数一致。",
+  "neutralDescription": "四组旅人组成复古四格档案",
   "promptTemplate": "将{{ panel_subjects | \"四组旅人\" }}分别放入左上、右上、左下、右下四格照片，保留{{ panel_frame | \"窄边褪色相纸框\" }}与固定阅读顺序，并以{{ archive_tone | \"低饱和棕褐档案色\" }}统一画面。四格边界清楚，人物组不跨格，旧相纸颗粒与划痕连续。",
   "freeEditableContent": [
     "四格边界清楚",
@@ -274,9 +274,11 @@
     }
   ],
   "tags": [
+    "人物",
     "旅行档案",
     "四格群像",
-    "复古胶片"
+    "复古胶片",
+    "多人拼贴"
   ],
   "subjectAttributeAssessments": {
     "clothing": {
@@ -320,6 +322,60 @@
       "evidence": "人物自身服装和肤色不作为独立 color 槽；archive_tone 只控制整组照片媒介色调"
     }
   },
+  "groupStrategyDecisions": [
+    {
+      "inputId": "panel_subjects",
+      "targetId": "approved-person-a",
+      "route": "descriptive_content_group",
+      "identityFidelityRequired": false,
+      "wholeGroupUploadNatural": false,
+      "memberCountMayVary": false,
+      "rolesIndependentlyAddressable": true,
+      "homogeneousMemberKind": true,
+      "sameIdentityRepeated": false,
+      "coreGameplayEvidence": "四格旅人是有序内容组，当前玩法不保留每位成员的真实身份",
+      "highValueSlotEvidence": "一个文字内容槽统一控制四格人物，不拆成四个图片槽"
+    },
+    {
+      "inputId": "panel_subjects",
+      "targetId": "approved-person-b",
+      "route": "descriptive_content_group",
+      "identityFidelityRequired": false,
+      "wholeGroupUploadNatural": false,
+      "memberCountMayVary": false,
+      "rolesIndependentlyAddressable": true,
+      "homogeneousMemberKind": true,
+      "sameIdentityRepeated": false,
+      "coreGameplayEvidence": "四格旅人是有序内容组，当前玩法不保留每位成员的真实身份",
+      "highValueSlotEvidence": "一个文字内容槽统一控制四格人物，不拆成四个图片槽"
+    },
+    {
+      "inputId": "panel_subjects",
+      "targetId": "approved-person-c",
+      "route": "descriptive_content_group",
+      "identityFidelityRequired": false,
+      "wholeGroupUploadNatural": false,
+      "memberCountMayVary": false,
+      "rolesIndependentlyAddressable": true,
+      "homogeneousMemberKind": true,
+      "sameIdentityRepeated": false,
+      "coreGameplayEvidence": "四格旅人是有序内容组，当前玩法不保留每位成员的真实身份",
+      "highValueSlotEvidence": "一个文字内容槽统一控制四格人物，不拆成四个图片槽"
+    },
+    {
+      "inputId": "panel_subjects",
+      "targetId": "approved-person-d",
+      "route": "descriptive_content_group",
+      "identityFidelityRequired": false,
+      "wholeGroupUploadNatural": false,
+      "memberCountMayVary": false,
+      "rolesIndependentlyAddressable": true,
+      "homogeneousMemberKind": true,
+      "sameIdentityRepeated": false,
+      "coreGameplayEvidence": "四格旅人是有序内容组，当前玩法不保留每位成员的真实身份",
+      "highValueSlotEvidence": "一个文字内容槽统一控制四格人物，不拆成四个图片槽"
+    }
+  ],
   "visualFactSourceSha256": "974e045f21308a4d1520c7c8478809b503b83490811624ea61a0da19a5650148",
   "runtimeSemantics": {
     "targetInstances": [

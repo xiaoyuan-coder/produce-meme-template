@@ -82,7 +82,7 @@
     "slotPortability": true,
     "evidence": "标题保留旧相纸媒介、微笑和肖像用途，替换人物身份后仍成立"
   },
-  "neutralDescription": "人物以头肩构图正面微笑，灰阶布光、深色背景与老相纸边缘共同保留年代感",
+  "neutralDescription": "灰阶老相纸中的正面微笑肖像",
   "promptTemplate": "一位{{ portrait_subject | \"短发青年\" }}以头肩肖像位于画面中央，保留{{ portrait_frame | \"竖幅老相纸边框\" }}，使用{{ studio_tone | \"柔和灰阶布光\" }}与深色背景，人物正面看向镜头并轻微微笑。",
   "freeEditableContent": [
     "以头肩肖像位于画面中央",
@@ -212,7 +212,9 @@
   "tags": [
     "人物",
     "黑白肖像",
-    "复古摄影"
+    "复古摄影",
+    "正面微笑",
+    "头肩构图"
   ],
   "visualFactSourceSha256": "4d80f56c97e2ea988bc5b4b270f73dd36b95b16788a615c24699af895cb18c3f",
   "subjectAttributeAssessments": {

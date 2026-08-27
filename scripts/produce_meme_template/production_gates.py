@@ -273,13 +273,31 @@ def compile_authoring_review_request(
     runtime_fields = rules["runtimeSemanticsContract"]["fields"]
     visible_text_fields = rules["visibleTextContract"]["analysisFields"]
     runtime = analysis.get("runtimeSemantics", {})
+    group_strategy_contract = rules["runtimeSemanticsContract"][
+        "groupStrategyDecisionContract"
+    ]
     return {
         fields["approvedImageSha256"]: approved_sha256,
         fields["neutralTitle"]: copy.deepcopy(analysis.get("neutralTitle")),
+        fields["preservedTitle"]: copy.deepcopy(
+            analysis.get(
+                rules["authoringContractAudit"]["copyAuthoringContract"][
+                    "preservedTitleAnalysisField"
+                ]
+            )
+        ),
         fields["neutralDescription"]: copy.deepcopy(
             analysis.get("neutralDescription")
         ),
         fields["classificationTags"]: copy.deepcopy(analysis.get("tags")),
+        fields["tagGroundingEvidence"]: copy.deepcopy(
+            analysis.get(
+                rules["authoringContractAudit"]["tagAuthoringContract"][
+                    "evidenceAnalysisField"
+                ],
+                [],
+            )
+        ),
         fields["promptTemplate"]: copy.deepcopy(analysis.get("promptTemplate")),
         fields["freeEditableContent"]: copy.deepcopy(
             analysis.get("freeEditableContent")
@@ -300,7 +318,164 @@ def compile_authoring_review_request(
         fields["subjectPresenceContext"]: _subject_presence_context(
             analysis, authoring_handoff, rules
         ),
+        fields["groupStrategyDecisions"]: copy.deepcopy(
+            analysis.get(group_strategy_contract["analysisField"], [])
+        ),
     }
+
+
+def _text_slot_routing_valid(
+    slot: dict[str, Any], regions: list[dict[str, Any]], rules: dict[str, Any]
+) -> bool:
+    slot_contract = rules["slotCompilationContract"]
+    if slot.get("type") != slot_contract["slotTypes"]["visibleTextPrompt"]:
+        return True
+    text_contract = rules["visibleTextContract"]
+    region_fields = text_contract["regionFields"]
+    actions = text_contract["actions"]
+    if any(
+        isinstance(region, dict)
+        and region.get(region_fields["action"]) == actions["review"]
+        for region in regions
+    ):
+        return True
+    eligible_classes = set(text_contract["openSlotValueClasses"])
+    limits = text_contract["openSlotMaximumCharactersByValueClass"]
+    matching = [
+        region
+        for region in regions
+        if isinstance(region, dict)
+        and region.get(region_fields["slotIdentity"]) == slot.get("id")
+    ]
+    if len(matching) != 1:
+        return False
+    return visible_text_open_slot_selection_valid(matching[0], rules)
+
+
+def visible_text_open_slot_selection_valid(
+    region: dict[str, Any], rules: dict[str, Any]
+) -> bool:
+    """Validate the shared semantic selection rules for one opened text region."""
+
+    text_contract = rules["visibleTextContract"]
+    region_fields = text_contract["regionFields"]
+    actions = text_contract["actions"]
+    eligible_classes = set(text_contract["openSlotValueClasses"])
+    limits = text_contract["openSlotMaximumCharactersByValueClass"]
+    selected = region.get(region_fields["selectedText"])
+    value_class = region.get(region_fields["valueClass"])
+    source_text = region.get(region_fields["sourceText"])
+    limit = limits.get(value_class)
+    return bool(
+        region.get(region_fields["action"]) == actions["openSlot"]
+        and value_class in eligible_classes
+        and isinstance(selected, str)
+        and selected.strip()
+        and isinstance(source_text, str)
+        and selected in source_text
+        and isinstance(limit, int)
+        and len(selected.strip()) <= limit
+        and (
+            selected != source_text
+            or len(source_text) <= text_contract["wholeRegionSlotHardMaximum"]
+        )
+    )
+
+
+def _tag_grounding_evidence_by_tag(
+    evidence: Any, tag_contract: dict[str, Any]
+) -> dict[str, str] | None:
+    """Return exact one-to-one tag evidence, or None for malformed coverage."""
+
+    fields = tag_contract["evidenceFields"]
+    if not isinstance(evidence, list):
+        return None
+    mapping: dict[str, str] = {}
+    for item in evidence:
+        if not isinstance(item, dict) or set(item) != set(fields.values()):
+            return None
+        tag = item.get(fields["tag"])
+        explanation = item.get(fields["evidence"])
+        if (
+            not isinstance(tag, str)
+            or not tag
+            or not isinstance(explanation, str)
+            or tag in mapping
+        ):
+            return None
+        mapping[tag] = explanation
+    return mapping
+
+
+def _tag_classification_useful(
+    tag: str, tag_contract: dict[str, Any]
+) -> bool:
+    return bool(
+        tag not in set(tag_contract["genericOnlyValues"])
+        or tag in set(tag_contract["categoryValues"])
+    )
+
+
+def _group_strategy_core_valid(
+    decision: Any, rules: dict[str, Any]
+) -> bool:
+    contract = rules["runtimeSemanticsContract"]["groupStrategyDecisionContract"]
+    fields = contract["fields"]
+    if not isinstance(decision, dict) or set(decision) != set(fields.values()):
+        return False
+    route = decision.get(fields["route"])
+    requirements = contract["routeDecisionRequirements"].get(route)
+    boolean_roles = (
+        "identityFidelityRequired",
+        "wholeGroupUploadNatural",
+        "memberCountMayVary",
+        "rolesIndependentlyAddressable",
+        "homogeneousMemberKind",
+        "sameIdentityRepeated",
+    )
+    return bool(
+        isinstance(requirements, dict)
+        and all(isinstance(decision.get(fields[role]), bool) for role in boolean_roles)
+        and all(
+            decision.get(fields[role]) is True
+            for role in requirements["requiredTruths"]
+        )
+        and all(
+            decision.get(fields[role]) is False
+            for role in requirements["requiredFalsehoods"]
+        )
+        and isinstance(decision.get(fields["coreGameplayEvidence"]), str)
+        and len(decision[fields["coreGameplayEvidence"]].strip())
+        >= contract["minimumEvidenceCharacters"]
+    )
+
+
+def _group_strategy_high_value_valid(
+    decision: Any, rules: dict[str, Any]
+) -> bool:
+    contract = rules["runtimeSemanticsContract"]["groupStrategyDecisionContract"]
+    fields = contract["fields"]
+    return bool(
+        isinstance(decision, dict)
+        and set(decision) == set(fields.values())
+        and isinstance(decision.get(fields["inputIdentity"]), str)
+        and decision[fields["inputIdentity"]].strip()
+        and isinstance(decision.get(fields["targetIdentity"]), str)
+        and decision[fields["targetIdentity"]].strip()
+        and isinstance(decision.get(fields["highValueSlotEvidence"]), str)
+        and len(decision[fields["highValueSlotEvidence"]].strip())
+        >= contract["minimumEvidenceCharacters"]
+    )
+
+
+def group_strategy_decision_valid(
+    decision: Any, rules: dict[str, Any]
+) -> bool:
+    """Validate one auditable choice among all four group-routing outcomes."""
+
+    return _group_strategy_core_valid(
+        decision, rules
+    ) and _group_strategy_high_value_valid(decision, rules)
 
 
 def _prompt_clauses(prompt: str) -> list[str]:
@@ -448,10 +623,13 @@ def deterministic_authoring_contract_audit(
     default_review_fields = contract["defaultValueReviewFields"]
     subject_context_fields = contract["subjectPresenceContextFields"]
     subject_review_fields = contract["subjectPresenceReviewFields"]
+    group_review_fields = contract["groupStrategyReviewFields"]
     tag_review_fields = contract["tagReviewFields"]
     tag_contract = contract["tagAuthoringContract"]
+    copy_contract = contract["copyAuthoringContract"]
     prompt = review_request[request_fields["promptTemplate"]]
     title = review_request.get(request_fields["neutralTitle"])
+    preserved_title = review_request.get(request_fields["preservedTitle"])
     description = review_request.get(request_fields["neutralDescription"])
     candidates = review_request.get(request_fields["slotCandidates"])
     open_slot_values = {
@@ -477,12 +655,16 @@ def deterministic_authoring_contract_audit(
     } if isinstance(candidates, list) else set()
     copy_review = {
         copy_fields["titleGrounded"]: bool(
-            isinstance(title, str) and title.strip() == title and title
+            isinstance(title, str)
+            and title.strip() == title
+            and title
+            and (preserved_title is None or title == preserved_title)
         ),
         copy_fields["descriptionGrounded"]: bool(
             isinstance(description, str)
             and description.strip() == description
             and description
+            and len(description) <= copy_contract["descriptionMaximumCharacters"]
         ),
         copy_fields["spokenNaturalness"]: bool(
             isinstance(title, str)
@@ -513,6 +695,9 @@ def deterministic_authoring_contract_audit(
     graph_fields = rules["multiInstanceContract"]["graphFields"]
     component_fields = rules["multiInstanceContract"]["componentFields"]
     components = graph[graph_fields["components"]] if isinstance(graph, dict) else []
+    visible_text_regions = review_request.get(request_fields["visibleTextRegions"])
+    if not isinstance(visible_text_regions, list):
+        visible_text_regions = []
     slot_contract = rules["slotCompilationContract"]
     slot_reviews = []
     identity_inheritance_reviews = []
@@ -559,6 +744,9 @@ def deterministic_authoring_contract_audit(
                 slot_fields["visuallyVisible"]: visually_visible,
                 slot_fields["modelControllable"]: model_controllable,
                 slot_fields["mechanismPreserved"]: mechanism_preserved,
+                slot_fields["textRoutingValid"]: _text_slot_routing_valid(
+                    slot, visible_text_regions, rules
+                ),
                 slot_fields["evidence"]: (
                     f"独立复核 {slot_id} 的可见组件 {component_ids}、默认值、推荐差异和机制边界"
                 ),
@@ -752,23 +940,74 @@ def deterministic_authoring_contract_audit(
             "逐项复核 Approved Image 主体、组件图、Authoring Handoff 主体连续性和主体槽策略"
         ),
     }
+    group_contract = rules["runtimeSemanticsContract"][
+        "groupStrategyDecisionContract"
+    ]
+    group_fields = group_contract["fields"]
+    group_decisions = review_request.get(request_fields["groupStrategyDecisions"])
+    if not isinstance(group_decisions, list):
+        group_decisions = []
+    slot_review_by_id = {
+        review.get(slot_fields["slotIdentity"]): review
+        for review in slot_reviews
+        if isinstance(review, dict)
+    }
+    group_strategy_reviews = [
+        {
+            group_review_fields["inputIdentity"]: decision.get(
+                group_fields["inputIdentity"]
+            ),
+            group_review_fields["targetIdentity"]: decision.get(
+                group_fields["targetIdentity"]
+            ),
+            group_review_fields["coreGameplayValid"]: _group_strategy_core_valid(
+                decision, rules
+            ),
+            group_review_fields[
+                "highValueSlotRouteValid"
+            ]: bool(
+                _group_strategy_high_value_valid(decision, rules)
+                and decision.get(group_fields["inputIdentity"])
+                in slot_review_by_id
+                and all(
+                    slot_review_by_id[
+                        decision[group_fields["inputIdentity"]]
+                    ].get(slot_fields[role])
+                    is True
+                    for role in (
+                        "userMotivation",
+                        "visuallyVisible",
+                        "modelControllable",
+                        "mechanismPreserved",
+                    )
+                )
+            ),
+            group_review_fields["evidence"]: (
+                "独立复核核心玩法是否需要整组真实身份，并确认纯图片群体槽优于逐主体槽和文字内容槽"
+            ),
+        }
+        for decision in group_decisions
+        if isinstance(decision, dict)
+    ]
     tags = review_request.get(request_fields["classificationTags"])
-    generic_values = set(tag_contract["genericOnlyValues"])
-    has_specific_tag = bool(
-        isinstance(tags, list)
-        and any(
-            isinstance(tag, str) and tag not in generic_values
-            for tag in tags
-        )
+    tag_evidence = review_request.get(request_fields["tagGroundingEvidence"])
+    exact_evidence_by_tag = _tag_grounding_evidence_by_tag(
+        tag_evidence, tag_contract
     )
+    evidence_by_tag = exact_evidence_by_tag or {}
+    category_values = set(tag_contract["categoryValues"])
     tag_reviews = [
         {
             tag_review_fields["tag"]: tag,
-            tag_review_fields["groundedInApprovedImage"]: True,
-            tag_review_fields["classificationUseful"]: has_specific_tag,
-            tag_review_fields["evidence"]: (
-                f"独立对照 Approved Image 的主体、动作、场景、媒介与视觉钩子：{tag}"
+            tag_review_fields["groundedInApprovedImage"]: bool(
+                isinstance(evidence_by_tag.get(tag), str)
+                and len(evidence_by_tag[tag].strip())
+                >= tag_contract["minimumEvidenceCharacters"]
             ),
+            tag_review_fields["classificationUseful"]: (
+                _tag_classification_useful(tag, tag_contract)
+            ),
+            tag_review_fields["evidence"]: evidence_by_tag.get(tag, ""),
         }
         for tag in tags or []
         if isinstance(tag, str)
@@ -784,7 +1023,11 @@ def deterministic_authoring_contract_audit(
             for tag in tags
         )
         and len(tags) == len(set(tags))
-        and has_specific_tag
+        and exact_evidence_by_tag is not None
+        and set(evidence_by_tag) == set(tags)
+        and all(_tag_classification_useful(tag, tag_contract) for tag in tags)
+        and len(category_values & set(tags))
+        >= tag_contract["minimumCategoryItems"]
     )
     gate_roles = (
         "userMotivation",
@@ -815,7 +1058,13 @@ def deterministic_authoring_contract_audit(
         )
         and all(
             all(review[slot_fields[role]] is True for role in gate_roles)
+            and review[slot_fields["textRoutingValid"]] is True
             for review in slot_reviews
+        )
+        and all(
+            review[group_review_fields["coreGameplayValid"]] is True
+            and review[group_review_fields["highValueSlotRouteValid"]] is True
+            for review in group_strategy_reviews
         )
         and all(
             all(
@@ -862,6 +1111,7 @@ def deterministic_authoring_contract_audit(
         review_fields["identityInheritanceReviews"]: identity_inheritance_reviews,
         review_fields["defaultValueReviews"]: default_value_reviews,
         review_fields["subjectPresenceReview"]: subject_review,
+        review_fields["groupStrategyReviews"]: group_strategy_reviews,
         review_fields["tagReviews"]: tag_reviews,
         review_fields["pass"]: passed,
         review_fields["evidence"]: (
@@ -885,8 +1135,10 @@ def authoring_contract_audit_errors(
     default_review_fields = contract["defaultValueReviewFields"]
     subject_context_fields = contract["subjectPresenceContextFields"]
     subject_review_fields = contract["subjectPresenceReviewFields"]
+    group_review_fields = contract["groupStrategyReviewFields"]
     tag_review_fields = contract["tagReviewFields"]
     tag_contract = contract["tagAuthoringContract"]
+    copy_contract = contract["copyAuthoringContract"]
     errors: list[str] = []
     if not isinstance(audit, dict) or set(audit) != set(review_fields.values()):
         return ["作者合同审计形状无效"]
@@ -918,6 +1170,15 @@ def authoring_contract_audit_errors(
     ):
         errors.append(
             "标题或描述未通过 Approved Image 根据、口语自然度和槽位可迁移性复核"
+        )
+    description = review_request.get(request_fields["neutralDescription"])
+    if not (
+        isinstance(description, str)
+        and description.strip() == description
+        and 0 < len(description) <= copy_contract["descriptionMaximumCharacters"]
+    ):
+        errors.append(
+            f"description 必须保持在 {copy_contract['descriptionMaximumCharacters']} 字以内"
         )
     prompt_review = audit[review_fields["promptReview"]]
     prompt = review_request[request_fields["promptTemplate"]]
@@ -991,7 +1252,12 @@ def authoring_contract_audit_errors(
         errors.append("独立主体存在性、组件图、Handoff 连续性或主体槽策略复核失败")
     tags = review_request.get(request_fields["classificationTags"])
     tag_reviews = audit[review_fields["tagReviews"]]
-    generic_values = set(tag_contract["genericOnlyValues"])
+    tag_evidence = review_request.get(request_fields["tagGroundingEvidence"])
+    exact_evidence_by_tag = _tag_grounding_evidence_by_tag(
+        tag_evidence, tag_contract
+    )
+    evidence_by_tag = exact_evidence_by_tag or {}
+    category_values = set(tag_contract["categoryValues"])
     tag_shape_valid = bool(
         isinstance(tags, list)
         and tag_contract["minimumItems"] <= len(tags) <= tag_contract["maximumItems"]
@@ -1003,7 +1269,11 @@ def authoring_contract_audit_errors(
             for tag in tags
         )
         and len(tags) == len(set(tags))
-        and any(tag not in generic_values for tag in tags)
+        and exact_evidence_by_tag is not None
+        and set(evidence_by_tag) == set(tags)
+        and all(_tag_classification_useful(tag, tag_contract) for tag in tags)
+        and len(category_values & set(tags))
+        >= tag_contract["minimumCategoryItems"]
     )
     tag_reviews_valid = bool(
         isinstance(tag_reviews, list)
@@ -1016,13 +1286,17 @@ def authoring_contract_audit_errors(
             and review.get(tag_review_fields["groundedInApprovedImage"]) is True
             and review.get(tag_review_fields["classificationUseful"]) is True
             and isinstance(review.get(tag_review_fields["evidence"]), str)
-            and review[tag_review_fields["evidence"]].strip()
+            and review[tag_review_fields["evidence"]] == evidence_by_tag.get(tag)
+            and len(review[tag_review_fields["evidence"]].strip())
+            >= tag_contract["minimumEvidenceCharacters"]
             for review, tag in zip(tag_reviews, tags, strict=True)
         )
     )
     if not tag_shape_valid or not tag_reviews_valid:
         errors.append(
-            "tags 必须逐项绑定当前 Approved Image，且具有独立分类价值"
+            f"tags 必须为 {tag_contract['minimumItems']}–"
+            f"{tag_contract['maximumItems']} 项、至少包含一个正式大类，"
+            "并逐项绑定当前 Approved Image"
         )
     graph = review_request[request_fields["componentGraph"]]
     graph_fields = rules["multiInstanceContract"]["graphFields"]
@@ -1066,6 +1340,7 @@ def authoring_contract_audit_errors(
             and all(
                 isinstance(review[slot_fields[role]], bool) for role in gate_roles
             )
+            and review[slot_fields["textRoutingValid"]] is True
             and isinstance(review[slot_fields["evidence"]], str)
             and review[slot_fields["evidence"]].strip()
         ):
@@ -1076,6 +1351,44 @@ def authoring_contract_audit_errors(
         ]
         if failed:
             errors.append(f"槽位 {slot_id} 未通过独立价值门禁：{','.join(failed)}")
+    group_contract = rules["runtimeSemanticsContract"][
+        "groupStrategyDecisionContract"
+    ]
+    group_fields = group_contract["fields"]
+    group_decisions = review_request.get(request_fields["groupStrategyDecisions"])
+    group_reviews = audit[review_fields["groupStrategyReviews"]]
+    expected_pairs = [
+        (
+            decision.get(group_fields["inputIdentity"]),
+            decision.get(group_fields["targetIdentity"]),
+        )
+        for decision in group_decisions
+        if isinstance(decision, dict)
+    ] if isinstance(group_decisions, list) else []
+    group_review_pairs = [
+        (
+            review.get(group_review_fields["inputIdentity"]),
+            review.get(group_review_fields["targetIdentity"]),
+        )
+        for review in group_reviews
+        if isinstance(review, dict)
+    ] if isinstance(group_reviews, list) else []
+    group_reviews_valid = bool(
+        isinstance(group_reviews, list)
+        and group_review_pairs == expected_pairs
+        and len(group_review_pairs) == len(set(group_review_pairs))
+        and all(
+            isinstance(review, dict)
+            and set(review) == set(group_review_fields.values())
+            and review.get(group_review_fields["coreGameplayValid"]) is True
+            and review.get(group_review_fields["highValueSlotRouteValid"]) is True
+            and isinstance(review.get(group_review_fields["evidence"]), str)
+            and review[group_review_fields["evidence"]].strip()
+            for review in group_reviews
+        )
+    )
+    if not group_reviews_valid:
+        errors.append("群体策略未分别通过核心玩法和高价值槽位独立复核")
     subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
     expected_subject_ids = [
         slot.get("id")
