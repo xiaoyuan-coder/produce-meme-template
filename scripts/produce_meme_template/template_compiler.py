@@ -3552,7 +3552,11 @@ def _formal_projection(draft: dict[str, Any], url: str, rules: dict[str, Any]) -
 
 
 def _runtime_semantics_contract_errors(
-    record: dict[str, Any], rules: dict[str, Any], *, require_current: bool = True
+    record: dict[str, Any],
+    rules: dict[str, Any],
+    *,
+    require_current: bool = True,
+    enforce_production_extensions: bool = True,
 ) -> list[str]:
     """Validate relationships that JSON Schema cannot express.
 
@@ -3652,7 +3656,11 @@ def _runtime_semantics_contract_errors(
             clothing_field = binding_fields["clothingOwnership"]
             clothing_value = binding.get(clothing_field)
             allowed_clothing = set(contract["clothingOwnershipValues"].values())
-            if runtime_version == contract["version"] and clothing_value not in allowed_clothing:
+            if (
+                enforce_production_extensions
+                and runtime_version == contract["version"]
+                and clothing_value not in allowed_clothing
+            ):
                 errors.append(f"{input_id} 必须显式声明 clothingOwnership。")
             elif clothing_field in binding and clothing_value not in allowed_clothing:
                 errors.append(f"{input_id} 的 clothingOwnership 无效。")
@@ -3738,7 +3746,11 @@ def _runtime_semantics_contract_errors(
             <= group_contract["maximumMembers"]
         ):
             errors.append(f"{target_id} 的动态群像成员范围无效。")
-    if identity_image_inputs and content_image_inputs:
+    if (
+        enforce_production_extensions
+        and identity_image_inputs
+        and content_image_inputs
+    ):
         relations = runtime.get(runtime_fields["visualContract"], {}).get(
             contract["visualContractFields"]["relations"], []
         )

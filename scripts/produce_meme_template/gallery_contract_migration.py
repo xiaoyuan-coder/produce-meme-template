@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from jsonschema import Draft202012Validator, FormatChecker
+
 
 @dataclass(frozen=True)
 class GalleryContractMigrationResult:
@@ -31,18 +33,24 @@ def _validation_errors(
     *,
     require_current: bool,
 ) -> tuple[str, ...]:
-    from .template_compiler import _validate_final
+    from .template_compiler import _runtime_semantics_contract_errors
+    from .workflow_core import GALLERY_SCHEMA_PATH
 
-    report = _validate_final(record, rules, require_current=require_current)
-    if report.get("pass") is True:
-        return ()
-    errors: list[str] = []
-    for key, value in report.items():
-        if key == "pass" or not key.endswith("Errors"):
-            continue
-        if isinstance(value, list):
-            errors.extend(str(item) for item in value if str(item).strip())
-    return tuple(errors or ("template failed Gallery contract validation",))
+    schema = json.loads(GALLERY_SCHEMA_PATH.read_text(encoding="utf-8"))
+    schema_errors = [
+        error.message
+        for error in Draft202012Validator(
+            schema,
+            format_checker=FormatChecker(),
+        ).iter_errors(record)
+    ]
+    semantic_errors = _runtime_semantics_contract_errors(
+        record,
+        rules,
+        require_current=require_current,
+        enforce_production_extensions=False,
+    )
+    return tuple(sorted(set([*schema_errors, *semantic_errors])))
 
 
 def migrate_gallery_template_to_runtime_v2(

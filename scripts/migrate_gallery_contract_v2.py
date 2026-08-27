@@ -41,7 +41,7 @@ def _records(
             templates = payload.get(bundle_fields["templates"])
             if (
                 payload.get(bundle_fields["version"])
-                != migration_contract["bundleVersion"]
+                not in set(migration_contract["readableBundleVersions"])
                 or not isinstance(templates, list)
             ):
                 raise ValueError(f"invalid Gallery v2 bundle: {item}")
@@ -110,6 +110,7 @@ def main() -> int:
     migration_contract = rules["galleryContractMigrationContract"]
     statuses = migration_contract["statuses"]
     report_fields = migration_contract["reportFields"]
+    template_key_field = rules["formalProjection"]["topLevel"]["templateKey"]
     if args.apply and args.output is None:
         parser.error("--apply requires --output")
     decisions = (
@@ -127,13 +128,18 @@ def main() -> int:
         output_root = args.output.resolve()
     for fallback_key, record in _records(args.input, migration_contract):
         template_key = (
-            record.get("key", fallback_key)
+            record.get(template_key_field, fallback_key)
             if isinstance(record, dict)
             else fallback_key
         )
+        decision_values = (
+            decisions.get(template_key, {})
+            if isinstance(decisions, dict) and isinstance(template_key, str)
+            else {}
+        )
         result = migrate_gallery_template_to_runtime_v2(
             record,
-            decisions.get(template_key, {}) if isinstance(decisions, dict) else {},
+            decision_values,
             rules=rules,
         )
         item = {

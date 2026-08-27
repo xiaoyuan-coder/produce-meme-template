@@ -177,6 +177,19 @@ class Issue32GalleryContractV2Test(unittest.TestCase):
         self.assertIsNone(result.migrated)
         self.assertTrue(result.errors)
 
+    def test_migration_audits_the_official_fixed_identity_v2_example(self) -> None:
+        record = json.loads(
+            (UPSTREAM_EXAMPLES / "agent-v2-example.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        result = migrate_gallery_template_to_runtime_v2(record)
+
+        self.assertEqual("needs_decision", result.status)
+        self.assertTrue(result.required_decisions)
+        self.assertIn("explicit clothing ownership", result.errors[0])
+
     def test_migration_cli_accepts_the_official_v2_bundle_shape(self) -> None:
         source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
         audit = migrate_gallery_template_to_runtime_v2(source)
@@ -216,6 +229,71 @@ class Issue32GalleryContractV2Test(unittest.TestCase):
 
             self.assertEqual(0, completed.returncode, completed.stdout)
             self.assertTrue((output_root / f"{source['key']}.json").is_file())
+
+    def test_migration_cli_accepts_the_readable_v1_bundle_shape(self) -> None:
+        source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
+        audit = migrate_gallery_template_to_runtime_v2(source)
+        decisions = {
+            source["key"]: {
+                input_id: "source" for input_id in audit.required_decisions
+            }
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_path = root / "v1-bundle.json"
+            decisions_path = root / "decisions.json"
+            output_root = root / "output"
+            input_path.write_text(
+                json.dumps({"version": 1, "templates": [source]}),
+                encoding="utf-8",
+            )
+            decisions_path.write_text(json.dumps(decisions), encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "migrate_gallery_contract_v2.py"),
+                    "--input",
+                    str(input_path),
+                    "--decisions",
+                    str(decisions_path),
+                    "--output",
+                    str(output_root),
+                    "--apply",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(0, completed.returncode, completed.stdout)
+            self.assertTrue((output_root / f"{source['key']}.json").is_file())
+
+    def test_migration_cli_reports_an_unhashable_key_without_crashing_batch(self) -> None:
+        source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
+        source["key"] = ["invalid"]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_path = root / "input.json"
+            input_path.write_text(json.dumps(source), encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "migrate_gallery_contract_v2.py"),
+                    "--input",
+                    str(input_path),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(2, completed.returncode, completed.stdout)
+            report = json.loads(completed.stdout)
+            self.assertEqual("invalid", report["items"][0]["status"])
 
     def test_migration_cli_rejects_a_template_key_that_escapes_output(self) -> None:
         source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))

@@ -1165,7 +1165,7 @@
         {
           "ruleId": "NR-docs-adr-0001-md-7c2f6422ce85-1",
           "sha256": "7c2f6422ce85bb40c282e9bfef134aed9b5f1da297a7aa6b1c3d0526afd5c0da",
-          "familyId": "release"
+          "familyId": "lifecycle"
         }
       ]
     },
@@ -1177,7 +1177,7 @@
         {
           "ruleId": "NR-docs-adr-0002-md-d37f168baf52-1",
           "sha256": "d37f168baf52ae90d975616b0be16edc4e51f296af24c0e79aa3719af6603a5b",
-          "familyId": "oss-finalization"
+          "familyId": "batch"
         }
       ]
     },
@@ -1189,7 +1189,7 @@
         {
           "ruleId": "NR-docs-adr-0003-md-975de12c7064-1",
           "sha256": "975de12c706457b0f90465334cb509f89387d7c5dbf5949c6d45d147894cc5df",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         }
       ]
     },
@@ -1201,7 +1201,7 @@
         {
           "ruleId": "NR-docs-adr-0004-md-1378ebb0426c-1",
           "sha256": "1378ebb0426c16c0daf54b8c5e756148290a352fa859a13725d5ae77e875977c",
-          "familyId": "multi-instance"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-docs-adr-0004-md-cf59af91364b-1",
@@ -1218,7 +1218,7 @@
         {
           "ruleId": "NR-docs-adr-0005-md-73f1bd9e765a-1",
           "sha256": "73f1bd9e765a0f8f2c68e0e38b61d42feeeb37b5dbce6d53a7f3ea1dac6e275c",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         }
       ]
     },
@@ -1240,17 +1240,17 @@
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-6c13438acdc4-1",
           "sha256": "6c13438acdc437ac60ef5381f6d2863d8202b32d46ce5a014c7fe31d96019760",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-9ee4c2acc957-1",
           "sha256": "9ee4c2acc957b64ff57b6bd1b07f34d26c338117728011825767bd185a211edd",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-732a0ba0b605-1",
           "sha256": "732a0ba0b605079c62d7f3c6e6b6d2600bd24a9ff4bb221cb45d9e554d834a62",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-4be11f9abd47-1",
@@ -1265,17 +1265,17 @@
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-8d49cb79f8e1-1",
           "sha256": "8d49cb79f8e12c35cf717115dc2b91fa69a7fa8b0c03b07af5d1c84c63b6b44e",
-          "familyId": "lifecycle"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-2b55d73bd1fc-1",
           "sha256": "2b55d73bd1fc1e3fa41ae2302d4172f6599ec364f4b24dcb25a6241e3253c00e",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-9912b5b673d2-1",
           "sha256": "9912b5b673d249a899eaf1da5cf22bdf1675ab91fdc1b09edcceef76154c3c37",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-89c5d54a45cc-1",
@@ -1285,7 +1285,7 @@
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-1b57b8f19435-1",
           "sha256": "1b57b8f19435ef2863d23152499b348dbaebf1428bbcab1c6c570d21451c603c",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0006-prompt-template-md-4c36166cc787-1",
@@ -1312,17 +1312,17 @@
         {
           "ruleId": "NR-docs-adr-0008-cover-md-7d4aa0af5afa-1",
           "sha256": "7d4aa0af5afa3909952be83135c01cb709c2bb9fe45edcc7c36327fdfedbbd18",
-          "familyId": "template-compilation"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-docs-adr-0008-cover-md-439ceb1a3a34-1",
           "sha256": "439ceb1a3a346d3640cb1d47496c5ae2ae8d2693ebcab316ad9dbce2e9abc852",
-          "familyId": "visual-review"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-docs-adr-0008-cover-md-84404302410b-1",
           "sha256": "84404302410b17f5a53d14fa3581be47b5be9c831313ec007ade7b42101150ad",
-          "familyId": "template-compilation"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-docs-adr-0008-cover-md-44b16c9676e4-1",
@@ -1354,12 +1354,12 @@
         {
           "ruleId": "NR-docs-adr-0009-skill-md-8d566f5d711f-1",
           "sha256": "8d566f5d711fb90fa66fbd2a7c84057d5da53d3bbea20a00f5ef1c9bb7e9e0e4",
-          "familyId": "template-authoring"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0009-skill-md-dba548932192-1",
           "sha256": "dba548932192a767adb2f1888a624c0adc5bb2c3e457490c15b7f9659e9700c9",
-          "familyId": "template-compilation"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0009-skill-md-278b0ba7caa5-1",
@@ -1374,7 +1374,7 @@
         {
           "ruleId": "NR-docs-adr-0009-skill-md-65143672abb0-1",
           "sha256": "65143672abb0c5b357f8e5eedf10b3a8c15d055eacdd44277cc91abc265772fb",
-          "familyId": "template-compilation"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0009-skill-md-0ab646df1e50-1",
@@ -1401,17 +1401,17 @@
         {
           "ruleId": "NR-docs-adr-0010-json-md-8e2371da15bb-1",
           "sha256": "8e2371da15bb1f1bd6eabf1477c89d3847d2ca8006342b1af1c324ab4022ea3d",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0010-json-md-c88da1be7fec-1",
           "sha256": "c88da1be7fecb66669ddd8d6545b923d2b839b89e22883b51498b578f1eb4cf1",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0010-json-md-6d98154e7b64-1",
           "sha256": "6d98154e7b6445482731a4066ddf3e364c5638468a3bbd5af6ae5d836a846132",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-docs-adr-0010-json-md-aa33f0d4ae70-1",
@@ -1450,7 +1450,7 @@
         {
           "ruleId": "NR-docs-adr-0012-md-5b07d61dcbf1-1",
           "sha256": "5b07d61dcbf19b08d56f5f87c99dd8817018122a24b31c2161dafb22dfea1581",
-          "familyId": "template-test"
+          "familyId": "lifecycle"
         }
       ]
     },
@@ -1486,7 +1486,7 @@
         {
           "ruleId": "NR-docs-adr-0015-md-11f94fbe694c-1",
           "sha256": "11f94fbe694c242aba5046415b293546cfe4dcfc296425c8ffb36ee09a637657",
-          "familyId": "release"
+          "familyId": "lifecycle"
         }
       ]
     },
@@ -1498,7 +1498,7 @@
         {
           "ruleId": "NR-docs-adr-0016-md-1b10b0625b17-1",
           "sha256": "1b10b0625b17c68b4bd1ce355d5bfe83eb3e3e12c55015f68b883d176a623522",
-          "familyId": "template-authoring"
+          "familyId": "replacement"
         }
       ]
     },
@@ -1510,7 +1510,7 @@
         {
           "ruleId": "NR-docs-adr-0017-md-adbab14e2977-1",
           "sha256": "adbab14e2977b7a5727200f8ab374b332b07d8e5df12e63bbe8f3e9fe0b7bd18",
-          "familyId": "template-authoring"
+          "familyId": "visual-review"
         }
       ]
     },
@@ -1534,7 +1534,7 @@
         {
           "ruleId": "NR-docs-adr-0019-md-4160da505331-1",
           "sha256": "4160da5053312ab4459e66cdc7f4901a525940414d278504d7b18cbbaab404cf",
-          "familyId": "template-compilation"
+          "familyId": "governance"
         }
       ]
     },
@@ -1580,7 +1580,7 @@
         {
           "ruleId": "NR-0022-json-runtimesemantics-v2-md-4b9819b07c43-1",
           "sha256": "4b9819b07c435debfc4a4ab3815f24bc903bd9da5f03807f58b4bfa1bf5be532",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-0022-json-runtimesemantics-v2-md-e835f64a5906-1",
@@ -1590,7 +1590,7 @@
         {
           "ruleId": "NR-0022-json-runtimesemantics-v2-md-03ceca9ea15e-1",
           "sha256": "03ceca9ea15e7757582ea9d494cf839d34a77fbb41c38f7e20804aa75ba757dd",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-0022-json-runtimesemantics-v2-md-cde0c335e707-1",
@@ -1615,7 +1615,7 @@
         {
           "ruleId": "NR-0022-json-runtimesemantics-v2-md-be0c0beec79a-1",
           "sha256": "be0c0beec79acbf23d2dcda78d10350f18d278e79dbe3160f69b9984426dbada",
-          "familyId": "template-test"
+          "familyId": "template-compilation"
         }
       ]
     },
@@ -1627,17 +1627,17 @@
         {
           "ruleId": "NR-docs-adr-0023-p0-p8-md-136a0c5820ac-1",
           "sha256": "136a0c5820acfa47e96461b21bfd168a82a64b0e5378c1f3aed982b959b04896",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-docs-adr-0023-p0-p8-md-3229e50290a9-1",
           "sha256": "3229e50290a9e26db9b48472e00c5f3ebf6b07b3076bb5e223db01e1d5361e63",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-docs-adr-0023-p0-p8-md-ffb3dde64c13-1",
           "sha256": "ffb3dde64c13f02270e2935e6d660135f0af30d71f29707299257b93d80e9f41",
-          "familyId": "template-test"
+          "familyId": "lifecycle"
         }
       ]
     },
@@ -1649,7 +1649,7 @@
         {
           "ruleId": "NR-docs-adr-0024-md-03039c841817-1",
           "sha256": "03039c841817e8052b719f5f44827aec2cac640c63d468b55a457c786857eeb2",
-          "familyId": "release-readiness"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-docs-adr-0024-md-36b8671908d4-1",
@@ -1671,17 +1671,17 @@
         {
           "ruleId": "NR-cs-adr-0025-authoring-handoff-md-719625a3035d-1",
           "sha256": "719625a3035d5729233c4c6f522f02250c0b02e225147c35351c0c53e17ae79a",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-cs-adr-0025-authoring-handoff-md-7fe83f192ec3-1",
           "sha256": "7fe83f192ec3a6bb26269a75af02bdba63598b54949b3b5263455608c53056e5",
-          "familyId": "lifecycle"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-cs-adr-0025-authoring-handoff-md-7029d94e4023-1",
           "sha256": "7029d94e4023f32d007c2971b6d30dafbfdc6dc10cfcce2c633456a404ba4df2",
-          "familyId": "execution-authority"
+          "familyId": "template-authoring"
         }
       ]
     },
@@ -1713,7 +1713,7 @@
         {
           "ruleId": "NR-docs-adr-0026-md-f676f6d3164a-1",
           "sha256": "f676f6d3164a8b8242b3b83bff2e8f29bbbe631a61f9e67f08ac3b028fd4f345",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0026-md-9cc55a29a6e7-1",
@@ -1728,22 +1728,22 @@
         {
           "ruleId": "NR-docs-adr-0026-md-a8f2c997c735-1",
           "sha256": "a8f2c997c7357d421d00187f671fc87d21a733eec2dbf42796a645cc010e2484",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0026-md-c40deb8ea4d8-1",
           "sha256": "c40deb8ea4d821a1d159ead67a9c35d0abc4f0454bb6ca613b53c625bbcdc4ea",
-          "familyId": "lifecycle"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0026-md-896a401c6de8-1",
           "sha256": "896a401c6de8cb41eca9c93dbfdcca0bef949701ace2aa2de2a6a9d97c402f24",
-          "familyId": "execution-authority"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0026-md-c080f1e4141d-1",
           "sha256": "c080f1e4141dfc317d64625a599e8cb13879c2914bac8043150569693d9e66de",
-          "familyId": "release"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0026-md-c9c3e76a2631-1",
@@ -1770,32 +1770,32 @@
         {
           "ruleId": "NR-docs-adr-0027-md-5b3c75f7f67d-1",
           "sha256": "5b3c75f7f67d67d414ff2c3ea19defee7c3adfcc66c8a948ffb4e635ff012d37",
-          "familyId": "release"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-794b2ea3c671-1",
           "sha256": "794b2ea3c671f896c6cca3783e8dc8eeda66aee9ed86fcdd2486c7291e1ed450",
-          "familyId": "release-readiness"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-c34b8104fe18-1",
           "sha256": "c34b8104fe18ac7eca249cdf1fa7193f4479512de5b808a323b67a4424c48a2f",
-          "familyId": "release"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-8aa8843414d6-1",
           "sha256": "8aa8843414d6d2eff44656890816f25deb8dee16f0c4d3444702d0ac60a5bf04",
-          "familyId": "release-readiness"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-422496913e53-1",
           "sha256": "422496913e538831de0211f574e6d5da43c8240edd585f292a343676fe3e32ba",
-          "familyId": "oss-finalization"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-7a6175840553-1",
           "sha256": "7a6175840553269a1a12205c613f7aa87c0906e6637884cb9f2b8ad907430fc9",
-          "familyId": "release"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-93116eea6abf-1",
@@ -1805,7 +1805,7 @@
         {
           "ruleId": "NR-docs-adr-0027-md-a642223f8aef-1",
           "sha256": "a642223f8aef3ae34b3dc23a786b8d9f603a0fa965ffff2086f14cc93a429966",
-          "familyId": "release-readiness"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-docs-adr-0027-md-9f9ce962c626-1",
@@ -1847,17 +1847,17 @@
         {
           "ruleId": "NR-docs-adr-0028-inputschema-v2-md-0d59f9d5c244-1",
           "sha256": "0d59f9d5c2446b36cd48b3ccc131ada48ed09ef1be84679ebf56b9e5fa12e861",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0028-inputschema-v2-md-058f7e2ca68d-1",
           "sha256": "058f7e2ca68d6fb24c251d28de05310b4aea12ead8b1f1d6d39ca02430ebedd1",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0028-inputschema-v2-md-7d22af3e38e1-1",
           "sha256": "7d22af3e38e1a45a250893f464e73edd61557308978b116aba6356b21dedfb05",
-          "familyId": "release"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0028-inputschema-v2-md-8144d597628c-1",
@@ -1867,7 +1867,7 @@
         {
           "ruleId": "NR-docs-adr-0028-inputschema-v2-md-e1dc29e72b5d-1",
           "sha256": "e1dc29e72b5d9234bc5924507f8dcfe4fdf64e9d7984ad112e569c09886eabc8",
-          "familyId": "template-compilation"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-docs-adr-0028-inputschema-v2-md-781ffaac7ab4-1",
@@ -1899,52 +1899,52 @@
         {
           "ruleId": "NR-docs-adr-0029-md-14c7b33e335d-1",
           "sha256": "14c7b33e335d643b3379f03614bbc937bf7d1fb22d18b93e7088704eea206b77",
-          "familyId": "template-authoring"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-ec3fbe38b04b-1",
           "sha256": "ec3fbe38b04b0e319b085843e2adf01006c901bec12870e4e7996e7c65f44782",
-          "familyId": "lifecycle"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-dc4a2ad93eb6-1",
           "sha256": "dc4a2ad93eb6640b10c16a50a6feac438bd8b178ea01e7106a1393e8d3ec86d7",
-          "familyId": "template-authoring"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-d22cc0e71208-1",
           "sha256": "d22cc0e712081ebe5fc9b501d6948a04a169c6cb52c500686742c4f315520f78",
-          "familyId": "oss-finalization"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-1c177963b25f-1",
           "sha256": "1c177963b25f01ff3d12ba549003400df8da6bee47d81173794abdbd4c283668",
-          "familyId": "template-authoring"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-ce7902d1ff17-1",
           "sha256": "ce7902d1ff17cc283ef79fa8e45a83b0345b2e92917c51b49952a79d8d6a7328",
-          "familyId": "visible-text"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-90e0ff85deb5-1",
           "sha256": "90e0ff85deb56a1b011b6090bdc15cb43ca6e2c497a24f60e194d4e7f505c84e",
-          "familyId": "oss-finalization"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-60ba826fced4-1",
           "sha256": "60ba826fced441dccc2851e0da8118623adabef9f6fea914f80d40c229197bc8",
-          "familyId": "oss-finalization"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-5da2f0873acc-1",
           "sha256": "5da2f0873acc7da3d36b23ea3f89d60ba6ac38e19cf87041c6e54c24174bd02c",
-          "familyId": "template-authoring"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0029-md-4cf666375743-1",
           "sha256": "4cf6663757437f1b85053b71cd7b9f615329b9055d6f4e835cbdc6d2d24a01e8",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         }
       ]
     },
@@ -1971,7 +1971,7 @@
         {
           "ruleId": "NR-docs-adr-0030-p1-md-d8a97309c4f2-1",
           "sha256": "d8a97309c4f2a3184f95330cd57c84ab526758b8b9b5fabbb9b2c18a1e8cfaeb",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-docs-adr-0030-p1-md-d8c9b7f2a65a-1",
@@ -1991,33 +1991,33 @@
         {
           "ruleId": "NR-docs-adr-0030-p1-md-59cfa5ce917d-1",
           "sha256": "59cfa5ce917dca911f3af27741b52a200e8163d568b24e087a5835e80ff50df0",
-          "familyId": "template-authoring"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-docs-adr-0030-p1-md-353c0670b829-1",
           "sha256": "353c0670b82942d85c34beb925d7f874e4ac4c557d077ddebe7ac8a79b122a08",
-          "familyId": "generation"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-docs-adr-0030-p1-md-f4ec78d903a6-1",
           "sha256": "f4ec78d903a60f2047c459f7b56a289cb43b25fe403e9af2e1d4f667e9ba2988",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-docs-adr-0030-p1-md-0b9ebfd0271b-1",
           "sha256": "0b9ebfd0271beb4d78724f0073f1792e0e140ac6d95aa7e19b34a35ca043cba6",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-docs-adr-0030-p1-md-0e488ec5a466-1",
           "sha256": "0e488ec5a4661e967b3198423199723b23e8f5933d18081da9cdf6692b8f1188",
-          "familyId": "oss-finalization"
+          "familyId": "replacement"
         }
       ]
     },
     {
       "path": "docs/adr/0031-全量规范条款必须绑定可执行所有者.md",
-      "sha256": "6959434375845e75eb196812d71e31644f85e0aaf0f964c87e301ec90e57c406",
+      "sha256": "8de1901bcaa5b778da4f64d1a6d743beb43d021cc34ea600f58e3711b641c2fd",
       "familyId": "governance",
       "units": [
         {
@@ -2033,17 +2033,17 @@
         {
           "ruleId": "NR-docs-adr-0031-md-3ff14f265113-1",
           "sha256": "3ff14f265113fb282a661b92591115f93c234e62227568032bac9b0bd6fb56bf",
-          "familyId": "release"
+          "familyId": "governance"
         },
         {
-          "ruleId": "NR-docs-adr-0031-md-6e92dcd71178-1",
-          "sha256": "6e92dcd71178040a30da89aa0f2e1d16efcfad909f56b54e51b18d74a872bc27",
-          "familyId": "template-authoring"
+          "ruleId": "NR-docs-adr-0031-md-779971a6b3c9-1",
+          "sha256": "779971a6b3c9a9c780c86ede44a27846f05c8e9c1a8a0797b5b6e2ef921161b9",
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0031-md-90f09a3e847c-1",
           "sha256": "90f09a3e847c1660ef2752d561033ad04123b2d4ff7a9406a29b96f5bb6e8d17",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-docs-adr-0031-md-f1c7bcb14480-1",
@@ -2058,13 +2058,13 @@
         {
           "ruleId": "NR-docs-adr-0031-md-260332be6b4d-1",
           "sha256": "260332be6b4dadc7146e9b44abd27ef770b07a8d2d866baf6256e5d60ff8d2d0",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         }
       ]
     },
     {
       "path": "docs/adr/0032-新生产写runtimeSemantics-v2并显式迁移存量.md",
-      "sha256": "a36ac58d04b88c490a9319f79fd59e8cce4d9c137ab843cd84505c9a5971e7a3",
+      "sha256": "bcb4b9df2c5b3e236d0610767b7ec77d185d153cb9fb26ad71c86117bec2b305",
       "familyId": "template-compilation",
       "units": [
         {
@@ -2080,7 +2080,7 @@
         {
           "ruleId": "NR--adr-0032-runtimesemantics-v2-md-17622503fdd8-1",
           "sha256": "17622503fdd8d08cc488b1b351abca6beb5e67a6cba9847eb1547e059283b19d",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR--adr-0032-runtimesemantics-v2-md-4b398cb6a2ce-1",
@@ -2088,9 +2088,9 @@
           "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR--adr-0032-runtimesemantics-v2-md-af3acd2c1962-1",
-          "sha256": "af3acd2c19628c461461b6633a9d145768b76a8e88303d68dbff7b2995b0a039",
-          "familyId": "template-test"
+          "ruleId": "NR--adr-0032-runtimesemantics-v2-md-5724a67de2af-1",
+          "sha256": "5724a67de2aff36f535bedff059158849c0416fc7aa610ee0e68726ac1f3ae4b",
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR--adr-0032-runtimesemantics-v2-md-747393fe71c5-1",
@@ -2105,12 +2105,12 @@
         {
           "ruleId": "NR--adr-0032-runtimesemantics-v2-md-f5f908dda9bb-1",
           "sha256": "f5f908dda9bbd6b315b57119352c82997144e6edcdf2edc055c6d6ca27324bf0",
-          "familyId": "multi-instance"
+          "familyId": "template-compilation"
         },
         {
-          "ruleId": "NR--adr-0032-runtimesemantics-v2-md-93f9f18d5095-1",
-          "sha256": "93f9f18d5095b32f41d2cb644a4cfb0fb85d3f259e4400b0d24fb185c7f6ab9d",
-          "familyId": "batch"
+          "ruleId": "NR--adr-0032-runtimesemantics-v2-md-92a43bc6f384-1",
+          "sha256": "92a43bc6f38407f0827a70af76b27ce95460f8434ea287ab874120c85374516d",
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR--adr-0032-runtimesemantics-v2-md-45a699ced041-1",
@@ -2127,42 +2127,42 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-0d8d31b179ba-1",
           "sha256": "0d8d31b179ba1fbdf2d190dfd38ae8d4a449f01354806394661370dbe2b683f3",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-1e89529c20f9-1",
           "sha256": "1e89529c20f92039d142088717572927c37627d217b366a35e7dca2aba90ada9",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-7cd965e175ec-1",
           "sha256": "7cd965e175ec3dc322101e01562a77fee9cd2c9ee0dac30f6cfa31e302182b33",
-          "familyId": "oss-finalization"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-a67d03707a6e-1",
           "sha256": "a67d03707a6ead7d016c3a999e4a270eeefaa3311e846dc933899a93fa935ea1",
-          "familyId": "oss-finalization"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-a8831a14e03e-1",
           "sha256": "a8831a14e03e4841951befb29a45db3fed0c2e0f9219945c9266a2a96cc99b7d",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-8c6dbf690a50-1",
           "sha256": "8c6dbf690a503abc4d3237d370d8c0ae8de7f7fc769f4404d34887e743dfe9ca",
-          "familyId": "visible-text"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-40dbb6cceeaa-1",
           "sha256": "40dbb6cceeaa367fb36bb478b77fa5bb2f283807e655b8fda3e0986320b3c2b7",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-d430aef2a55a-1",
           "sha256": "d430aef2a55aed06723ffa3a732d5accad826d935425dded16eb0d74d8de46db",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-f8e8c866c5b6-1",
@@ -2187,42 +2187,42 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-e1f0848e1a36-1",
           "sha256": "e1f0848e1a367047e05e644aaae203d93da19bcffcc91e4233ca87a1b1bfcef0",
-          "familyId": "visible-text"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-d4834057a777-1",
           "sha256": "d4834057a77787228220c5173c4c2e2a834a35f195058e50e872b43d13a26879",
-          "familyId": "visible-text"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-a37875faa0a2-1",
           "sha256": "a37875faa0a2d017e33a2472540d6ca8f89bb57e0d12e0ea69274727a53ad849",
-          "familyId": "visible-text"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-266f20150a60-1",
           "sha256": "266f20150a6048e1d91f156561409ed3f699ed39661731b97bb30bd3190a425b",
-          "familyId": "release"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-06db0f243767-1",
           "sha256": "06db0f243767ca962d7bba2b1094b7b003c455f8be0e7994817f3e131c766701",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-53fb6f8a5a37-1",
           "sha256": "53fb6f8a5a3756eeb119b9f7bae6f5855f0111fa1ff2c19fdce488c72da7c2f9",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-f74499412d90-1",
           "sha256": "f74499412d90a43f330d961a046d862a17c7eedf15e8709ed443172e6f58bbcc",
-          "familyId": "visual-review"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-5f9dda16c78a-1",
           "sha256": "5f9dda16c78a06cf02410c6b0d8a84e75b76de02158f83b5b2e491874d6032a8",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-2ea71cf97289-1",
@@ -2232,7 +2232,7 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-5c62308b9301-1",
           "sha256": "5c62308b93019d0e66860f7b6ed4b31db8590a0954488c2e6f1d5accf9e1958e",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-ae07217dd4fa-1",
@@ -2242,7 +2242,7 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-49371b73e540-1",
           "sha256": "49371b73e5405741af83f4625128d632d5abacbb14264fa83b08877aaff8bc0a",
-          "familyId": "replacement"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-e91c34357f0b-1",
@@ -2262,27 +2262,27 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-c05a28e7c01f-1",
           "sha256": "c05a28e7c01ffdd1454339c1f953356e5a8db727865db4a46d1faab4cbddc6f6",
-          "familyId": "visual-review"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-2d48d913ce7c-1",
           "sha256": "2d48d913ce7ce71f58dfc49be7e36929917343d06b4108fdf41d0b855dbb3643",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-9d11314471b9-1",
           "sha256": "9d11314471b960c8f4109b04579dc790ebcc8f2a88071861f6351660aca6f3a4",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-55c3a1cd802e-1",
           "sha256": "55c3a1cd802e5c9b2ea37027717e9791f6fd7853a84bed13c5ebb13a8a895d16",
-          "familyId": "oss-finalization"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-eba346ae68e8-1",
           "sha256": "eba346ae68e8a08bdd87dea80ac11f996a1b17334b66c2ea9bf8d0d4920f4850",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-53ab0848bad8-1",
@@ -2297,32 +2297,32 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-bdda0081066b-1",
           "sha256": "bdda0081066bcc38b4ea379a3c0ec8cd6909d4889feb68a0d8f7f42bb32227b6",
-          "familyId": "lifecycle"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-13b9b5136953-1",
           "sha256": "13b9b513695389192220658d3107558e28803a4b3ed13459f41b9dbb76d8bd9a",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-a0d6b68ff904-1",
           "sha256": "a0d6b68ff9049f4652368dfce204376562d99630bb07c3869450464a7af0534e",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-d895ab2d0790-1",
           "sha256": "d895ab2d079091e8fdb26f595c3bb3d39788ae87a0875dc7ac190b3a012650a4",
-          "familyId": "oss-finalization"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-ff1afda73cb5-1",
           "sha256": "ff1afda73cb5117caf063342ff014a8fe3001bacf611f83c043ad71bf056d215",
-          "familyId": "release"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-ce8863b8b933-1",
           "sha256": "ce8863b8b9337869a3918fa0cd02b9881435a7f25571fc3a46f45b5476463738",
-          "familyId": "lifecycle"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-871ccb9c7f0e-1",
@@ -2332,7 +2332,7 @@
         {
           "ruleId": "NR-ces-gallery-template-compiler-md-404a62a1ef80-1",
           "sha256": "404a62a1ef80df7fa377da4fe7104855babd9b0ebba02dc6e01aad7939e3b4ad",
-          "familyId": "release-readiness"
+          "familyId": "template-compilation"
         }
       ]
     },
@@ -2344,12 +2344,12 @@
         {
           "ruleId": "NR-ration-execution-and-recovery-md-be378e1fb4ec-1",
           "sha256": "be378e1fb4ecaff2df068e5c6f9c6c306d998adddd889a69bcc8c0d00b93aa58",
-          "familyId": "template-authoring"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-ed23bdf24a7b-1",
           "sha256": "ed23bdf24a7bee1e7e039334e54e20ffe481f2480bb7e566566727349fa34d05",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-911bfd603b71-1",
@@ -2369,27 +2369,27 @@
         {
           "ruleId": "NR-ration-execution-and-recovery-md-84304648f0d0-1",
           "sha256": "84304648f0d08991023cbe95a04cca1e108a571a3c55fb1147bfbf0d7566f0e0",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-2ca47904959b-1",
           "sha256": "2ca47904959bae137c5c2c90e931df7f5edacad2f7c95e46f32c74861d801b08",
-          "familyId": "oss-finalization"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-d0f5ab51a063-1",
           "sha256": "d0f5ab51a063f1ae83b84893f472835af7b1bf915b4b056ee7c847923842eb13",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-1de389982268-1",
           "sha256": "1de38998226881c4d0832ad1b911ae705cdae08c9ea5ec974403a6a74cf052f1",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-a38e922105c0-1",
           "sha256": "a38e922105c007f59e35774d9ba00d084ea710f253997eeb46cd9a14daffda61",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-39ea6c1113d8-1",
@@ -2414,7 +2414,7 @@
         {
           "ruleId": "NR-ration-execution-and-recovery-md-95b7b1b64fa2-1",
           "sha256": "95b7b1b64fa2c0d89577cb391e45905d1780481423e7d7fe512240af0ebba818",
-          "familyId": "visual-review"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-1b1dc54f1237-1",
@@ -2444,17 +2444,17 @@
         {
           "ruleId": "NR-ration-execution-and-recovery-md-42e8bdbb2c47-1",
           "sha256": "42e8bdbb2c4705338a425c7a785de5692cc407a8c7640a1dd2b9385361a246c6",
-          "familyId": "visual-review"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-a8bbf455975d-1",
           "sha256": "a8bbf455975d0f9b1cd52ed86530e8a5167c8c68f55dd1710ed1d395d61560cb",
-          "familyId": "visual-review"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-27fa1db2c96b-1",
           "sha256": "27fa1db2c96bb2f985f16b5d0b3c2e5438855baa5cbf81f4997a19b99afbcac2",
-          "familyId": "oss-finalization"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-ration-execution-and-recovery-md-a2eada8a0e7b-1",
@@ -2476,22 +2476,22 @@
         {
           "ruleId": "NR-torical-experience-regression-md-2abf45e4840a-1",
           "sha256": "2abf45e4840a7d257977f7912d6cb65517372369328acd4247132e5b5d293ed4",
-          "familyId": "template-compilation"
+          "familyId": "historical-regression"
         },
         {
           "ruleId": "NR-torical-experience-regression-md-c206b84a8e00-1",
           "sha256": "c206b84a8e00fef82bb597b4573226506100251cab266b9aa073b826a3b18ae5",
-          "familyId": "release"
+          "familyId": "historical-regression"
         },
         {
           "ruleId": "NR-torical-experience-regression-md-e714a01a46c1-1",
           "sha256": "e714a01a46c148e85c94df4af66b69669c2175cb3651fee87c67b8e3c904caca",
-          "familyId": "visible-text"
+          "familyId": "historical-regression"
         },
         {
           "ruleId": "NR-torical-experience-regression-md-4b87203db7de-1",
           "sha256": "4b87203db7de0dcebfd7bebfdf8c0b57fe263e6de1b0c9b5d53f2953483f3df4",
-          "familyId": "execution-authority"
+          "familyId": "historical-regression"
         },
         {
           "ruleId": "NR-torical-experience-regression-md-9d925bb9c3ed-1",
@@ -2501,12 +2501,12 @@
         {
           "ruleId": "NR-torical-experience-regression-md-2f891c5aa97b-1",
           "sha256": "2f891c5aa97bfefb15bd34ebd7bb90481c2de0753699c90a3571b15773da8448",
-          "familyId": "release"
+          "familyId": "historical-regression"
         },
         {
           "ruleId": "NR-torical-experience-regression-md-b691450da165-1",
           "sha256": "b691450da16556753d7622a1a57bb8034e6a33856917f45de2249200085695f0",
-          "familyId": "release"
+          "familyId": "historical-regression"
         }
       ]
     },
@@ -2518,7 +2518,7 @@
         {
           "ruleId": "NR-lti-instance-image-operations-md-039e65e50da6-1",
           "sha256": "039e65e50da63a3ab02f9577eac720d3749e33683f94db38a2437e626d1d7bfa",
-          "familyId": "visual-review"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-570a0ce37f45-1",
@@ -2543,32 +2543,32 @@
         {
           "ruleId": "NR-lti-instance-image-operations-md-031442393579-1",
           "sha256": "0314423935798dc81c16122421b97f1c8e1a713ee5d57cef02b66d657b1e4e64",
-          "familyId": "oss-finalization"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-d2d869053b99-1",
           "sha256": "d2d869053b99d5fdc92d9804829cf55cc2248a100a1c338695e606c10810f005",
-          "familyId": "oss-finalization"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-e4c1db835c40-1",
           "sha256": "e4c1db835c407e11155502aadbfed7c15c0450113705e260f689c57874dc0b2d",
-          "familyId": "oss-finalization"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-9b66352247da-1",
           "sha256": "9b66352247da3c4b30868a9836f579cf7ccf56fe9e01a82812986353ddbc6afb",
-          "familyId": "oss-finalization"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-453b823d6392-1",
           "sha256": "453b823d639200923b657ac700f92dd800a4d6a8d247cc7d0e5127f660c4884d",
-          "familyId": "lifecycle"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-50cf28d1f90b-1",
           "sha256": "50cf28d1f90bea6dbf92561f11c65bba79ba5785070cbebaebcd179affa471f0",
-          "familyId": "replacement"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-3497e620f048-1",
@@ -2583,12 +2583,12 @@
         {
           "ruleId": "NR-lti-instance-image-operations-md-ce9820a87b9c-1",
           "sha256": "ce9820a87b9caf891565677c933450f788df14fd05a7144108b3c84d540534a2",
-          "familyId": "replacement"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-39e2d4b1a96d-1",
           "sha256": "39e2d4b1a96d2992a16a9fcd9591c100b2a3b89f52d68f686c28089159d22c10",
-          "familyId": "replacement"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-41daad5cfeab-1",
@@ -2598,7 +2598,7 @@
         {
           "ruleId": "NR-lti-instance-image-operations-md-a808a0e34892-1",
           "sha256": "a808a0e34892c1562d9025fa4802b7837cadc76290c4217abac3514dbfb9bbd1",
-          "familyId": "replacement"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-245646b215fc-1",
@@ -2613,7 +2613,7 @@
         {
           "ruleId": "NR-lti-instance-image-operations-md-be98ad91dd06-1",
           "sha256": "be98ad91dd06e44e938bf6b0741fa6c00295ce61b5b31f9ea16369ef7a465901",
-          "familyId": "replacement"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-cc3b8c1f280e-1",
@@ -2638,12 +2638,12 @@
         {
           "ruleId": "NR-lti-instance-image-operations-md-2dbcf260f39b-1",
           "sha256": "2dbcf260f39b6748dc2079efad9dee81f24887bd5e5d859872ce7d6f6b537d5c",
-          "familyId": "oss-finalization"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-a76398906e6b-1",
           "sha256": "a76398906e6b299e2bb2290e761da881ff062a044c2974d8e3a2aa79f562a7f4",
-          "familyId": "oss-finalization"
+          "familyId": "multi-instance"
         },
         {
           "ruleId": "NR-lti-instance-image-operations-md-79c51dfae276-1",
@@ -2654,7 +2654,7 @@
     },
     {
       "path": "references/normative-rule-registry.md",
-      "sha256": "c7cedbdd1725f6bbecd93c8cd1235f00ec0e5d31dcf14523b3853a97fd82f590",
+      "sha256": "b25344373ee597a2cdf985ed15b808dd891ab912aa96c92de494770293f75898",
       "familyId": "governance",
       "units": [
         {
@@ -2668,9 +2668,9 @@
           "familyId": "governance"
         },
         {
-          "ruleId": "NR-ences-normative-rule-registry-md-4d10930be455-1",
-          "sha256": "4d10930be45518454e6460648e844f9230a752e29c1e0f97b96a0be3b7bad7fd",
-          "familyId": "release"
+          "ruleId": "NR-ences-normative-rule-registry-md-2a4dcc9bb4b7-1",
+          "sha256": "2a4dcc9bb4b7abb87ffa958129ac3ff0da94cdac5eb2fed17e7c608fd7627c83",
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-ences-normative-rule-registry-md-e3f2a8c1e65c-1",
@@ -2680,17 +2680,17 @@
         {
           "ruleId": "NR-ences-normative-rule-registry-md-c46500e0f62b-1",
           "sha256": "c46500e0f62b0705b616faaf6c9e8757645a0d1563e36e7429b079486929e4e5",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-ences-normative-rule-registry-md-a5acfdbe6ada-1",
           "sha256": "a5acfdbe6ada11ac8e166e602d6d260ee31acabd4b9644fae295638519efc1d0",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-ences-normative-rule-registry-md-04d63c21007f-1",
           "sha256": "04d63c21007f2e1512060f661b7d328e6f448bbbe09b1ad49b973821b503f955",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-ences-normative-rule-registry-md-1d7b675f75fe-1",
@@ -2700,7 +2700,7 @@
         {
           "ruleId": "NR-ences-normative-rule-registry-md-6c71e649cecb-1",
           "sha256": "6c71e649cecb10a4b3eebf5d3ea64586901db5611d5e29b009cbfc4a53d72a55",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-ences-normative-rule-registry-md-73b3f92303fb-1",
@@ -2708,8 +2708,8 @@
           "familyId": "governance"
         },
         {
-          "ruleId": "NR-ences-normative-rule-registry-md-ef2bdf94c820-1",
-          "sha256": "ef2bdf94c82032d51275c42d0798079383c8d5fb4baae92e7d2e3aa48ba96ceb",
+          "ruleId": "NR-ences-normative-rule-registry-md-28e90f228630-1",
+          "sha256": "28e90f22863030ee074faab5bde5eac692f100897fbcbbe076c8193be9ca5ba5",
           "familyId": "governance"
         },
         {
@@ -2720,12 +2720,12 @@
         {
           "ruleId": "NR-ences-normative-rule-registry-md-364ffdb006a2-1",
           "sha256": "364ffdb006a25ecebafdddc468206853f22d7de6737012d104365f8e05e5e0d6",
-          "familyId": "historical-regression"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-ences-normative-rule-registry-md-918aa499977d-1",
           "sha256": "918aa499977df0bead4165b388fb0586bce927961f0c5ce5c388ccd411199069",
-          "familyId": "release"
+          "familyId": "governance"
         }
       ]
     },
@@ -2742,7 +2742,7 @@
         {
           "ruleId": "NR-references-oss-finalization-md-53af873ed91d-1",
           "sha256": "53af873ed91d0dbd537e1239040792073fbf65e6059b900d2a162c075b6d63a9",
-          "familyId": "generation"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-references-oss-finalization-md-710179c30558-1",
@@ -2762,7 +2762,7 @@
         {
           "ruleId": "NR-references-oss-finalization-md-0f03d88650cd-1",
           "sha256": "0f03d88650cdf2a3e64156b7fa906ddddbfab711ecf7e042d1a9f7c125fe3d40",
-          "familyId": "lifecycle"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-references-oss-finalization-md-22ccd19fc646-1",
@@ -2792,7 +2792,7 @@
         {
           "ruleId": "NR-references-oss-finalization-md-27ef35c57732-1",
           "sha256": "27ef35c577326f1ead9670f96620bb5f72b00260ba3bf50cd446a0599a1779ee",
-          "familyId": "release"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-references-oss-finalization-md-1f4b65348306-1",
@@ -2814,17 +2814,17 @@
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-85a2519cce6c-1",
           "sha256": "85a2519cce6c17c2205026d70a52cebd861a1c01f5a37a6045fbf00c2bea064e",
-          "familyId": "batch"
+          "familyId": "workspace-delivery"
         },
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-804c011373a0-1",
           "sha256": "804c011373a065ba904059869090a5213f119ab34767fe5cf25c6ebae9f50cda",
-          "familyId": "batch"
+          "familyId": "workspace-delivery"
         },
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-028e5763a85a-1",
           "sha256": "028e5763a85a78587e996448a692dedb631720b10c3fea58a21c3e80b03bc491",
-          "familyId": "lifecycle"
+          "familyId": "workspace-delivery"
         },
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-fe261b205486-1",
@@ -2834,17 +2834,17 @@
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-1d4f9142c8fb-1",
           "sha256": "1d4f9142c8fbd25fa8482ce1256fab2c9b8be9056846c96eb2ad510106b743f5",
-          "familyId": "oss-finalization"
+          "familyId": "workspace-delivery"
         },
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-716c1c4fe36a-1",
           "sha256": "716c1c4fe36a98fdcf9efc4cdb302b95df2c5559e068f83062d44102c86a10dd",
-          "familyId": "batch"
+          "familyId": "workspace-delivery"
         },
         {
           "ruleId": "NR-s-personal-workspace-delivery-md-3cded9401880-1",
           "sha256": "3cded9401880a6c3ad2d565f6efc1927b4387b4e3e9ed28073e2d16f19da462b",
-          "familyId": "batch"
+          "familyId": "workspace-delivery"
         }
       ]
     },
@@ -2861,17 +2861,17 @@
         {
           "ruleId": "NR-roduction-execution-authority-md-f866afe035d3-1",
           "sha256": "f866afe035d3907098dbad8f42dbba8c524eaad59660f8b92d5c3807ec265148",
-          "familyId": "release"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-04d746744c31-1",
           "sha256": "04d746744c31778bb29f152c237ee3cc3d12ddf5bd8f25d9e727e5684025ce82",
-          "familyId": "release-readiness"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-cbdf066334cc-1",
           "sha256": "cbdf066334cc04aa6ff5beb9891e577aaedd5f8816347903e1a1c8f5aae6741f",
-          "familyId": "release-readiness"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-0c867081d304-1",
@@ -2881,7 +2881,7 @@
         {
           "ruleId": "NR-roduction-execution-authority-md-45b99b0d755e-1",
           "sha256": "45b99b0d755ea03a5d3ed09699dc1c9c01b2a49e457c5ff24046caeaf07cfe3a",
-          "familyId": "oss-finalization"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-2fa4e8cba2a3-1",
@@ -2891,7 +2891,7 @@
         {
           "ruleId": "NR-roduction-execution-authority-md-6d0290c2a655-1",
           "sha256": "6d0290c2a655a2a53ecc1b38e8fe5a25cdea02e7db67bd15fefffc636a0d6bc0",
-          "familyId": "oss-finalization"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-15b3c84683ef-1",
@@ -2901,42 +2901,42 @@
         {
           "ruleId": "NR-roduction-execution-authority-md-76d03305e0d3-1",
           "sha256": "76d03305e0d3670ffa212fc42b33e541ab05a0285d73bc53e768da75eb5c0c98",
-          "familyId": "visual-review"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-af808c82099d-1",
           "sha256": "af808c82099d8f279bc9702ede5ce8bc2812f54a7f81472bae41515a4dbad891",
-          "familyId": "template-authoring"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-b433777345d9-1",
           "sha256": "b433777345d9bb7377613246610a18a29296e7559287108744dce5ac83a35655",
-          "familyId": "release"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-8d16cbef43d0-1",
           "sha256": "8d16cbef43d0ff0e9ac435a65ae66fe724dead819fef7ff5e4adbeb9a5016e05",
-          "familyId": "lifecycle"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-cb9eda708223-1",
           "sha256": "cb9eda708223afb02403b2073f4f0c99c66a31a03fefb3d7b64857ae97c8e310",
-          "familyId": "release"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-1a505c9b2333-1",
           "sha256": "1a505c9b2333feb9eaa45e0792d46767876e6340b0cc66ee73dc733022aec77f",
-          "familyId": "release-readiness"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-69d4cbed5739-1",
           "sha256": "69d4cbed5739b9305f424e82c0ed58fcd11f2dd0207e0b44f2ec16b3b0635723",
-          "familyId": "template-test"
+          "familyId": "execution-authority"
         },
         {
           "ruleId": "NR-roduction-execution-authority-md-f39d0d12ae47-1",
           "sha256": "f39d0d12ae475e0b99cb47e611597dc87b94990196ef59af85d31cfcb2980d02",
-          "familyId": "oss-finalization"
+          "familyId": "execution-authority"
         }
       ]
     },
@@ -2948,7 +2948,7 @@
         {
           "ruleId": "NR-rences-release-doctor-install-md-c1425f0495d4-1",
           "sha256": "c1425f0495d4f14e7f346fffb76f4265ceef35fc4a383c755fa2a202ba077d64",
-          "familyId": "template-compilation"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-rences-release-doctor-install-md-ae45f27ab2bf-1",
@@ -2958,7 +2958,7 @@
         {
           "ruleId": "NR-rences-release-doctor-install-md-e796857814c6-1",
           "sha256": "e796857814c6cfbe0f81cf9b41feb51015b58188c0d4d3ee53eca0b96b860543",
-          "familyId": "release-readiness"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-rences-release-doctor-install-md-b186659462b6-1",
@@ -2973,12 +2973,12 @@
         {
           "ruleId": "NR-rences-release-doctor-install-md-f6747580d6d0-1",
           "sha256": "f6747580d6d01c7d337e3e5e90b69a97e012949393d9b0e0c22c2af87445207c",
-          "familyId": "release-readiness"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-rences-release-doctor-install-md-5bcd1c833766-1",
           "sha256": "5bcd1c8337665187174dc6389ed8605650adb3d67a8ddaba849c7537f66f5983",
-          "familyId": "release-readiness"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-rences-release-doctor-install-md-7deee4e35192-1",
@@ -2998,7 +2998,7 @@
         {
           "ruleId": "NR-rences-release-doctor-install-md-2193b970933f-1",
           "sha256": "2193b970933fd17efd5358b1786782f446c48454e1243ac769f944b5482dc65b",
-          "familyId": "release-readiness"
+          "familyId": "release"
         }
       ]
     },
@@ -3025,7 +3025,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-7bfa65186db8-1",
           "sha256": "7bfa65186db8675bc3b28c0ff86711f4c476573d0eb516557d806188f99b1cc4",
-          "familyId": "template-test"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-c81d85a82e0a-1",
@@ -3040,7 +3040,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-0a62162dc276-1",
           "sha256": "0a62162dc27650b464386181f78f352fceac9027648cfb149b319d7d77f4d8f7",
-          "familyId": "multi-instance"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-b292cf969c31-1",
@@ -3050,7 +3050,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-bd4e5cf46eb4-1",
           "sha256": "bd4e5cf46eb4dfd70395f68ddf09c03a7419df0d17e4ad305d47ab94b1ab0226",
-          "familyId": "visible-text"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-f186bd9f73ea-1",
@@ -3060,7 +3060,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-8fc69dbf18a9-1",
           "sha256": "8fc69dbf18a9c4cbfa68c97aac1bcbc298a06a41af0897a18b6d954196fccad9",
-          "familyId": "oss-finalization"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-e5dab10249ee-1",
@@ -3085,7 +3085,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-8c43f2c9d3b3-1",
           "sha256": "8c43f2c9d3b3fd69bfb6c42bfcc8b593097ad2997c628077ea6966b93f46edfe",
-          "familyId": "template-compilation"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-27182e25803b-1",
@@ -3100,7 +3100,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-9c5008eab4ec-1",
           "sha256": "9c5008eab4ec1d790a5e2a62b45a9138c999416e2e5d7e7aeefe97c10cda839b",
-          "familyId": "template-test"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-7d6757bf233a-1",
@@ -3120,7 +3120,7 @@
         {
           "ruleId": "NR-references-release-readiness-md-6f4c5fdfab5f-1",
           "sha256": "6f4c5fdfab5fd00504623705196cbf20d2702fa8d6b26f6a6adeff805a143267",
-          "familyId": "lifecycle"
+          "familyId": "release-readiness"
         },
         {
           "ruleId": "NR-references-release-readiness-md-6e5359a00a37-1",
@@ -3222,12 +3222,12 @@
         {
           "ruleId": "NR-references-replacement-spec-md-3caa5b067e10-1",
           "sha256": "3caa5b067e10446867b011bcfdaff0fb1ec0f3e7af6f43436214d89f65be8878",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-f5670d94fcc8-1",
           "sha256": "f5670d94fcc864a1ea44ca4bc9596bc86601bb0b320c2433ce7a0d64d0a6e008",
-          "familyId": "generation"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-d859a73c09fe-1",
@@ -3332,7 +3332,7 @@
         {
           "ruleId": "NR-references-replacement-spec-md-bb9eb257cf64-1",
           "sha256": "bb9eb257cf6488cb3590a882010de5fa8a3e7d34aceb4758956e7658a31dcbda",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-30b7a9381f14-1",
@@ -3342,12 +3342,12 @@
         {
           "ruleId": "NR-references-replacement-spec-md-d7964f1e746d-1",
           "sha256": "d7964f1e746dd3fac32bfd4bce6345f0ceb9f902df549719abfa0f04c3358210",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-fc69c800adf2-1",
           "sha256": "fc69c800adf270174cbc2e1a93f304a19722b05af099ed84cd64c07c3b1fb66a",
-          "familyId": "template-authoring"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-93d1c9dc6bc5-1",
@@ -3457,7 +3457,7 @@
         {
           "ruleId": "NR-references-replacement-spec-md-a20a07ecbac6-1",
           "sha256": "a20a07ecbac696868ef7e70e72a57d7ac7cd2511bd3819316ae0bdf3a4932681",
-          "familyId": "batch"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-3fb858ec7628-1",
@@ -3472,7 +3472,7 @@
         {
           "ruleId": "NR-references-replacement-spec-md-46b8298ab539-1",
           "sha256": "46b8298ab5397bfe774e4f16b7778dc4f557761c0dc36de5b8aaefe972ec7a82",
-          "familyId": "lifecycle"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-34ea185f78b5-1",
@@ -3497,7 +3497,7 @@
         {
           "ruleId": "NR-references-replacement-spec-md-1af364fe6652-1",
           "sha256": "1af364fe6652e4b171454733f57f29e9e59ce40f17e16465d1689fa496f55708",
-          "familyId": "template-authoring"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-30dce0a42d7e-1",
@@ -3537,12 +3537,12 @@
         {
           "ruleId": "NR-references-replacement-spec-md-1120581f2698-1",
           "sha256": "1120581f26984814ca77b4f0ab16dafd57c31c14b47e4fb3876eda1cf7839334",
-          "familyId": "batch"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-53efb6af6c68-1",
           "sha256": "53efb6af6c683a6f65f08e1f685718595d51ac32ecfa7f3ce8d211d951cb3562",
-          "familyId": "batch"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-0cae21d9ae27-1",
@@ -3552,7 +3552,7 @@
         {
           "ruleId": "NR-references-replacement-spec-md-07bcab234b13-1",
           "sha256": "07bcab234b133c2f6f7620b6218c68fa070e975aa5ed37aedd61fae86d3519fe",
-          "familyId": "release"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-35ce26b06dec-1",
@@ -3597,12 +3597,12 @@
         {
           "ruleId": "NR-references-replacement-spec-md-69e7ff173d21-1",
           "sha256": "69e7ff173d21a5a62c354b829ce4a9682e12c1407750ac341f4ff2925f5a87b1",
-          "familyId": "multi-instance"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-5821240d6253-1",
           "sha256": "5821240d62532f0a7d011fbb95627424870e70e8859cfd9680f0e7297e0c2218",
-          "familyId": "generation"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-3aa4ade756fe-1",
@@ -3622,7 +3622,7 @@
         {
           "ruleId": "NR-references-replacement-spec-md-2052072ae918-1",
           "sha256": "2052072ae9182ebdd5f0032da30a088b48795aa9cd8d1828676bb178856eaaa9",
-          "familyId": "oss-finalization"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-92f0a8a7ba7f-1",
@@ -3657,12 +3657,12 @@
         {
           "ruleId": "NR-references-replacement-spec-md-e584042d9942-1",
           "sha256": "e584042d994248bf743059a74d12d4d72f76d53b57caf9b602884b1478dbb29c",
-          "familyId": "generation"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-6fc8e846f9bc-1",
           "sha256": "6fc8e846f9bc49b3ff16cd893d7c8dc43a863658d23d68690d7987cbe100da98",
-          "familyId": "visual-review"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-b1421236fe37-1",
@@ -3722,12 +3722,12 @@
         {
           "ruleId": "NR-references-replacement-spec-md-b8638884897a-1",
           "sha256": "b8638884897a1c34fe273136d0c075910b08c5d9a35f193052ef1a78782e12a1",
-          "familyId": "template-authoring"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-d2d75bb52e08-1",
           "sha256": "d2d75bb52e08f5ec6c76f47a3009ebb7d6226332d7ff08be6c06f21c17f7f76c",
-          "familyId": "batch"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-eb9f037cf0ff-1",
@@ -3812,17 +3812,17 @@
         {
           "ruleId": "NR-references-replacement-spec-md-17f86abf2096-1",
           "sha256": "17f86abf20966242eaae5bfecc06c864fbc6841bda5466564d9bf01674f13b22",
-          "familyId": "template-compilation"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-9fab1c3decf6-1",
           "sha256": "9fab1c3decf6b749457eaf938977e22e22b7b6f320b414362b73ea71759e2128",
-          "familyId": "multi-instance"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-c1173dc5603a-1",
           "sha256": "c1173dc5603a23c44740aee3bd292b382208a294a42ef3722f4dc87e3341ae2e",
-          "familyId": "generation"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-4cbacf3d1e3b-1",
@@ -3869,12 +3869,12 @@
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-dad5f817f09d-1",
           "sha256": "dad5f817f09d5419a3aad8d474ef4cede00c8083b4043cdddb59ab2cc6535abb",
-          "familyId": "template-authoring"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-c6ddef01f092-1",
           "sha256": "c6ddef01f09216f6d67d461300cd681410ab4cbfdeb95ed99033fbaed20afbc0",
-          "familyId": "template-authoring"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-1d95ef4d4f25-1",
@@ -3884,42 +3884,42 @@
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-3ebce42b6291-1",
           "sha256": "3ebce42b62913daeb6eac9c8a7f57d7e04d4b030d7fa75904981f10980eb6bc6",
-          "familyId": "oss-finalization"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-77c7519874b2-1",
           "sha256": "77c7519874b292d7bfb5b25d1ca159ccbd1ebc52479b8bf5b831a124d56e55f9",
-          "familyId": "replacement"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-402646434a70-1",
           "sha256": "402646434a7056d80c2e2e75b48a47647c384a6193d0b9f590ebdbb8215002f8",
-          "familyId": "replacement"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-a83527eda417-1",
           "sha256": "a83527eda417defa43d7c861f34a13a21de9c450556e516df6bea66e6dcaf8f2",
-          "familyId": "replacement"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-2b517fbc4470-1",
           "sha256": "2b517fbc44700dcf7e79546e6c1f9bb1b19645ca18785cd7fd115c10f104046f",
-          "familyId": "replacement"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-3c15bfb3e4a9-1",
           "sha256": "3c15bfb3e4a94ea845a91b22169bdf36423a976bdd5135ad908609a60248f428",
-          "familyId": "template-authoring"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-bb3459c6094b-1",
           "sha256": "bb3459c6094b21f15b76b6730abf64a371388154a5d8005c3f92c3b2909d9ad5",
-          "familyId": "execution-authority"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-eferences-shared-batch-policy-md-c6f07efbfd07-1",
           "sha256": "c6f07efbfd07340c666453ecbf767c83962a02fe4e870958b4fc642748bc1dad",
-          "familyId": "oss-finalization"
+          "familyId": "batch"
         }
       ]
     },
@@ -3941,17 +3941,17 @@
         {
           "ruleId": "NR-references-template-authoring-md-1363269d3b6a-1",
           "sha256": "1363269d3b6a64e8d13966bfe55882a5879e49d4823c1f4807ee4b9fb33b55bd",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-76a428e58214-1",
           "sha256": "76a428e58214598c2116c29a6b380e601f30b8d9456a942adb619ab30c34bbf5",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-9d2f54e33ce6-1",
           "sha256": "9d2f54e33ce6deec29c52d98b3034f3c1302f845db441724d5f873c2e728b2b6",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-156b61e5273c-1",
@@ -3976,12 +3976,12 @@
         {
           "ruleId": "NR-references-template-authoring-md-bc133577e2f0-1",
           "sha256": "bc133577e2f0eb5cd63413ebb03995b8a05208ddbd33b25a51798ae695c02da4",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-11190808b85b-1",
           "sha256": "11190808b85bb7990eeac65eea1c3299b37a88118d2f329b15bf313d7cfef6da",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-b47785d47841-1",
@@ -4021,12 +4021,12 @@
         {
           "ruleId": "NR-references-template-authoring-md-6fe68839eac1-1",
           "sha256": "6fe68839eac137d9ecea7fa4bf66bd2619b86c25e412d30e1bbe7d7958c001df",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-7406f5b39aa8-1",
           "sha256": "7406f5b39aa89b90f6e3557dfb4695cbb0522eff9acbf243cc999c4bda9190ea",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-1ccd58db3a84-1",
@@ -4056,7 +4056,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-979b0f48ddb9-1",
           "sha256": "979b0f48ddb939f8810fd52e8af74c866b43dac0a04d38c749565c83e9a8b982",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-daf7180cbea8-1",
@@ -4086,17 +4086,17 @@
         {
           "ruleId": "NR-references-template-authoring-md-12ff0bf17538-1",
           "sha256": "12ff0bf1753873893efa110a14c2744d2593a1349549e1900124883fbcf57e78",
-          "familyId": "multi-instance"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-01c6c976cd7e-1",
           "sha256": "01c6c976cd7e81545446fc6f09c15ccaa9416ee410aa8907ad6f2bbbbf9c0218",
-          "familyId": "template-compilation"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-a2928ef6c059-1",
           "sha256": "a2928ef6c059ff42975f386ab1ff1c1fc870d21448900604a22463a473430b75",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-92cc81654f8f-1",
@@ -4106,7 +4106,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-fba1b3e5abe6-1",
           "sha256": "fba1b3e5abe6c1106a0816d2a96f3eb3e875d12c0b45bb469778471a554b31c6",
-          "familyId": "template-compilation"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-c0123fe35d8a-1",
@@ -4166,12 +4166,12 @@
         {
           "ruleId": "NR-references-template-authoring-md-05818df81983-1",
           "sha256": "05818df81983d2e7d424af7a34b81c7c488d9a69b0037c3fdbfdc5a95d882af5",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-0111514e49ec-1",
           "sha256": "0111514e49ec16269a46592b69c082d997e727d29fd848d68a54cf7ab4995f0a",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-df08dc8df6cb-1",
@@ -4181,17 +4181,17 @@
         {
           "ruleId": "NR-references-template-authoring-md-d5f0ebdf9515-1",
           "sha256": "d5f0ebdf951533e164383a2604de98aeab0e2e597a00058c7564da2c6de91251",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-46ff07315cf9-1",
           "sha256": "46ff07315cf9a79c3b31b424c9470101e7206b60a4374339388551804b4adcda",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-5b725a436966-1",
           "sha256": "5b725a4369665e4355522709459fc8339d4c95182bdba70733ed4a779680b118",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-bc0b222b5d90-1",
@@ -4211,7 +4211,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-b100417cabe5-1",
           "sha256": "b100417cabe5e4d80fa0665c1db902aeebc1f7fae6c6e1ed54153f44572e5e8e",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-90f7bd643cc4-1",
@@ -4221,17 +4221,17 @@
         {
           "ruleId": "NR-references-template-authoring-md-3a267a73da2b-1",
           "sha256": "3a267a73da2b1c2ff6b1b241f09331464917204c15c7308f04a968467139afdb",
-          "familyId": "visual-review"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-85b90f64553d-1",
           "sha256": "85b90f64553d70a5836889deeee50e631fe1575337ea4f3d85be7393e7d53f42",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-589fd053b97d-1",
           "sha256": "589fd053b97da0bfe797161e518907c14f37192aaa6080c867c80b7bd434476f",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-45f6b0488ca4-1",
@@ -4241,7 +4241,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-16f3be505398-1",
           "sha256": "16f3be505398c0f5193c7af6642080aa872ce7c32e69442e5004cd91d85258bd",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-0e08c537441b-1",
@@ -4256,17 +4256,17 @@
         {
           "ruleId": "NR-references-template-authoring-md-f4375ec2c65e-1",
           "sha256": "f4375ec2c65eeb078df3443dd9d085f8ccc357fdc878baa3d558b72dc610bd34",
-          "familyId": "visual-review"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-42f3b04265de-1",
           "sha256": "42f3b04265de1619e5641d6c95cae46217af9768078367154f988c7b5a3353d7",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-0ad0e496a021-1",
           "sha256": "0ad0e496a0219b8ad2da577ea0b1aeae14abacc1168807b06c16abe6cf8a025c",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-272d16b38d60-1",
@@ -4281,7 +4281,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-d38d7504fcc7-1",
           "sha256": "d38d7504fcc75b2a86fd986929d65e49581d7111342f0c67c59a76d054cd7590",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-0cba83a1ccfd-1",
@@ -4306,27 +4306,27 @@
         {
           "ruleId": "NR-references-template-authoring-md-801b0068a5e2-1",
           "sha256": "801b0068a5e2c287573e371fb546412898486a696a408b453062332abe80d4d6",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-e26048468c14-1",
           "sha256": "e26048468c14909d8fa0d7e35b2c53433dd5606b14cd0744d28b6659ea3d065b",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-d15f09d21768-1",
           "sha256": "d15f09d2176810ccd52e4ef75975338b6d56c0792096d5371ea008c3fb8c39d4",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-84a949b75f94-1",
           "sha256": "84a949b75f942c09897b10f0a85017532a3a07211a3539cd4a75ab81b78fb580",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-8de34714a733-1",
           "sha256": "8de34714a733c8d426487d15a0f36503ae704983eef5a5037224b1c0cfbc4abc",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-7a7d1e0bb7a7-1",
@@ -4346,22 +4346,22 @@
         {
           "ruleId": "NR-references-template-authoring-md-fa808e3d1e17-1",
           "sha256": "fa808e3d1e17600e08477a6be8c8b34259c48b76cef4c06812e0edf74707ae14",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-b720962df7ad-1",
           "sha256": "b720962df7adebcaad8ed6c2048a8bca0e1c6b0b5b70762656816a8cf7362378",
-          "familyId": "multi-instance"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-85bce32789f9-1",
           "sha256": "85bce32789f9e294825c34a82c288b756be308c7946c77e0a499aef57b9b9e18",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-7223d00aaca5-1",
           "sha256": "7223d00aaca5260ecaefe85699f9480e3d974285b62a4432dc9581222ac53269",
-          "familyId": "visual-review"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-23e4ae2eb4cb-1",
@@ -4381,7 +4381,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-615f25d20d56-1",
           "sha256": "615f25d20d56114ee1191d32267e2bf9951116763995d72c5b0f00dce2da2132",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-cf6d26c54e93-1",
@@ -4396,7 +4396,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-afcffd387d4a-1",
           "sha256": "afcffd387d4a4d6e82673c729359a358c6ca57588baf220d8c88ee4fff4574d9",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-e7bf60911bdb-1",
@@ -4426,7 +4426,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-55895131e9ce-1",
           "sha256": "55895131e9cebe7b4f90e79f5260b75602fbfa018b86bb24f2d3e5073f1e9466",
-          "familyId": "visual-review"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-70cf69d92c9c-1",
@@ -4436,12 +4436,12 @@
         {
           "ruleId": "NR-references-template-authoring-md-9a08cc9cb2c4-1",
           "sha256": "9a08cc9cb2c4b027489465ee007ea24df292079e788b646062c90ac0e8fbc0cf",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-15c83a97f6a7-1",
           "sha256": "15c83a97f6a7a4451a4bb8d4e602ac06af1415e2f3f546b0aef17455b1c224f5",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-0440c174b982-1",
@@ -4451,7 +4451,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-034c9512851b-1",
           "sha256": "034c9512851b157c5357e13244182743954bcdb252b5096982f4f1cc0e84b64e",
-          "familyId": "visible-text"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-b359a61a6278-1",
@@ -4461,7 +4461,7 @@
         {
           "ruleId": "NR-references-template-authoring-md-33703e4e46b8-1",
           "sha256": "33703e4e46b8f667a7df6e892578b7d1fb996578b0bc086d8840c15fcf9c301a",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-references-template-authoring-md-c1e87b39a04f-1",
@@ -4488,17 +4488,17 @@
         {
           "ruleId": "NR-eferences-template-image-gate-md-f2c757883180-1",
           "sha256": "f2c7578831804a1cd2ae7f8e79a8c29045d9ce03e08d73abf657ab83fadd4390",
-          "familyId": "visible-text"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-03c769629002-1",
           "sha256": "03c769629002fb63e64b5a25c02f9a52130c427802128c616cbbad75e70de4c1",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-7a0c893c81a0-1",
           "sha256": "7a0c893c81a00be6bd309f4805d56fbd89cb90640e6e4496d64d2ec944ef9a78",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-952c4588061b-1",
@@ -4508,32 +4508,32 @@
         {
           "ruleId": "NR-eferences-template-image-gate-md-0337bb7f47c1-1",
           "sha256": "0337bb7f47c18260ad918bc25509ac3f38312e183fb3a9307e95c9dc3c1335c4",
-          "familyId": "lifecycle"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-69bf0f73c363-1",
           "sha256": "69bf0f73c3632502c2adb9efbf361bdbc7559dce43140b0a83425f5c62c87310",
-          "familyId": "oss-finalization"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-1cacd4a66855-1",
           "sha256": "1cacd4a66855887312b48fbee57fe31baef54ff36239563ed9e939a3c96f896d",
-          "familyId": "template-authoring"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-cc80a3843cdb-1",
           "sha256": "cc80a3843cdbe8919c60a730ee7b357e9ced151ebe251676da8716f7c9d0996b",
-          "familyId": "execution-authority"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-c9871d69a7dd-1",
           "sha256": "c9871d69a7dde741450254d98262b2770131cc44295495902d67f63fbde5b719",
-          "familyId": "oss-finalization"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-bb8ce3e35665-1",
           "sha256": "bb8ce3e356657de15d596dbf120a8d7ccbb2bfe93a684104e812b154b1a9a2da",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-eferences-template-image-gate-md-365018a52555-1",
@@ -4543,7 +4543,7 @@
         {
           "ruleId": "NR-eferences-template-image-gate-md-a960f8e377cb-1",
           "sha256": "a960f8e377cb7be7d7fe73da905e7a0984d20d4105fd9fc5702d7315124da952",
-          "familyId": "oss-finalization"
+          "familyId": "visual-review"
         }
       ]
     },
@@ -4555,12 +4555,12 @@
         {
           "ruleId": "NR-references-template-json-test-md-c4bc3df2b820-1",
           "sha256": "c4bc3df2b8204b6f81e2269b9205065b5169ac4071f9ea9aef7e502e7314aaba",
-          "familyId": "release"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-a491b3bfa227-1",
           "sha256": "a491b3bfa22782845fefcbb3a72d27cfd55e19992304caa81ffeb89257ddcc71",
-          "familyId": "release"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-339bea87d4be-1",
@@ -4570,22 +4570,22 @@
         {
           "ruleId": "NR-references-template-json-test-md-6dd621d69114-1",
           "sha256": "6dd621d69114fc05a4b30cfe7de2400fe10d97fbe7be9c921951219e6510c421",
-          "familyId": "template-authoring"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-0d64ff1ca261-1",
           "sha256": "0d64ff1ca261cc2b335485e52a011560c33915ff985d9a0c2d41936871140c84",
-          "familyId": "replacement"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-ee075af47226-1",
           "sha256": "ee075af472261e8eb69eb1b8d195a186b41fcdd18e3f1fe7e3d19728b6aa6b5f",
-          "familyId": "oss-finalization"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-18e5a6572e36-1",
           "sha256": "18e5a6572e366711313a41ae663c350e58c421b4c0412c3b94e6837b7cd80d52",
-          "familyId": "oss-finalization"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-ef8b9997c3ee-1",
@@ -4595,12 +4595,12 @@
         {
           "ruleId": "NR-references-template-json-test-md-e19eda99e109-1",
           "sha256": "e19eda99e109e6142143a4e263c5059775c9705462f56e97c3b32a52d4786688",
-          "familyId": "oss-finalization"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-f52b3d951188-1",
           "sha256": "f52b3d95118852e93eb241a352af67ca24348d6e70e511a6883b38e68db74f62",
-          "familyId": "generation"
+          "familyId": "template-test"
         },
         {
           "ruleId": "NR-references-template-json-test-md-8237fa70594d-1",
@@ -4627,7 +4627,7 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-2ffcd64d1e15-1",
           "sha256": "2ffcd64d1e1580ae734559f6609d139645002486e1b79aca61e1e7159a5e5088",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-9c7ade9e1846-1",
@@ -4642,27 +4642,27 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-886ad4389e2d-1",
           "sha256": "886ad4389e2d30174859fbe3222db23dbda2f7eb5d1eaf04d1f3f795b81640bc",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-64f084222dd1-1",
           "sha256": "64f084222dd1777f1e75721cd0bf2c34c322224cf4df83324708e46cba6ce41c",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-89cb4b2424b8-1",
           "sha256": "89cb4b2424b88b7d73d3628a34edd7d4a98fdbe3489920f559a0421c723baff9",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-a759bd7054ef-1",
           "sha256": "a759bd7054ef7e858ad94d0c9630ea6be836ad01641731008120d00579589c93",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-6cfc6cedfdd2-1",
           "sha256": "6cfc6cedfdd264b0e98e3c04696fdb475958e82cc27caac6ecb428677230db87",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-3387c8b9cda9-1",
@@ -4672,7 +4672,7 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-4f21053cf537-1",
           "sha256": "4f21053cf53752f262216576a2c5eb1070b02869d224faced94dba6625c89498",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-6f374a76bfc5-1",
@@ -4687,12 +4687,12 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-99ff3511e57c-1",
           "sha256": "99ff3511e57c4424bfd9e46a8c9466109e8eefffc0a00bd145745ccc14ca7ab1",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-5c152425d415-1",
           "sha256": "5c152425d4159de4a84ef8c884fdd48c44ba7b928e4fb89fadf97a41e34a90e8",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-34ada0d5abbb-1",
@@ -4717,7 +4717,7 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-c90bbcf396a9-1",
           "sha256": "c90bbcf396a94a41cf30e23a4097acc02af9137d47df61bb088f7f0eceedb446",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-a4503fb43db0-1",
@@ -4727,7 +4727,7 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-3b61c0ca8461-1",
           "sha256": "3b61c0ca8461510f8c6660f52655773bcdbd9f3158ec74815f6a4a81b9b28415",
-          "familyId": "execution-authority"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-a637b04cdfaf-1",
@@ -4737,12 +4737,12 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-8a4ef3c62555-1",
           "sha256": "8a4ef3c625556915d0d59039a5965be68518ba52d9f8780697ff4eb1738accac",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-cd41efadf11c-1",
           "sha256": "cd41efadf11c5f5e74b2b028ab78d0a59b6f22eca6d6d7e059d1be18095e87e4",
-          "familyId": "replacement"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-88bbb984d1b1-1",
@@ -4757,7 +4757,7 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-2ae15c293332-1",
           "sha256": "2ae15c293332108c8341bfe7fbceea47f5a155afab11885d95d6b099cfca8504",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-fb4f9ee21d1f-1",
@@ -4767,47 +4767,47 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-1878144f6eea-1",
           "sha256": "1878144f6eeaad0e2e3297068af3fdc4f45059df639df027196d65e508f4d2ab",
-          "familyId": "generation"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-38bfc8d8fd1d-1",
           "sha256": "38bfc8d8fd1dfff1e7096826390f40ebb77335a2af7fd44089edda9240c2a7ff",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-04a9b1b9242d-1",
           "sha256": "04a9b1b9242d42df86f8aa2179aa84cee4694696d57864552058569332bf88e4",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-79e6d5514b02-1",
           "sha256": "79e6d5514b027539f4e4f8ddfeb891b3d779180faf4debcdbea67567c31e0c3f",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-b04aa28607e5-1",
           "sha256": "b04aa28607e5b49597a2b991b3654635b2cd34d97823f285e42d55dfa76e1ebb",
-          "familyId": "visual-review"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-29a054a8a7fe-1",
           "sha256": "29a054a8a7fe69723505ceb808d483824a1f5778f92853762f31342bef813132",
-          "familyId": "generation"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-16d294dc22f2-1",
           "sha256": "16d294dc22f2f006642e9c1432a40f5d696b3aa1c2e427342e7b2a6cd0706dbf",
-          "familyId": "replacement"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-c909643c2402-1",
           "sha256": "c909643c2402212dc64434569ed409ec91fddcc7f3784133654829917aa057ef",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-715026995f2b-1",
           "sha256": "715026995f2b37af4d5a8f33927528c9533daa6d6616a29821c48dfbfb493fc1",
-          "familyId": "visual-review"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-022555c522c9-1",
@@ -4822,32 +4822,32 @@
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-63bd7c9c1d2c-1",
           "sha256": "63bd7c9c1d2c7eef9da53a4bd656ff9f45e2f35f641e8d5b10468c6016977a7e",
-          "familyId": "visual-review"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-53917d19b0b2-1",
           "sha256": "53917d19b0b2aa081999b1e7f892d9a7809d2bf2c24637bba1349e5c31e1c0e1",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-bf06f3c674eb-1",
           "sha256": "bf06f3c674eb3f63d5c8a384ecb7ac342f209823a9fa30127cb6837d63a4a35c",
-          "familyId": "oss-finalization"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-84e0ac4b885e-1",
           "sha256": "84e0ac4b885e6e60fcc572a96934edd92221fb4a331d6aa6dec3aaad039c0311",
-          "familyId": "release"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-33f9b91a7c5e-1",
           "sha256": "33f9b91a7c5e88a0c3cd08eb9fcac99d5703a5a56b1300cd4f7ace28fe41bc05",
-          "familyId": "release"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-rences-vertical-slice-runtime-md-34d930c79171-1",
           "sha256": "34d930c79171c766728f5d9aa89d0d2d96c6800a66fe752f8fe0023d368ef198",
-          "familyId": "multi-instance"
+          "familyId": "lifecycle"
         }
       ]
     },
@@ -4864,7 +4864,7 @@
         {
           "ruleId": "NR-erences-visible-text-contract-md-85f2767e5c8c-1",
           "sha256": "85f2767e5c8cb76f5057387174928aca31aeb067541a17c24d4d4c8ad9babb57",
-          "familyId": "template-authoring"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-erences-visible-text-contract-md-bb0a2d0d88cd-1",
@@ -4874,7 +4874,7 @@
         {
           "ruleId": "NR-erences-visible-text-contract-md-6d94db8560ab-1",
           "sha256": "6d94db8560abbc55b2cb49fe696c77002ff5b0656559dc422c752cc867909409",
-          "familyId": "replacement"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-erences-visible-text-contract-md-67916debac83-1",
@@ -4889,12 +4889,12 @@
         {
           "ruleId": "NR-erences-visible-text-contract-md-847f2c02a5c1-1",
           "sha256": "847f2c02a5c1a20d555c7cfbcc57e8901ba7e79b7cadf7bd4341313a16caba08",
-          "familyId": "template-authoring"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-erences-visible-text-contract-md-a07d6b020c7c-1",
           "sha256": "a07d6b020c7c65af42624e4f99b424d50a815892734868b30700fcd0b1b2c407",
-          "familyId": "template-authoring"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-erences-visible-text-contract-md-cb3a4eaead50-1",
@@ -4909,7 +4909,7 @@
         {
           "ruleId": "NR-erences-visible-text-contract-md-40ae20bb3792-1",
           "sha256": "40ae20bb3792300c089a9ca1b631dafb122ef9b46fb5ca82cfa1fc080417eb9e",
-          "familyId": "oss-finalization"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-erences-visible-text-contract-md-0837c8fa0e91-1",
@@ -4966,7 +4966,7 @@
         {
           "ruleId": "NR-specs-skill-md-b22f1cfa8d7c-1",
           "sha256": "b22f1cfa8d7ceebfababc764ec776c1c2918b9e9dcd91efe688d093d7f735e56",
-          "familyId": "governance"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-specs-skill-md-c25778f7cd4d-1",
@@ -4981,7 +4981,7 @@
         {
           "ruleId": "NR-specs-skill-md-9c3bb0652ee8-1",
           "sha256": "9c3bb0652ee80adbec22b9387639791c580253eff8ad3b87b57e3160330edc3c",
-          "familyId": "release"
+          "familyId": "batch"
         },
         {
           "ruleId": "NR-specs-skill-md-7264366b5228-1",
@@ -5011,7 +5011,7 @@
         {
           "ruleId": "NR-specs-skill-md-aed49c88a316-1",
           "sha256": "aed49c88a316d0f86deada7c411389b28d3e3a4996fbcbb19eb9f677878f2221",
-          "familyId": "visible-text"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-specs-skill-md-7ea8c8b1f653-1",
@@ -5036,7 +5036,7 @@
         {
           "ruleId": "NR-specs-skill-md-628944cfeef2-1",
           "sha256": "628944cfeef20e6179d406964330a031fe32ea9a5a1f7b8935af78ca039ae7e9",
-          "familyId": "governance"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-specs-skill-md-09700159db1c-1",
@@ -5056,7 +5056,7 @@
         {
           "ruleId": "NR-specs-skill-md-0fc602e2c4d5-1",
           "sha256": "0fc602e2c4d579c4d926b2a8bbaae9ecd7e89af609e9ed167c5251b407b9682d",
-          "familyId": "governance"
+          "familyId": "replacement"
         },
         {
           "ruleId": "NR-specs-skill-md-cd59d0e023e8-1",
@@ -5066,42 +5066,42 @@
         {
           "ruleId": "NR-specs-skill-md-12aef16fa6b1-1",
           "sha256": "12aef16fa6b1bf596c6d3942972f3b7169add391d8b3b3cfb9ffa3fa17ceacee",
-          "familyId": "replacement"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-specs-skill-md-fa7ea1658e87-1",
           "sha256": "fa7ea1658e87ba8d3da017d23a27ebbdc0cf31afe90e6ddb0a514694639fccaa",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-specs-skill-md-ba019349d7aa-1",
           "sha256": "ba019349d7aa2a33fb0522838b4b16bb0b885d2342cc70aae9c600e952ca8668",
-          "familyId": "governance"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-specs-skill-md-afdcdb62f37a-1",
           "sha256": "afdcdb62f37a2fabbd2c87f242855fe10606bb61d8bcb8a15cf122761b44c94b",
-          "familyId": "lifecycle"
+          "familyId": "generation"
         },
         {
           "ruleId": "NR-specs-skill-md-e46b18fec1a5-1",
           "sha256": "e46b18fec1a52c58b361826520f66dc9fd15f86d02b72b556ad00f785e78a571",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-specs-skill-md-2866730b5f8b-1",
           "sha256": "2866730b5f8be9bbe5899af2e831634f58b31fab8de1263ed08adf53e7e4bb78",
-          "familyId": "governance"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-specs-skill-md-01a8f0868af6-1",
           "sha256": "01a8f0868af64bd9df4aca5cbd01774db54e46e56a56cf063514ca142c0dd1d7",
-          "familyId": "replacement"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-specs-skill-md-d506b616315b-1",
           "sha256": "d506b616315be43b0c48329659b1f0e92a7b382ecd057bb7247915dc2e59569e",
-          "familyId": "governance"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-specs-skill-md-e0ba084d9cf8-1",
@@ -5111,7 +5111,7 @@
         {
           "ruleId": "NR-specs-skill-md-e2ea5142fa5c-1",
           "sha256": "e2ea5142fa5c47f474511a796a65f8540366c8adde4ed534c4b57d00d81c5e86",
-          "familyId": "batch"
+          "familyId": "visual-review"
         },
         {
           "ruleId": "NR-specs-skill-md-1c7b2c23070b-1",
@@ -5121,17 +5121,17 @@
         {
           "ruleId": "NR-specs-skill-md-d63c38aeb0d7-1",
           "sha256": "d63c38aeb0d73766113c6f5c8494a99ec5fe374a8a9e83e4239afd01d582f8ef",
-          "familyId": "visual-review"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-specs-skill-md-014c00296113-1",
           "sha256": "014c00296113dc3f93f96cddec014b0eb7adf22e1cd34dc496404c825ac01db7",
-          "familyId": "template-authoring"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-specs-skill-md-cdac2d977a91-1",
           "sha256": "cdac2d977a91f16c16972e3313e8f0d453b1dadb40a50a47dccbfeca2932408d",
-          "familyId": "visual-review"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-0af7b1e34f4d-1",
@@ -5141,12 +5141,12 @@
         {
           "ruleId": "NR-specs-skill-md-97432927c470-1",
           "sha256": "97432927c470aaeb206ee10b56393150347ea25f87d631f18e0d281cd3b23450",
-          "familyId": "oss-finalization"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-90a36f045b43-1",
           "sha256": "90a36f045b43c4eed468238fa3fdeccfc48c055dd6dbfd97455b05ae9d378f09",
-          "familyId": "governance"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-fc3a0d0c39e2-1",
@@ -5166,7 +5166,7 @@
         {
           "ruleId": "NR-specs-skill-md-cee7eb1ac057-1",
           "sha256": "cee7eb1ac057e0f551ab8f0de3484c5db1e60df7eaddd267632f65f5e0d2812c",
-          "familyId": "governance"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-2b9bd5218404-1",
@@ -5176,32 +5176,32 @@
         {
           "ruleId": "NR-specs-skill-md-da260f50c10f-1",
           "sha256": "da260f50c10fa34086f89d89aee5f6e05f37326e8da5a123d183b8671baa9821",
-          "familyId": "governance"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-specs-skill-md-bb1d912bc518-1",
           "sha256": "bb1d912bc5188c3ab95ab08c6e4b078ae82072191d6423349b3eb7414242ba12",
-          "familyId": "governance"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-specs-skill-md-21c00a2c2f6d-1",
           "sha256": "21c00a2c2f6d24dc214ada55af3c6ad5475441d4cc60f20412bda737ef3f3089",
-          "familyId": "template-authoring"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-specs-skill-md-50c149d36d96-1",
           "sha256": "50c149d36d96ddda09f96ebbb3b90ef89a78f0969da47d1efdb883f95154e51e",
-          "familyId": "replacement"
+          "familyId": "visible-text"
         },
         {
           "ruleId": "NR-specs-skill-md-958abf35a568-1",
           "sha256": "958abf35a5683c4bc15d0b3f8913d038417cb87919fb5c76243d737da4b7ec7b",
-          "familyId": "governance"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-b25c93b5a722-1",
           "sha256": "b25c93b5a7220e4c1f9f20dccdedf69843819dfe7e9b7cba1de562de6d5d86e1",
-          "familyId": "replacement"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-3690274a95da-1",
@@ -5211,7 +5211,7 @@
         {
           "ruleId": "NR-specs-skill-md-5fc3da6b88c8-1",
           "sha256": "5fc3da6b88c814758b3e6a7a4fe833fbb6f60e66888395b284a1510047e3824f",
-          "familyId": "visual-review"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-2964154f7a03-1",
@@ -5251,32 +5251,32 @@
         {
           "ruleId": "NR-specs-skill-md-a5881a103eaa-1",
           "sha256": "a5881a103eaad6bbca2cbc12c15953733519b91457be514ce2453b00a0adf1f1",
-          "familyId": "lifecycle"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-4b98153a908f-1",
           "sha256": "4b98153a908f36cac59c9798dab52939229460c7b7e28ad86f58e3b820ee1033",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-7d26749ee0e7-1",
           "sha256": "7d26749ee0e79e2704715bfd12833719cdc91a385ad7a43a852b36a459942224",
-          "familyId": "governance"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-f6700589f016-1",
           "sha256": "f6700589f016f3f07b14f6ecc84b0d70cc776ea67d22fbd2673b9058b9113b50",
-          "familyId": "governance"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-7b6afc1164fa-1",
           "sha256": "7b6afc1164fa84a4c8235cb9c1c3983ec30a671ca2aeda8cd6179f43783a98a2",
-          "familyId": "governance"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-08c7bc85d30f-1",
           "sha256": "08c7bc85d30fcde100e593230ba0dc95508ba8065fca0ae4fbffe70b44a59c9a",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-a7db46c07899-1",
@@ -5286,17 +5286,17 @@
         {
           "ruleId": "NR-specs-skill-md-9796e80114f9-1",
           "sha256": "9796e80114f9aa0b1c48052e68585360379da2b8178e42c077edf2d82e53a5fa",
-          "familyId": "template-authoring"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-d1ff504e2d8a-1",
           "sha256": "d1ff504e2d8a680cb682229268e8175a29c217986eaec38f47a20901304019fa",
-          "familyId": "governance"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-400b45a21bec-1",
           "sha256": "400b45a21becc6206e1b56a1e475e5c04fd02eb5c8b1b1be67ea4db5ed0e7bcb",
-          "familyId": "oss-finalization"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-cbf6329b972c-1",
@@ -5306,12 +5306,12 @@
         {
           "ruleId": "NR-specs-skill-md-1bee0d68149a-1",
           "sha256": "1bee0d68149a29427e50ab64f91359bb7b2afa608d1ec51938eb8c370b1840e7",
-          "familyId": "visual-review"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-44a1029f78b7-1",
           "sha256": "44a1029f78b7d35d18251f2f1ffbfd41f83af9097aa250e753d674ace77f472f",
-          "familyId": "governance"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-13847ab89b9c-1",
@@ -5326,17 +5326,17 @@
         {
           "ruleId": "NR-specs-skill-md-c160c799aa77-1",
           "sha256": "c160c799aa779afe284cf424511cc2bbbcc8cb7e1df6416a0964a3820745b431",
-          "familyId": "governance"
+          "familyId": "oss-finalization"
         },
         {
           "ruleId": "NR-specs-skill-md-f72d2027a2c8-1",
           "sha256": "f72d2027a2c85765f7850c186d7135a7077168a2e6b0c0ba111d438d7ad96697",
-          "familyId": "replacement"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-specs-skill-md-28f4a310a4e6-1",
           "sha256": "28f4a310a4e6c84a5930b35456cc5a026519e805e09bed00ef3de58d2eece0dc",
-          "familyId": "governance"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-specs-skill-md-9421572b7ac7-1",
@@ -5351,7 +5351,7 @@
         {
           "ruleId": "NR-specs-skill-md-9adecf0f163b-1",
           "sha256": "9adecf0f163b840ef6c85ebc2305d5673d166e669f9d7afea7372fe326525e49",
-          "familyId": "governance"
+          "familyId": "lifecycle"
         },
         {
           "ruleId": "NR-specs-skill-md-81ee37566b0c-1",
@@ -5391,7 +5391,7 @@
         {
           "ruleId": "NR-specs-skill-md-4cd82d5e3c38-1",
           "sha256": "4cd82d5e3c38a6e28eb129542390134901a3964f43ed3bd1b64b59f2be2e1e69",
-          "familyId": "template-authoring"
+          "familyId": "governance"
         },
         {
           "ruleId": "NR-specs-skill-md-93f1314c71ba-1",
@@ -5406,7 +5406,7 @@
         {
           "ruleId": "NR-specs-skill-md-cdf60498fe22-1",
           "sha256": "cdf60498fe229d5b698697ff829ae176c0be1a8ee650cfb6ae423df980f9c450",
-          "familyId": "batch"
+          "familyId": "template-authoring"
         },
         {
           "ruleId": "NR-specs-skill-md-3acb9d93dd3e-1",
@@ -5431,7 +5431,7 @@
         {
           "ruleId": "NR-specs-skill-md-c5d78d76fae1-1",
           "sha256": "c5d78d76fae15a042c9c7b99c1b7b9b69678f2246aff212a03dc765f6a86b309",
-          "familyId": "batch"
+          "familyId": "historical-regression"
         },
         {
           "ruleId": "NR-specs-skill-md-ede43f746aaa-1",
@@ -5441,7 +5441,7 @@
         {
           "ruleId": "NR-specs-skill-md-5541a30b6162-1",
           "sha256": "5541a30b6162f9a1c35ff3292751a0adb9a3f34c0adfd1822770e96208d5486e",
-          "familyId": "template-compilation"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-specs-skill-md-b63d8dc01792-1",
@@ -5456,7 +5456,7 @@
         {
           "ruleId": "NR-specs-skill-md-d57f38e42945-1",
           "sha256": "d57f38e429452b1079a73074099ccba5004f0077b4ff4117d52eb1edd3b17744",
-          "familyId": "batch"
+          "familyId": "release"
         },
         {
           "ruleId": "NR-specs-skill-md-11bf91542798-1",
@@ -5466,7 +5466,7 @@
         {
           "ruleId": "NR-specs-skill-md-fbe9f6af6e99-1",
           "sha256": "fbe9f6af6e99d01f95d346a2ea2aaf6535dd1e012f0182672d08c79f7eb92765",
-          "familyId": "lifecycle"
+          "familyId": "template-compilation"
         },
         {
           "ruleId": "NR-specs-skill-md-5f92f33e3099-1",

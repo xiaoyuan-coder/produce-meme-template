@@ -63,6 +63,7 @@ class RepositoryContractTest(unittest.TestCase):
 
     def test_normative_registry_routes_each_semantic_unit_to_its_real_family(self) -> None:
         from scripts.produce_meme_template.normative_registry import (
+            scan_authority_units,
             validate_registry_snapshot,
         )
 
@@ -75,6 +76,33 @@ class RepositoryContractTest(unittest.TestCase):
         )
         unit_family_ids = {unit["familyId"] for unit in spec["units"]}
         self.assertGreater(len(unit_family_ids), 5)
+        units = scan_authority_units(ROOT / spec["path"])
+        assignments = {
+            text: unit["familyId"] for text, unit in zip(units, spec["units"])
+        }
+        expected_assignments = {
+            "网络重试复用 request ID": "generation",
+            "自动检查六维视觉合同": "visual-review",
+            "只有真实歧义和多个有效方案接近时请求人工决定": "visual-review",
+        }
+        for fragment, expected_family in expected_assignments.items():
+            matching = [
+                family
+                for text, family in assignments.items()
+                if fragment in text
+            ]
+            self.assertTrue(matching, fragment)
+            self.assertEqual({expected_family}, set(matching), fragment)
+
+        migration_adr = next(
+            source
+            for source in registry["sources"]
+            if source["path"].startswith("docs/adr/0032-")
+        )
+        self.assertEqual(
+            {"template-compilation"},
+            {unit["familyId"] for unit in migration_adr["units"]},
+        )
 
         tampered = copy.deepcopy(registry)
         tampered_spec = next(
@@ -90,7 +118,7 @@ class RepositoryContractTest(unittest.TestCase):
         candidate["familyId"] = "governance"
 
         self.assertIn(
-            "authority unit enforcement drift: specs/新模板生产Skill实施规格.md",
+            "reviewed unit assignment digest drift",
             validate_registry_snapshot(ROOT, tampered, rules),
         )
 

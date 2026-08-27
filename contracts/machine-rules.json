@@ -44,79 +44,7 @@
       "sha256": "sha256",
       "family": "familyId"
     },
-    "semanticRouting": {
-      "defaultFamily": "governance",
-      "orderedRules": [
-        {
-          "familyId": "release-readiness",
-          "containsAny": ["readiness", "影子批次", "风险采样", "未见图", "releaseEligible", "live_external"]
-        },
-        {
-          "familyId": "release",
-          "containsAny": ["发布", "安装", "doctor", "候选包", "release-lock", "版本 pin"]
-        },
-        {
-          "familyId": "template-test",
-          "containsAny": ["T1", "模板测试", "独立测试", "template test"]
-        },
-        {
-          "familyId": "oss-finalization",
-          "containsAny": ["OSS", "上传", "Asset Receipt", "P7", "最终化"]
-        },
-        {
-          "familyId": "visible-text",
-          "containsAny": ["可见文字", "文字处理", "OCR", "文案", "freeEditableContent"]
-        },
-        {
-          "familyId": "template-authoring",
-          "containsAny": ["Prompt Template", "inputSchema", "槽位", "默认值", "推荐项", "tag", "作者合同", "authoring"]
-        },
-        {
-          "familyId": "multi-instance",
-          "containsAny": ["多实例", "多个主体", "CP", "成组替换", "同步换"]
-        },
-        {
-          "familyId": "replacement",
-          "containsAny": ["换图", "替换", "身份绑定", "身份特征", "画风继承", "截图框", "T 恤", "T恤", "贴纸", "商标", "Replacement"]
-        },
-        {
-          "familyId": "visual-review",
-          "containsAny": ["视觉门禁", "视觉审核", "模板图", "Approved Template Image", "肢体", "手指", "画面硬失败"]
-        },
-        {
-          "familyId": "generation",
-          "containsAny": ["Fal", "生图", "Generation Package", "Generation Task", "Generation WAL", "生成请求"]
-        },
-        {
-          "familyId": "template-compilation",
-          "containsAny": ["runtimeSemantics", "Gallery Contract", "正式 JSON", "模板编译", "字段白名单", "Schema"]
-        },
-        {
-          "familyId": "execution-authority",
-          "containsAny": ["执行授权", "执行画像", "adapter", "交付资格"]
-        },
-        {
-          "familyId": "historical-regression",
-          "containsAny": ["历史经验", "经验回归", "Good Case", "Bad Case"]
-        },
-        {
-          "familyId": "batch",
-          "containsAny": ["批量", "批次", "共享策略"]
-        },
-        {
-          "familyId": "workspace-delivery",
-          "containsAny": ["个人工作区", "export", "导出"]
-        },
-        {
-          "familyId": "lifecycle",
-          "containsAny": ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P8", "阶段", "恢复", "Production Item", "工作流"]
-        },
-        {
-          "familyId": "domain-model",
-          "containsAny": ["领域模型", "领域对象", "状态机", "聚合"]
-        }
-      ]
-    },
+    "assignmentDigest": "fd6f7dc0c9fa9653261491bd1e86e0fbac289ac2c27a8e18db08c54b82c8652a",
     "enforcementClasses": {
       "runtimeGate": "runtime_gate",
       "repositoryGate": "repository_gate",
@@ -1627,7 +1555,7 @@
       "version": "version",
       "templates": "templates"
     },
-    "bundleVersion": 2,
+    "readableBundleVersions": [1, 2],
     "templateKeyPattern": "^[a-z][a-z0-9-]{1,59}$",
     "outputExtension": ".json",
     "reportFields": {
