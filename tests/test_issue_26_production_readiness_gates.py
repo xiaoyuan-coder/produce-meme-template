@@ -47,6 +47,71 @@ class RejectingIndependentSlotReviewAdapters(DeterministicFixtureAdapters):
         return result
 
 
+class RejectingTagReviewAdapters(DeterministicFixtureAdapters):
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict
+    ) -> dict:
+        result = super().audit_authoring_contract(approved_image, review_request)
+        contract = RULES["authoringContractAudit"]
+        review_fields = contract["reviewFields"]
+        tag_fields = contract["tagReviewFields"]
+        result[review_fields["tagReviews"]][0][
+            tag_fields["groundedInApprovedImage"]
+        ] = False
+        result[review_fields["tagReviews"]][0][tag_fields["evidence"]] = (
+            "独立复核发现该标签无法从当前 Approved Image 核验"
+        )
+        return result
+
+
+class RejectingIdentityInheritanceReviewAdapters(DeterministicFixtureAdapters):
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict
+    ) -> dict:
+        result = super().audit_authoring_contract(approved_image, review_request)
+        contract = RULES["authoringContractAudit"]
+        review_fields = contract["reviewFields"]
+        inheritance_fields = contract["identityInheritanceReviewFields"]
+        review = result[review_fields["identityInheritanceReviews"]][0]
+        review[inheritance_fields["clothingPolicyValid"]] = False
+        review[inheritance_fields["evidence"]] = (
+            "独立对照 Approved Image 后发现可见服装没有跟随用户上传图"
+        )
+        return result
+
+
+class RejectingDefaultValueSimplicityReviewAdapters(DeterministicFixtureAdapters):
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict
+    ) -> dict:
+        result = super().audit_authoring_contract(approved_image, review_request)
+        contract = RULES["authoringContractAudit"]
+        review_fields = contract["reviewFields"]
+        default_fields = contract["defaultValueReviewFields"]
+        review = result[review_fields["defaultValueReviews"]][0]
+        review[default_fields["minimalWording"]] = False
+        review[default_fields["evidence"]] = (
+            "默认值可以进一步缩短且不损失当前编辑轴"
+        )
+        return result
+
+
+class RejectingVisibleCopyReviewAdapters(DeterministicFixtureAdapters):
+    def audit_authoring_contract(
+        self, approved_image: Path, review_request: dict
+    ) -> dict:
+        result = super().audit_authoring_contract(approved_image, review_request)
+        contract = RULES["authoringContractAudit"]
+        review_fields = contract["reviewFields"]
+        copy_fields = contract["copyReviewFields"]
+        review = result[review_fields["copyReview"]]
+        review[copy_fields["descriptionGrounded"]] = False
+        review[copy_fields["evidence"]] = (
+            "描述加入了 Approved Image 无法核验的场景或身份事实"
+        )
+        return result
+
+
 class IdentityResolutionTransformAdapters(DeterministicFixtureAdapters):
     def __init__(self, transform):
         super().__init__(FIXTURE)
@@ -316,6 +381,108 @@ class ProductionReadinessGateTest(unittest.TestCase):
             if review[slot_fields["userMotivation"]] is False
         ]
         self.assertEqual(1, len(rejected))
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_tags_require_per_image_grounding_and_independent_review(self) -> None:
+        result = run_production(
+            {**self.request, "productionItemId": "independent-tag-review"},
+            self.output_root,
+            RejectingTagReviewAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_identity_inheritance_requires_independent_approved_image_review(
+        self,
+    ) -> None:
+        result = run_production(
+            {**self.request, "productionItemId": "identity-inheritance-review"},
+            self.output_root,
+            RejectingIdentityInheritanceReviewAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertTrue(
+            (result.output_dir / "authoring-contract-audit.json").exists()
+        )
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_default_values_require_independent_minimal_wording_review(self) -> None:
+        result = run_production(
+            {**self.request, "productionItemId": "default-value-simplicity"},
+            self.output_root,
+            RejectingDefaultValueSimplicityReviewAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertTrue(
+            (result.output_dir / "authoring-contract-audit.json").exists()
+        )
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_visible_text_routing_is_a_critical_delivery_outcome(self) -> None:
+        result = run_production(
+            {**self.request, "productionItemId": "visible-text-critical-outcome"},
+            self.output_root,
+            DeterministicFixtureAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["completed"], result.state)
+        qualification = load_json(
+            result.output_dir / RULES["criticalOutcomeContract"]["artifactName"]
+        )
+        identity_field = RULES["criticalOutcomeContract"][
+            "requirementResultFields"
+        ]["identity"]
+        requirement_ids = RULES["criticalOutcomeContract"]["requirementIds"]
+        self.assertTrue(
+            {
+                requirement_ids["identityInheritancePolicy"],
+                requirement_ids["conciseSlotDefaults"],
+                requirement_ids["visibleTextRouting"],
+            }.issubset(
+                {
+                    item[identity_field]
+                    for item in qualification["requirements"]
+                    if item["pass"] is True
+                }
+            )
+        )
+
+    def test_title_and_description_require_independent_image_grounding(self) -> None:
+        result = run_production(
+            {**self.request, "productionItemId": "visible-copy-grounding"},
+            self.output_root,
+            RejectingVisibleCopyReviewAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
+        self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
+
+    def test_generic_batch_tags_are_blocked_before_formal_compilation(self) -> None:
+        def reuse_generic_tags(analysis: dict) -> dict:
+            analysis["tags"] = ["人物", "热门", "好看"]
+            return analysis
+
+        result = run_production(
+            {**self.request, "productionItemId": "generic-reused-tags"},
+            self.output_root,
+            AnalysisTransformAdapters(reuse_generic_tags),
+            clock=lambda: FIXED_TIME,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["contractFailure"], result.error_code)
         self.assertFalse((result.output_dir / "editable-template-spec.json").exists())
 
     def test_authoring_audit_is_bound_to_approved_image_and_review_request(self) -> None:

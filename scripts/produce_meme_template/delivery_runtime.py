@@ -9,6 +9,7 @@ from urllib.parse import unquote, urlsplit
 from .artifacts import load_json as _load_json, pretty_json_bytes as _json_bytes, sha256_file as _sha_file
 from .batch_policy import _shared_policy_plan_valid
 from .execution_authority import registered_live_adapter_authority_errors
+from .outcome_qualification import compile_critical_outcome_qualification
 from .production_gates import (
     authoring_contract_audit_errors,
     compile_authoring_review_request,
@@ -455,6 +456,16 @@ def _current_template_data_errors(
         review = _load_json(output_dir / review_name)
         semantic_audit = _load_json(output_dir / "semantic-audit.json")
         persisted_validation = _load_json(output_dir / "validation-report.json")
+        generation_package = _load_json(
+            output_dir / _revisioned_name("generation-package.json", revision)
+        )
+        authoring_audit = _load_json(
+            output_dir / rules["authoringContractAudit"]["artifactName"]
+        )
+        qualification_contract = rules["criticalOutcomeContract"]
+        persisted_qualification = _load_json(
+            output_dir / qualification_contract["artifactName"]
+        )
         execution_contract = rules["productionExecutionContract"]
         execution_profile = _load_json(
             output_dir / execution_contract["artifactName"]
@@ -466,6 +477,13 @@ def _current_template_data_errors(
             source_analysis,
             review,
             semantic_audit,
+            rules,
+        )
+        expected_qualification = compile_critical_outcome_qualification(
+            generation_package,
+            review,
+            authoring_audit,
+            expected_validation,
             rules,
         )
     except (
@@ -482,6 +500,14 @@ def _current_template_data_errors(
         or expected_validation.get("pass") is not True
     ):
         return ["template data validation does not match current facts"]
+    if (
+        persisted_qualification != expected_qualification
+        or expected_qualification.get(
+            qualification_contract["fields"]["pass"]
+        )
+        is not True
+    ):
+        return ["critical outcome qualification does not match current facts"]
     manifest_mode = manifest.get(
         execution_contract["manifestFields"]["executionMode"]
     )

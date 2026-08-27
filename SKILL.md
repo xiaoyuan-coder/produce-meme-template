@@ -25,13 +25,13 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 
 ## 调用边界
 
-- **第一阶段**：执行 P0–P1，输出 `replacement-package.json`；其中绑定来源分析、替换计划、生图包与 `authoring-intent.json`。本阶段必须完成 IP/文化身份发现、主体连续性和玩法机制冻结，不提交生图 API。
+- **第一阶段**：执行 P0–P1，输出 `replacement-package.json`；其中绑定来源分析、替换计划、生图包与 `authoring-intent.json`。本阶段必须完成 IP/文化身份发现、主体连续性、身份替换群组、来源目标画布、贴纸/商标逐项处置、六维画风合同和玩法机制冻结。Generation Package 必须含唯一最终 `prompt`、`promptSha256`、六个全真汇总门禁和七条全真的关键资格证据，否则停在 P1，不提交生图 API。
 - **第二阶段**：执行 P2，必须通过生成 adapter 调用图片 API。真实生产使用 `FalQueueWorkflowAdapters` 提交、轮询并下载候选图；候选图通过视觉门禁后输出 Approved Template Image 和绑定当前图片摘要的 `authoring-handoff.json`。
 - **第三阶段**：执行 P3–P6，P3 使用 Approved Image 与只读 Authoring Handoff 做增量分析，输出状态为 `awaiting_oss_finalization` 的 `template-data-package.json`；其中绑定正式 draft、runtimeSemantics、语义审计和四层验证。
 - **第四阶段**：执行 P7–P8，上传当前 Approved Template Image，回填同一 OSS URL，输出最终 `gallery-template.json`。
 - **完整生产**：省略阶段参数或指定第四阶段，依次执行四个大阶段。四次分段调用和一次完整调用使用同一个 Production Item、revision、pin 与产物谱系。
 - **批量提交**：把多张来源网图拆成相互独立的 Production Item；并发、阶段屏障与显式共享策略读取批量合同。
-- **T1 测试**：只在用户明确指定现成正式 JSON 时执行，使用独立状态与产物，不改变 P0–P8 或正式 JSON。
+- **T1 测试**：只在用户明确指定现成正式 JSON 时执行。先调用 `prepare_template_test` 编译 `codex-imagegen-request.json`，再把其中的 `prompt` 与全部 reference images 原样交给 Codex 内置生图工具；生成一张，出现明确偏差时最多纠正一次。T1 禁止调用 Fal、OSS、P0–P8、发布 readiness，也不改变正式 JSON。供应商队列回放只可使用明确命名的 `run_recorded_template_test`，不得称为 T1。
 - **正式数据归档**：用户指定长期数据目录或要求一条模板一个文件时，在 P8 后显式执行拆分导出；生产 sidecar、交付清单和 OSS 幂等规则读取正式编译合同。
 - **正式执行资格**：正式/回放模式、安装来源与交付资格读取正式执行画像合同。
 
@@ -48,12 +48,13 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - 三线版本、发布风险分级、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
 - 正式/回放模式、adapter 拓扑、执行画像、阶段 provider 对账、交付资格和零重复外部调用读取 [正式执行画像与交付资格合同](references/production-execution-authority.md)。
 - T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
-- E01–E44 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
+- E01–E61 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
 - 首稳、major 或显式外部风险候选的六类影子样本、未见图前向、四场景 live 和 readiness 报告读取 [真实影子批次与稳定版发布准备合同](references/release-readiness.md)。
 - 创建、迁移、审查或独立测试 Gallery Template JSON，以及 P3–P8 的槽位、Prompt Template、runtimeSemantics 和正式投影，完整读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 判断模板身份、编辑权限、subject 身份特征继承范围，或编写标题、槽位全部属性、Prompt Template、target/binding 与逐图画风约束时，完整读取 [模板身份、编辑权限与正式字段编写规范](references/template-authoring.md)。
 - P3–P6 遇到可见文字、文字密集海报或文字槽时读取 [可见文字区域与文字槽合同](references/visible-text-contract.md)。
-- 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/gallery-template.schema.json`。
+- 修改 Skill、一级 reference、实施规格、ADR、代码门禁或测试证据时读取 [全量规范注册表](references/normative-rule-registry.md)；任何可达规范缺少可执行所有者和 Bad Case 时禁止完成或发布。
+- 机器枚举、阶段、硬门禁和字段白名单只读取 `contracts/machine-rules.json`；正式结构读取 `contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-26/gallery-template.schema.json`。新生产只写 runtimeSemantics v2；T1 可读 v1/v2；存量升级使用独立迁移脚本，禁止覆盖原数据或猜测服装归属。
 
 ## 事实源
 
@@ -64,4 +65,4 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 
 ## 完成条件
 
-实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。发布前的 E01–E44 回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、执行画像具备交付资格、四层验证通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。发布按候选锁中的 profile 验收；首稳、major 和显式外部风险要求真实外部 readiness，兼容 minor/patch 要求全量验证、双轴 clean review、全新安装和 doctor。
+实现阶段的每项变更必须同时具备外部行为测试、对应历史经验 ID、机器规则唯一落点和版本影响说明。全量规范注册表必须覆盖所有可达权威文档和语义单元，且每个执行家族都绑定可执行所有者、Good Case、Bad Case 和历史经验。发布前的历史经验回归报告必须绑定当前 production pin、清单、机器规则、追踪矩阵和全部代表 corpus，并且结果为 PASS。完整生产只有在 P0–P8 全部完成、执行画像具备交付资格、四层验证通过、27 项关键结果资格重算通过、上传凭证绑定当前 Approved Template Image、`cover === referenceImage` 且正式 JSON 不含生产 sidecar 字段时才算完成。发布按候选锁中的 profile 验收；首稳、major 和显式外部风险要求真实外部 readiness，兼容 minor/patch 要求全量验证、双轴 clean review、全新安装和 doctor。

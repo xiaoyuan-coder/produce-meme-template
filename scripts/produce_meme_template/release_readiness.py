@@ -20,7 +20,7 @@ from .artifacts import (
     pretty_json_bytes as _pretty_json_bytes,
     sha256_file as _sha_file,
 )
-from .template_test import TemplateTestResult, run_template_test
+from .template_test import TemplateTestResult, run_recorded_template_test
 from .release_management import (
     MACHINE_RULES_RELATIVE,
     doctor,
@@ -2569,7 +2569,7 @@ def run_release_readiness(
                                 copy.deepcopy(scenario)
                             )
                         )
-                        template_test_result = run_template_test(
+                        template_test_result = run_recorded_template_test(
                             template_test_request,
                             template_test_root,
                             test_adapters,

@@ -8,14 +8,14 @@
 
 | 项目 | 当前值 | 事实源 |
 | --- | --- | --- |
-| Skill 版本 | `5.0.0` | `release.json` |
+| Skill 版本 | `6.0.0` | `release.json` |
 | 发布验收 Profile | `live_external` | `release.json` |
-| Artifact Schema | `0.29.0` | `release.json` |
-| Gallery Template 合同 | `agent-template-json-runtime-contract-2026-08-22` | `release.json` |
+| Artifact Schema | `0.35.0` | `release.json` |
+| Gallery Template 合同 | `agent-template-json-runtime-contract-2026-08-26` | `release.json` |
 | 默认生产阶段 | `final`（完整生产） | `contracts/machine-rules.json` |
 | 正式执行模式 | `live_external` | `contracts/machine-rules.json` |
-| Manifest 更新时间 | `2026-08-24` | `skill-manifest.json` |
-| Manifest 跟踪文件 | `206` 个 | `skill-manifest.json` |
+| Manifest 更新时间 | `2026-08-27` | `skill-manifest.json` |
+| Manifest 跟踪文件 | `221` 个 | `skill-manifest.json` |
 
 ## 四阶段生产 SOP
 

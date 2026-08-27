@@ -203,6 +203,30 @@ def _validated_source_multi_instance_contract(
     relation_by_id = {
         relation[relation_fields["identity"]]: relation for relation in relations
     }
+    allowed_relation_role_pairs = {
+        contract["relationTypes"][relation_role]: {
+            (
+                contract["componentRoles"][source_role],
+                contract["componentRoles"][target_role],
+            )
+            for source_role, target_role in role_pairs
+        }
+        for relation_role, role_pairs in contract[
+            "relationEndpointRoleKeyPairs"
+        ].items()
+    }
+    relation_endpoint_roles_valid = all(
+        (
+            component_by_id[relation[relation_fields["source"]]][
+                component_fields["role"]
+            ],
+            component_by_id[relation[relation_fields["target"]]][
+                component_fields["role"]
+            ],
+        )
+        in allowed_relation_role_pairs[relation[relation_fields["type"]]]
+        for relation in relations
+    )
     operation_values = set(contract["operations"].values())
     list_field_roles = (
         "targetRegions",
@@ -408,7 +432,8 @@ def _validated_source_multi_instance_contract(
         operation_semantics_valid(operation) for operation in operations
     )
     if not (
-        relation_coverage_valid
+        relation_endpoint_roles_valid
+        and relation_coverage_valid
         and identity_relations_valid
         and identity_coverage_valid
         and operation_semantics_are_valid
@@ -601,6 +626,34 @@ def _plan_replacement(
     component_graph, image_operations = _validated_source_multi_instance_contract(
         source_analysis, rules
     )
+    context_contract = rules["sourceAuthoringContextContract"]
+    binding = source_analysis[context_contract["subjectBindingField"]]
+    binding_fields = context_contract["subjectBindingFields"]
+    group_fields = context_contract["subjectBindingGroupFields"]
+    closure_component_ids = {item[component_field] for item in closure}
+    incomplete_groups = []
+    for group in binding[binding_fields["groups"]]:
+        required_components = set(group[group_fields["requiredComponents"]])
+        if required_components & closure_component_ids and not (
+            required_components <= closure_component_ids
+        ):
+            incomplete_groups.append(
+                {
+                    "groupId": group[group_fields["identity"]],
+                    "relationship": group[group_fields["relationship"]],
+                    "missingComponentIds": sorted(
+                        required_components - closure_component_ids
+                    ),
+                }
+            )
+    if incomplete_groups:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "主体绑定组没有完整进入替换依赖闭包。",
+            {"incompleteSubjectBindingGroups": incomplete_groups},
+        )
     identity_route_role = next(
         (
             role
@@ -614,6 +667,31 @@ def _plan_replacement(
         if identity_route_role is not None
         else None
     )
+    if identity_route is not None:
+        all_bound_subject_components = {
+            component_id
+            for group in binding[binding_fields["groups"]]
+            for component_id in group[group_fields["requiredComponents"]]
+        }
+        bound_identity_units = {
+            identity_unit
+            for group in binding[binding_fields["groups"]]
+            for identity_unit in group[group_fields["identityUnits"]]
+        }
+        if len(bound_identity_units) > 1 and not (
+            all_bound_subject_components <= closure_component_ids
+        ):
+            raise _stop(
+                rules,
+                "blocked",
+                "contractFailure",
+                "多主体身份换图必须同步覆盖全部身份单元及其专属组件。",
+                {
+                    "missingBoundSubjectComponentIds": sorted(
+                        all_bound_subject_components - closure_component_ids
+                    )
+                },
+            )
     identity_context: dict[str, Any] | None = None
     if identity_route is not None:
         identity_target_valid = bool(
@@ -1339,6 +1417,7 @@ def _plan_replacement(
             {**item, "decisionSource": autonomous_source}
             for item in closure
         ],
+        "subjectBindingAnalysis": copy.deepcopy(binding),
         "changedSet": [
             {"kind": "primary", "value": source_analysis["target"]["role"], "decisionSource": decision_source},
             *[

@@ -2,13 +2,13 @@
 
 ## 1. 审计结论
 
-本矩阵覆盖《新模板生产 Skill 实施规格》与当前流程优化中的 49 条 Implementation Decisions。审计区分三类落点：
+本矩阵覆盖《新模板生产 Skill 实施规格》与当前流程优化中的 52 条 Implementation Decisions。审计区分三类落点：
 
 - **ADR**：难以逆转、脱离上下文会令人意外、存在真实取舍的决定。
 - **可变规则**：由唯一 reference、机器 Schema、compiler 或 fixture 管理，可以版本化演进。
 - **发布配置**：由 release 配置和发布门禁管理，不另设 ADR。
 
-ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0027 中共有 26 份生效决定。49 条实施决策全部获得唯一权威落点，未发现需要重新询问的高风险分支。
+ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0031 中共有 30 份生效决定。52 条实施决策全部获得唯一权威落点，未发现需要重新询问的高风险分支。
 
 “已覆盖”只表示决定和规则所有者已经明确。尚未存在的 Schema、compiler、reference 和 fixture 仍需后续 ticket 实现。
 
@@ -66,6 +66,8 @@ ADR 0007 已被 ADR 0008 取代；当前 ADR 0001–0027 中共有 26 份生效�
 | D48 | P1 语义/结构经验通过 Authoring Handoff 注入 P3，P3 以 Approved Image 做增量分析；默认批次五路并发、大阶段屏障与单项一次新请求 | 阶段事实边界与性能架构 | ADR 0025；`references/template-image-gate.md`；`references/shared-batch-policy.md` | 复合覆盖 |
 | D49 | 正式生产与回放使用执行画像分权；正式模式要求已安装 runtime、Fal、独立审核和 Aliyun OSS，拆分导出重放交付资格 | 执行授权与交付门禁 | ADR 0027；`references/production-execution-authority.md` | 复合覆盖 |
 | D50 | 新模板使用 inputSchema v2 正交输入，支持同源重复身份、内容图来源隔离和容器依赖；T1 仍为独立发布准备入口 | 上游合同与测试边界 | ADR 0028；2026-08-22 合同快照、compiler 与 fixtures | 复合覆盖 |
+| D51 | P1 统一冻结独立设计、商品印花、截图内容或完整场景的目标画布，并逐项决定水印、贴纸和商标的处置；P2 按同一合同派生清洁结果 | 阶段事实与视觉验收边界 | ADR 0030；`references/replacement-spec.md`；`references/template-image-gate.md` | 复合覆盖 |
+| D52 | 所有可达 Skill 规范的每个语义单元都必须绑定可执行所有者、红绿证据和历史经验 | 规范执行架构 | ADR 0031；`references/normative-rule-registry.md`；`contracts/normative-rule-registry.json` | 机器门禁已覆盖 |
 
 ## 3. ADR 边界检查
 

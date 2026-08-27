@@ -84,6 +84,30 @@ class TemplateTestResult:
         }
 
 
+@dataclass(frozen=True)
+class TemplateTestPreparationResult:
+    outcome: str
+    invocation_id: str
+    state: str
+    output_dir: Path
+    package_path: Path | None = None
+    error_code: str | None = None
+    message: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "outcome": self.outcome,
+            "testInvocationId": self.invocation_id,
+            "state": self.state,
+            "outputDir": str(self.output_dir),
+            "executionPackagePath": (
+                None if self.package_path is None else str(self.package_path)
+            ),
+            "errorCode": self.error_code,
+            "message": self.message,
+        }
+
+
 def _rules() -> dict[str, Any]:
     return json.loads(RULES_PATH.read_text(encoding="utf-8"))
 
@@ -158,7 +182,7 @@ def _formal_template_errors(template: Any) -> list[str]:
         and is_valid_https_url(cover)
     ):
         errors.append("cover and referenceImage must be the same HTTPS URL")
-    if not formal_template_contract_valid(template, rules):
+    if not formal_template_contract_valid(template, rules, require_current=False):
         errors.append("formal projection contract invalid")
     input_schema = template.get(top_level["userInputSchema"])
     input_slots = (
@@ -342,14 +366,25 @@ def _compile_actual_prompt(
             policy = binding[
                 binding_fields["identityBindingPolicy"]
             ]
-            policy_text = (
-                "一对一接管"
-                if policy == runtime_contract["identityBindingPolicies"]["oneToOne"]
-                else "以同一来源身份同步接管全部重复实例"
+            if policy == runtime_contract["identityBindingPolicies"]["oneToOne"]:
+                policy_text = "一对一接管"
+            elif policy == runtime_contract["identityBindingPolicies"]["sameSourceRepeated"]:
+                policy_text = "以同一来源身份同步接管全部重复实例"
+            else:
+                policy_text = "保留合照中的全部同类成员，并整体接管可伸缩群像区域"
+            clothing = binding.get(binding_fields["clothingOwnership"])
+            clothing_text = (
+                "，服装随来源图身份一起替换"
+                if clothing
+                == runtime_contract["clothingOwnershipValues"]["source"]
+                else "，服装保持模板设定"
+                if clothing
+                == runtime_contract["clothingOwnershipValues"]["template"]
+                else ""
             )
             binding_texts.append(
                 f"输入 {input_id} {policy_text}{target_roles}，"
-                "只提供身份线索并按模板媒介完整重绘"
+                f"只提供身份线索并按模板媒介完整重绘{clothing_text}"
             )
         else:
             content_target_roles.append(target_roles)
@@ -1844,13 +1879,221 @@ def _build_report(
     }
 
 
-def run_template_test(
+def prepare_template_test(
+    request: Any,
+    output_root: str | Path,
+    asset_fetcher: Any,
+) -> TemplateTestPreparationResult:
+    """Compile one T1 call for Codex built-in image generation without external writes."""
+
+    rules = _rules()
+    contract = rules["templateTestContract"]
+    codex = contract["codexBuiltinExecution"]
+    request_fields = contract["requestFields"]
+    case_fields = contract["caseFields"]
+    states = contract["states"]
+    errors = contract["errorCodes"]
+    raw_invocation = (
+        request.get(request_fields["invocationIdentity"])
+        if isinstance(request, dict)
+        else None
+    )
+    invocation_id = raw_invocation if isinstance(raw_invocation, str) else "invalid-t1"
+    output_root_path = Path(output_root).resolve()
+    try:
+        raw_template_path = request[request_fields["templateJsonPath"]]
+        template_path = Path(raw_template_path)
+        if not isinstance(raw_template_path, str) or template_path.is_symlink():
+            raise ValueError("template path invalid")
+        template_path = template_path.resolve()
+        raw_cases = request[request_fields["cases"]]
+        if not isinstance(raw_cases, list) or len(raw_cases) != codex["maximumCases"]:
+            raise ValueError("Codex T1 requires exactly one case")
+        image_input_field = codex["imageInputField"]
+        image_inputs = raw_cases[0].get(image_input_field, {})
+        if not isinstance(image_inputs, dict) or not all(
+            isinstance(slot_id, str)
+            and slot_id
+            and isinstance(path, str)
+            and path
+            for slot_id, path in image_inputs.items()
+        ):
+            raise ValueError("image inputs invalid")
+        normalized_for_prompt = copy.deepcopy(request)
+        normalized_for_prompt[request_fields["cases"]] = [
+            {
+                key: value
+                for key, value in raw_cases[0].items()
+                if key != image_input_field
+            }
+        ]
+        normalized = _normalized_request(
+            normalized_for_prompt, template_path, contract
+        )
+        invocation_id = normalized[request_fields["invocationIdentity"]]
+    except (KeyError, OSError, TypeError, ValueError):
+        return TemplateTestPreparationResult(
+            "blocked",
+            invocation_id,
+            states["blocked"],
+            output_root_path,
+            error_code=errors["invalidRequest"],
+            message="T1 请求必须指定一份正式 JSON 和一个测试用例。",
+        )
+
+    production_workspace = template_path.parent.resolve()
+    if (
+        output_root_path == production_workspace
+        or output_root_path.is_relative_to(production_workspace)
+        or production_workspace.is_relative_to(output_root_path)
+    ):
+        return TemplateTestPreparationResult(
+            "blocked",
+            invocation_id,
+            states["blocked"],
+            output_root_path,
+            error_code=errors["invalidRequest"],
+            message="T1 输出必须与正式模板目录隔离。",
+        )
+    output_dir = _safe_output_dir(output_root_path, invocation_id)
+    if output_dir is None or (output_dir.exists() and any(output_dir.iterdir())):
+        return TemplateTestPreparationResult(
+            "blocked",
+            invocation_id,
+            states["blocked"],
+            output_root_path,
+            error_code=errors["integrityFailure"],
+            message="T1 执行目录必须为空且不可越界。",
+        )
+    try:
+        template_bytes = template_path.read_bytes()
+        template = json.loads(template_bytes)
+        if _formal_template_errors(template):
+            raise ValueError("formal template invalid")
+        output_dir.mkdir(parents=True, exist_ok=False)
+        reference_path, reference_sha = _fetch_reference(
+            asset_fetcher, template["referenceImage"], output_dir, contract
+        )
+        case = normalized[request_fields["cases"]][0]
+        top_level = rules["formalProjection"]["topLevel"]
+        input_contract = rules["slotCompilationContract"]["inputContract"]
+        input_fields = input_contract["fields"]
+        slot_fields = input_contract["slotFields"]
+        image_fields = input_contract["imageFields"]
+        slots = template[top_level["userInputSchema"]][input_fields["slots"]]
+        slot_by_id = {slot[slot_fields["identity"]]: slot for slot in slots}
+        frozen_uploads: list[dict[str, Any]] = []
+        prompt_case = copy.deepcopy(case)
+        prompt_slot_values = prompt_case.get(case_fields["slotValues"])
+        if isinstance(prompt_slot_values, dict):
+            prompt_slot_values = copy.deepcopy(prompt_slot_values)
+            prompt_case[case_fields["slotValues"]] = prompt_slot_values
+        for slot_id, raw_path in image_inputs.items():
+            slot = slot_by_id.get(slot_id)
+            image_contract = (
+                slot.get(slot_fields["image"])
+                if isinstance(slot, dict)
+                else None
+            )
+            source_path = Path(raw_path)
+            if (
+                not isinstance(image_contract, dict)
+                or source_path.is_symlink()
+                or not source_path.resolve().is_file()
+            ):
+                raise ValueError("image input does not match an image-capable slot")
+            payload = source_path.resolve().read_bytes()
+            extension = _reference_extension(payload)
+            frozen_path = output_dir / f"user-input-{slot_id}{extension}"
+            _write_new_or_same(frozen_path, payload)
+            frozen_uploads.append(
+                {
+                    "slotId": slot_id,
+                    "path": str(frozen_path),
+                    "sha256": _sha_bytes(payload),
+                }
+            )
+            if isinstance(prompt_slot_values, dict):
+                prompt_slot_values[slot_id] = image_contract[
+                    image_fields["promptValue"]
+                ]
+        resolved_prompt, _user_input = _case_prompt(
+            template, prompt_case, contract, rules
+        )
+        resolved_prompt = _compile_actual_prompt(
+            resolved_prompt,
+            template[top_level["runtimeSemantics"]],
+            rules,
+            prompt_case.get(case_fields["slotValues"], {}),
+        )
+        if frozen_uploads:
+            resolved_prompt += "\n用户上传图绑定：" + "；".join(
+                f"{item['slotId']} 使用 {item['path']}，只提供该槽绑定目标的内容与身份特征"
+                for item in frozen_uploads
+            )
+        package_fields = codex["packageFields"]
+        reference_fields = codex["referenceImageFields"]
+        package = {
+            package_fields["artifactType"]: contract["artifactTypes"][
+                "codexExecutionPackage"
+            ],
+            package_fields["schemaVersion"]: rules["schemaVersion"],
+            package_fields["backend"]: codex["backend"],
+            package_fields["testInvocationIdentity"]: invocation_id,
+            package_fields["caseIdentity"]: case[case_fields["caseIdentity"]],
+            package_fields["templateJsonSha256"]: _sha_bytes(template_bytes),
+            package_fields["resolvedPrompt"]: resolved_prompt,
+            package_fields["referenceImages"]: [
+                {
+                    reference_fields["role"]: codex["referenceImageRoles"]["template"],
+                    reference_fields["slotIdentity"]: None,
+                    reference_fields["path"]: str(reference_path),
+                    reference_fields["sha256"]: reference_sha,
+                },
+                *[
+                    {
+                        reference_fields["role"]: codex["referenceImageRoles"]["userInput"],
+                        reference_fields["slotIdentity"]: item["slotId"],
+                        reference_fields["path"]: item["path"],
+                        reference_fields["sha256"]: item["sha256"],
+                    }
+                    for item in frozen_uploads
+                ],
+            ],
+            package_fields["imageCount"]: 1,
+            package_fields["correctionBudget"]: codex["correctionBudget"],
+            package_fields["reviewChecklist"]: codex["reviewChecklist"],
+            package_fields["forbiddenActions"]: codex["forbiddenActions"],
+        }
+        package_path = output_dir / codex["packageName"]
+        _write_new_or_same(package_path, _json_bytes(package))
+    except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
+        return TemplateTestPreparationResult(
+            "blocked",
+            invocation_id,
+            states["blocked"],
+            output_dir,
+            error_code=errors["invalidRequest"],
+            message="T1 模板、上传图或输入绑定无法编译。",
+        )
+    return TemplateTestPreparationResult(
+        "prepared",
+        invocation_id,
+        states["prepared"],
+        output_dir,
+        package_path=package_path,
+        message="已生成 Codex 内置生图执行包；禁止调用 Fal、OSS 或生产状态机。",
+    )
+
+
+def run_recorded_template_test(
     request: Any,
     output_root: str | Path,
     adapters: Any,
     *,
     clock: Callable[[], datetime] | None = None,
 ) -> TemplateTestResult:
+    """Recorded provider replay for release verification; this is not user T1."""
     rules = _rules()
     contract = rules["templateTestContract"]
     request_fields = contract["requestFields"]

@@ -74,6 +74,129 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
         self.assertTrue(review["method"]["version"])
         self.assertEqual(candidate.read_bytes(), approved.read_bytes())
 
+    def test_preserved_stickers_and_trademarks_are_not_treated_as_canvas_pollution(
+        self,
+    ) -> None:
+        contract = RULES["visualReviewContract"]
+        mark_contract = RULES["sourceMarkTreatmentContract"]
+
+        class PreservedMarkAdapters(DeterministicFixtureAdapters):
+            def analyze_source(self, source_image, replacement_strategy):
+                analysis = super().analyze_source(source_image, replacement_strategy)
+                analysis[mark_contract["field"]] = {
+                    "assessed": True,
+                    "treatments": [
+                        {
+                            "markId": "sticker-heart",
+                            "type": "sticker",
+                            "region": "右下角爱心贴纸",
+                            "action": "preserve",
+                            "basis": "source_visual_content",
+                            "evidence": "贴纸属于原设计装饰，不是水印",
+                        },
+                        {
+                            "markId": "brand-wordmark",
+                            "type": "brand_mark",
+                            "region": "主体服装胸前商标",
+                            "action": "preserve",
+                            "basis": "source_visual_content",
+                            "evidence": "用户未要求删除，且商标属于来源画面内容",
+                        },
+                    ],
+                    "evidence": "已逐项区分来源内容和平台污染",
+                }
+                return analysis
+
+            def inspect_generated(self, generated_image, review_request):
+                self.assertEqual(
+                    ["sticker-heart", "brand-wordmark"],
+                    [
+                        item["markId"]
+                        for item in review_request[mark_contract["field"]][
+                            "treatments"
+                        ]
+                    ],
+                )
+                review = super().inspect_generated(generated_image, review_request)
+                review[contract["evidenceFieldRoles"]["hardGates"]][
+                    contract["hardGateRoles"]["fullCanvasCleanliness"]
+                ] = False
+                evidence_payload = {
+                    field: review[field]
+                    for field in contract["evidenceFieldRoles"].values()
+                }
+                review["bindings"]["evidenceSha256"] = canonical_sha(evidence_payload)
+                return review
+
+        adapters = PreservedMarkAdapters(FIXTURE)
+        adapters.assertEqual = self.assertEqual
+        result = run_production(
+            {**self.request, "productionItemId": "preserved-source-marks"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+            stage=2,
+        )
+
+        self.assertEqual("completed", result.outcome)
+        self.assertEqual("template_image", result.major_stage)
+        review = load_json(result.output_dir / "visual-review.json")
+        evidence_field = contract["evidenceFieldRoles"]["sourceMarkTreatments"]
+        self.assertTrue(all(item["actionSatisfied"] for item in review[evidence_field]))
+        self.assertTrue(
+            (result.output_dir / "evidence" / "approved-template-image.png").is_file()
+        )
+
+    def test_required_watermark_removal_must_pass_structured_mark_evidence(
+        self,
+    ) -> None:
+        contract = RULES["visualReviewContract"]
+        mark_contract = RULES["sourceMarkTreatmentContract"]
+
+        class MissedWatermarkAdapters(DeterministicFixtureAdapters):
+            def analyze_source(self, source_image, replacement_strategy):
+                analysis = super().analyze_source(source_image, replacement_strategy)
+                analysis[mark_contract["field"]] = {
+                    "assessed": True,
+                    "treatments": [
+                        {
+                            "markId": "platform-watermark",
+                            "type": "platform_mark",
+                            "region": "来源图右上角",
+                            "action": "remove",
+                            "basis": "source_pollution",
+                            "evidence": "平台水印不属于设计内容",
+                        }
+                    ],
+                    "evidence": "已识别一项来源污染",
+                }
+                return analysis
+
+            def inspect_generated(self, generated_image, review_request):
+                review = super().inspect_generated(generated_image, review_request)
+                field = contract["evidenceFieldRoles"]["sourceMarkTreatments"]
+                review[field][0]["actionSatisfied"] = False
+                review[field][0]["evidence"] = "右上角仍可见平台水印"
+                evidence_payload = {
+                    name: review[name]
+                    for name in contract["evidenceFieldRoles"].values()
+                }
+                review["bindings"]["evidenceSha256"] = canonical_sha(evidence_payload)
+                return review
+
+        result = run_production(
+            {**self.request, "productionItemId": "missed-required-watermark"},
+            self.output_root,
+            MissedWatermarkAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+            stage=2,
+        )
+
+        self.assertEqual(RULES["errorCodes"]["visualHardFailure"], result.error_code)
+        self.assertFalse(
+            (result.output_dir / "evidence" / "approved-template-image.png").exists()
+        )
+
     def test_hard_failures_cannot_be_overridden_or_become_approved_images(self) -> None:
         contract = RULES["visualReviewContract"]
         hard_gates = contract["hardGateRoles"]
@@ -132,6 +255,51 @@ class Issue4TemplateImageGateTest(unittest.TestCase):
                 self.assertFalse((result.output_dir / "evidence" / "approved-template-image.png").exists())
                 self.assertFalse((result.output_dir / "template-analysis.json").exists())
                 self.assertEqual([], adapters.upload_calls)
+
+    def test_subject_contact_topology_failure_blocks_hand_and_limb_bugs(self) -> None:
+        contract = RULES["visualReviewContract"]
+        fields = contract["interactionIntegrityFields"]
+        interaction_evidence = [
+            {
+                fields["relationIdentity"]: "animal-contact-cushion",
+                fields["relationType"]: RULES["multiInstanceContract"][
+                    "relationTypes"
+                ]["contact"],
+                fields["endpointComponents"]: ["animal-main", "cushion"],
+                fields["subjectPartsTraceable"]: False,
+                fields["topologyPlausible"]: False,
+                fields["contactPlausible"]: True,
+                fields["occlusionOrderPlausible"]: True,
+                fields["noFusionOrExtraParts"]: False,
+                fields["evidence"]: "手指/肢体无法溯源到对应躯干，存在融合和拓扑异常",
+            }
+        ]
+        adapters = DeterministicFixtureAdapters(FIXTURE).with_visual_review(
+            {
+                contract["evidenceFieldRoles"]["interactionIntegrity"]: (
+                    interaction_evidence
+                )
+            }
+        )
+
+        result = run_production(
+            {**self.request, "productionItemId": "interaction-topology-red"},
+            self.output_root,
+            adapters,
+            clock=lambda: FIXED_TIME,
+            stage=2,
+        )
+
+        self.assertEqual(RULES["resultStates"]["blocked"], result.state)
+        self.assertEqual(RULES["errorCodes"]["visualHardFailure"], result.error_code)
+        review = load_json(result.output_dir / "visual-review.json")
+        self.assertIn(
+            contract["hardGateRoles"]["contactGeometry"],
+            review["decisionEvidence"]["failedGates"],
+        )
+        self.assertFalse(
+            (result.output_dir / "evidence" / "approved-template-image.png").exists()
+        )
 
     def test_ambiguity_and_evidence_risk_require_review_without_approving_the_image(self) -> None:
         contract = RULES["visualReviewContract"]

@@ -14,7 +14,8 @@ from unittest import mock
 from scripts.produce_meme_template import (
     DeterministicFixtureAdapters,
     FalQueueWorkflowAdapters,
-    run_template_test,
+    prepare_template_test,
+    run_recorded_template_test,
 )
 from scripts.produce_meme_template.workflow_core import SUBJECT_IMAGE_MAX_COUNT
 
@@ -395,12 +396,12 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def test_explicit_t1_runs_both_edit_modes_without_mutating_production(self) -> None:
+    def test_recorded_provider_replay_runs_both_edit_modes_without_mutating_production(self) -> None:
         template_before = self.template_path.read_bytes()
         manifest_before = self.production_manifest.read_bytes()
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.output,
             adapters,
@@ -429,7 +430,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_t1_output_root_cannot_overlap_the_production_workspace(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.production_dir,
             adapters,
@@ -445,7 +446,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
 
     def test_slot_and_free_edit_normalize_to_the_actual_generation_prompt(self) -> None:
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -531,7 +532,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             }
         ]
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -559,7 +560,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -585,7 +586,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             f"副文字改为“{edited_secondary_copy}”。"
         )
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -619,11 +620,11 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         adapters = InterruptOnceAdapters(FIXTURE)
         request = t1_request(self.template_path)
         with self.assertRaises(SystemExit):
-            run_template_test(
+            run_recorded_template_test(
                 request, self.output, adapters, clock=lambda: FIXED_TIME
             )
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -644,7 +645,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.template_path.write_text(json.dumps(template), encoding="utf-8")
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.output,
             adapters,
@@ -662,7 +663,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.template_path.write_text(json.dumps(template), encoding="utf-8")
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.output,
             adapters,
@@ -679,7 +680,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.template_path.write_text(json.dumps(template), encoding="utf-8")
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             t1_request(self.template_path),
             self.output,
             adapters,
@@ -707,7 +708,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         ]
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -718,11 +719,11 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_existing_completed_invocation_is_create_once_and_resumable(self) -> None:
         adapters = DeterministicFixtureAdapters(FIXTURE)
         request = t1_request(self.template_path)
-        first = run_template_test(
+        first = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
         template_before = self.template_path.read_bytes()
-        second = run_template_test(
+        second = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -735,7 +736,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
 
     def test_completed_report_must_still_cover_every_frozen_case(self) -> None:
         request = t1_request(self.template_path)
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -759,7 +760,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             encoding="utf-8",
         )
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -772,7 +773,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_completed_resume_replays_task_wal_review_and_case_semantics(self) -> None:
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -782,7 +783,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         case_dir = first.output_dir / f"case-{case_id}"
         (case_dir / CONTRACT["artifactNames"]["review"]).unlink()
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -797,7 +798,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = InterruptOnceAdapters(FIXTURE)
         with self.assertRaises(SystemExit):
-            run_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
+            run_recorded_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
         case_id = request[REQUEST_FIELDS["cases"]][0][CASE_FIELDS["caseIdentity"]]
         wal_path = (
             self.output
@@ -819,7 +820,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         ] = "attacker-request-999"
         submission_path.write_text(json.dumps(submission), encoding="utf-8")
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -832,12 +833,12 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = InterruptOnceAdapters(FIXTURE)
         with self.assertRaises(SystemExit):
-            run_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
+            run_recorded_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
         invocation_dir = self.output / request[REQUEST_FIELDS["invocationIdentity"]]
         reference = next(invocation_dir.glob("template-reference-image.*"))
         reference.with_suffix(".jpg").write_bytes(reference.read_bytes())
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -849,7 +850,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = InterruptOnceAdapters(FIXTURE)
         with self.assertRaises(SystemExit):
-            run_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
+            run_recorded_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
         case_id = request[REQUEST_FIELDS["cases"]][0][CASE_FIELDS["caseIdentity"]]
         task_path = (
             self.output
@@ -859,7 +860,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
         task_path.unlink()
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -872,7 +873,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = InterruptBeforeReviewAdapters(FIXTURE)
         with self.assertRaises(SystemExit):
-            run_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
+            run_recorded_template_test(request, self.output, adapters, clock=lambda: FIXED_TIME)
         case_id = request[REQUEST_FIELDS["cases"]][0][CASE_FIELDS["caseIdentity"]]
         candidate = next(
             (self.output / request[REQUEST_FIELDS["invocationIdentity"]] / f"case-{case_id}").glob(
@@ -881,7 +882,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
         candidate.unlink()
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -892,7 +893,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             MutatingSubmitAdapters(FIXTURE),
@@ -919,7 +920,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 template_path.write_text(json.dumps(changed), encoding="utf-8")
                 return result
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             ConcurrentTemplateMutationAdapters(FIXTURE),
@@ -949,7 +950,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         (invocation_dir / "template-reference-image.png").write_bytes(image)
         adapters = DeterministicFixtureAdapters(FIXTURE)
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -959,7 +960,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_report_before_manifest_crash_is_forward_recovered(self) -> None:
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -986,7 +987,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
 
         later = datetime(2026, 8, 18, 9, 0, tzinfo=timezone.utc)
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request,
             self.output,
             DeterministicFixtureAdapters(FIXTURE),
@@ -1001,10 +1002,10 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = SubmissionUnknownAdapters(FIXTURE)
 
-        first = run_template_test(
+        first = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
-        second = run_template_test(
+        second = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -1021,7 +1022,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         with self.assertRaises(SystemExit):
-            run_template_test(
+            run_recorded_template_test(
                 request,
                 self.output,
                 ExitDuringSubmitAdapters(FIXTURE),
@@ -1048,7 +1049,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
         recovery = DeterministicFixtureAdapters(FIXTURE)
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, recovery, clock=lambda: FIXED_TIME
         )
 
@@ -1062,6 +1063,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["templateJsonPath"]] = str(
             self.template_path.relative_to(self.root)
         )
+        request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         request_path.write_text(json.dumps(request), encoding="utf-8")
 
         completed = subprocess.run(
@@ -1084,9 +1086,59 @@ class Issue14TemplateJsonTest(unittest.TestCase):
 
         self.assertEqual(0, completed.returncode, completed.stderr)
         payload = json.loads(completed.stdout)
-        result_fields = CONTRACT["resultFields"]
-        self.assertEqual("completed", payload[result_fields["outcome"]])
+        self.assertEqual("prepared", payload["outcome"])
+        package = load_json(Path(payload["executionPackagePath"]))
+        codex = CONTRACT["codexBuiltinExecution"]
+        self.assertEqual(codex["backend"], package["backend"])
+        self.assertIn("fal_generation", package["forbiddenActions"])
         self.assertFalse((self.output / "production-manifest.json").exists())
+
+    def test_t1_codex_package_binds_real_user_upload_without_fal(self) -> None:
+        template = multi_target_template(mixed_identity=True)
+        self.template_path.write_text(
+            json.dumps(template, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        request = t1_request(self.template_path)
+        user_upload = self.root / "user-upload.png"
+        user_upload.write_bytes(
+            DeterministicFixtureAdapters._fixture_image_result(
+                FIXTURE / "approved-template-image.ppm"
+            )["imageBytes"]
+        )
+        request[REQUEST_FIELDS["cases"]] = [
+            {
+                CASE_FIELDS["caseIdentity"]: "uploaded-subject",
+                CASE_FIELDS["mode"]: MODES["slotEdit"],
+                CASE_FIELDS["slotValues"]: {
+                    "cushion_look": "深蓝色绒垫",
+                    "room_mood": "清晨冷光",
+                },
+                CONTRACT["codexBuiltinExecution"]["imageInputField"]: {
+                    "pet_subject": str(user_upload)
+                },
+            }
+        ]
+        adapters = DeterministicFixtureAdapters(FIXTURE)
+
+        result = prepare_template_test(request, self.output, adapters)
+
+        self.assertEqual("prepared", result.outcome)
+        self.assertEqual([], adapters.submission_calls)
+        self.assertEqual([], adapters.poll_calls)
+        package = load_json(result.package_path)
+        self.assertEqual("codex_builtin_imagegen", package["backend"])
+        self.assertEqual(2, len(package["referenceImages"]))
+        upload = next(
+            item
+            for item in package["referenceImages"]
+            if item["role"] == "user_upload"
+        )
+        self.assertEqual("pet_subject", upload["slotId"])
+        self.assertTrue(Path(upload["path"]).is_file())
+        self.assertIn("用户上传图绑定", package["prompt"])
+        self.assertEqual(1, package["imageCount"])
+        self.assertEqual(1, package["correctionBudget"])
 
     def test_t1_cli_malformed_request_returns_machine_json_without_traceback(self) -> None:
         request_path = self.root / "bad-request.json"
@@ -1122,7 +1174,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             VisibleDeviationAdapters(FIXTURE),
@@ -1143,7 +1195,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         template_before = self.template_path.read_bytes()
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             PermanentFailureAdapters(FIXTURE),
@@ -1174,7 +1226,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             SecretFailureAdapters(FIXTURE),
@@ -1192,7 +1244,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_failed_report_replays_the_frozen_case_input(self) -> None:
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             PermanentFailureAdapters(FIXTURE),
@@ -1214,7 +1266,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         ).hexdigest()
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request,
             self.output,
             PermanentFailureAdapters(FIXTURE),
@@ -1230,7 +1282,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 request = t1_request(self.template_path)
                 request[REQUEST_FIELDS["invocationIdentity"]] = f"t1-terminal-{index}"
                 request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
-                first = run_template_test(
+                first = run_recorded_template_test(
                     request,
                     self.output,
                     PermanentFailureAdapters(FIXTURE),
@@ -1245,7 +1297,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                     / CONTRACT["artifactNames"][artifact_role]
                 ).unlink()
 
-                resumed = run_template_test(
+                resumed = run_recorded_template_test(
                     request,
                     self.output,
                     PermanentFailureAdapters(FIXTURE),
@@ -1261,7 +1313,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
     def test_failed_review_resume_still_requires_the_succeeded_candidate(self) -> None:
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             FailedReviewAdapters(FIXTURE),
@@ -1274,7 +1326,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         )
         candidate.unlink()
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request,
             self.output,
             FailedReviewAdapters(FIXTURE),
@@ -1289,10 +1341,10 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = InvalidReviewAdapters(FIXTURE)
 
-        first = run_template_test(
+        first = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
-        second = run_template_test(
+        second = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -1312,7 +1364,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
 
-        result = run_template_test(
+        result = run_recorded_template_test(
             request,
             self.output,
             PermanentPollFailureAdapters(FIXTURE),
@@ -1343,10 +1395,10 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         request = t1_request(self.template_path)
         request[REQUEST_FIELDS["cases"]] = request[REQUEST_FIELDS["cases"]][:1]
         adapters = RetryablePollAdapters(FIXTURE)
-        first = run_template_test(
+        first = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
-        second = run_template_test(
+        second = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
         self.assertEqual("failed", first.outcome)
@@ -1365,7 +1417,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         wal_path.write_text(json.dumps(wal), encoding="utf-8")
         polls_before = len(adapters.poll_calls)
 
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request, self.output, adapters, clock=lambda: FIXED_TIME
         )
 
@@ -1415,7 +1467,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             FIXTURE / "approved-template-image.ppm"
         )["imageBytes"]
         first_client = InterruptedClient()
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             FalQueueWorkflowAdapters(
@@ -1427,7 +1479,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             clock=lambda: FIXED_TIME,
         )
         recovery_client = RecoveryClient()
-        second = run_template_test(
+        second = run_recorded_template_test(
             request,
             self.output,
             FalQueueWorkflowAdapters(
@@ -1454,7 +1506,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertEqual(0, recovery_client.submit_calls)
         self.assertEqual([Handle.request_id], recovery_client.status_ids)
 
-    def test_public_t1_routes_content_regeneration_and_fails_closed(self) -> None:
+    def test_recorded_provider_replay_routes_content_regeneration_and_fails_closed(self) -> None:
         class Completed:
             pass
 
@@ -1494,7 +1546,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
                 REQUEST_FIELDS["cases"]
             ][:1]
             client = RecordingClient()
-            result = run_template_test(
+            result = run_recorded_template_test(
                 request,
                 self.root / f"output-{name}",
                 FalQueueWorkflowAdapters(
@@ -1560,7 +1612,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
         self.assertEqual(CONTRACT["errorCodes"]["invalidTemplate"], blocked.error_code)
         self.assertEqual([], blocked_client.submit_calls)
 
-    def test_public_t1_resumes_content_regeneration_with_the_frozen_model(self) -> None:
+    def test_recorded_provider_replay_resumes_content_regeneration_with_the_frozen_model(self) -> None:
         class Handle:
             request_id = "fal-regeneration-resume-001"
 
@@ -1605,7 +1657,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             FIXTURE / "approved-template-image.ppm"
         )["imageBytes"]
         interrupted_client = InterruptedClient()
-        first = run_template_test(
+        first = run_recorded_template_test(
             request,
             self.output,
             FalQueueWorkflowAdapters(
@@ -1617,7 +1669,7 @@ class Issue14TemplateJsonTest(unittest.TestCase):
             clock=lambda: FIXED_TIME,
         )
         recovery_client = RecoveryClient()
-        resumed = run_template_test(
+        resumed = run_recorded_template_test(
             request,
             self.output,
             FalQueueWorkflowAdapters(

@@ -18,7 +18,7 @@ from scripts.produce_meme_template import (
     recorded_shadow_request,
     run_production,
     run_release_readiness,
-    run_template_test,
+    run_recorded_template_test,
     verify_code_review_receipt,
     verify_release_readiness_completion,
 )
@@ -1013,7 +1013,7 @@ class Issue16ShadowReleaseReadinessTest(unittest.TestCase):
                     }
                 ],
             }
-            template_test = run_template_test(
+            template_test = run_recorded_template_test(
                 test_request,
                 root / "template-tests",
                 DeterministicFixtureAdapters(fixture_dir),

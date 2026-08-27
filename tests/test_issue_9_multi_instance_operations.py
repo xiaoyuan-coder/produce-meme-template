@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Callable
 
 from scripts.produce_meme_template import DeterministicFixtureAdapters, run_production
+from scripts.produce_meme_template.authoring_handoff import (
+    default_subject_binding_analysis,
+)
 from tests.fixture_contracts import (
     author_explicit_slot_suggestion_reviews,
     rebuild_rendering_coherence_decision,
@@ -204,6 +207,20 @@ class MultiInstanceAdapters(DeterministicFixtureAdapters):
         ] or ["目标区域与稳定锚点保持原有空间层级"]
         if self.source_mutator:
             self.source_mutator(analysis)
+        context = RULES["sourceAuthoringContextContract"]
+        continuity_fields = context["subjectContinuityFields"]
+        observed_identity_units = {
+            component[COMPONENT_FIELDS["identityUnit"]]
+            for component in graph[GRAPH_FIELDS["components"]]
+            if isinstance(component.get(COMPONENT_FIELDS["identityUnit"]), str)
+        }
+        analysis[context["subjectContinuityField"]][
+            continuity_fields["subjectCount"]
+        ] = len(observed_identity_units)
+        binding_field = RULES["sourceAuthoringContextContract"][
+            "subjectBindingField"
+        ]
+        analysis[binding_field] = default_subject_binding_analysis(analysis, RULES)
         return analysis
 
     def generate(self, source_image: Path, generation_package: dict) -> dict:

@@ -275,11 +275,19 @@ def compile_authoring_review_request(
     runtime = analysis.get("runtimeSemantics", {})
     return {
         fields["approvedImageSha256"]: approved_sha256,
+        fields["neutralTitle"]: copy.deepcopy(analysis.get("neutralTitle")),
+        fields["neutralDescription"]: copy.deepcopy(
+            analysis.get("neutralDescription")
+        ),
+        fields["classificationTags"]: copy.deepcopy(analysis.get("tags")),
         fields["promptTemplate"]: copy.deepcopy(analysis.get("promptTemplate")),
         fields["freeEditableContent"]: copy.deepcopy(
             analysis.get("freeEditableContent")
         ),
         fields["slotCandidates"]: copy.deepcopy(analysis.get("slotCandidates")),
+        fields["defaultValuePreferenceExceptions"]: copy.deepcopy(
+            analysis.get("defaultValuePreferenceExceptionEvidence", {})
+        ),
         fields["visibleTextRegions"]: copy.deepcopy(
             analysis.get(visible_text_fields["regions"], [])
         ),
@@ -433,11 +441,65 @@ def deterministic_authoring_contract_audit(
     contract = rules["authoringContractAudit"]
     request_fields = contract["requestFields"]
     review_fields = contract["reviewFields"]
+    copy_fields = contract["copyReviewFields"]
     prompt_fields = contract["promptReviewFields"]
     slot_fields = contract["slotReviewFields"]
+    inheritance_review_fields = contract["identityInheritanceReviewFields"]
+    default_review_fields = contract["defaultValueReviewFields"]
     subject_context_fields = contract["subjectPresenceContextFields"]
     subject_review_fields = contract["subjectPresenceReviewFields"]
+    tag_review_fields = contract["tagReviewFields"]
+    tag_contract = contract["tagAuthoringContract"]
     prompt = review_request[request_fields["promptTemplate"]]
+    title = review_request.get(request_fields["neutralTitle"])
+    description = review_request.get(request_fields["neutralDescription"])
+    candidates = review_request.get(request_fields["slotCandidates"])
+    open_slot_values = {
+        value
+        for slot in candidates or []
+        if isinstance(slot, dict)
+        for value in [
+            slot.get("defaultValue"),
+            *(
+                slot.get("suggestions", [])
+                if isinstance(slot.get("suggestions", []), list)
+                else []
+            ),
+        ]
+        if isinstance(value, str) and value
+    } if isinstance(candidates, list) else set()
+    title_forbidden_tokens = {
+        token
+        for slot in candidates or []
+        if isinstance(slot, dict)
+        for token in slot.get("titleForbiddenTokens", [])
+        if isinstance(token, str) and token
+    } if isinstance(candidates, list) else set()
+    copy_review = {
+        copy_fields["titleGrounded"]: bool(
+            isinstance(title, str) and title.strip() == title and title
+        ),
+        copy_fields["descriptionGrounded"]: bool(
+            isinstance(description, str)
+            and description.strip() == description
+            and description
+        ),
+        copy_fields["spokenNaturalness"]: bool(
+            isinstance(title, str)
+            and isinstance(description, str)
+            and not _production_prompt_clauses(f"{title}。{description}", rules)
+        ),
+        copy_fields["slotPortability"]: bool(
+            isinstance(title, str)
+            and not any(
+                value in title
+                for value in open_slot_values | title_forbidden_tokens
+            )
+        ),
+        copy_fields["evidence"]: (
+            "独立对照 Approved Image 复核标题、描述的画面根据、口语自然度和槽位可迁移性"
+        ),
+    }
     leaked = _production_prompt_clauses(prompt if isinstance(prompt, str) else "", rules)
     clause_classifications = _prompt_clause_classifications(
         prompt if isinstance(prompt, str) else "", review_request, rules
@@ -453,6 +515,17 @@ def deterministic_authoring_contract_audit(
     components = graph[graph_fields["components"]] if isinstance(graph, dict) else []
     slot_contract = rules["slotCompilationContract"]
     slot_reviews = []
+    identity_inheritance_reviews = []
+    default_value_reviews = []
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    inheritance_contract = slot_contract["identityInheritanceDecision"]
+    inheritance_field = inheritance_contract["authoringField"]
+    inheritance_fields = inheritance_contract["fields"]
+    trait_kinds = inheritance_contract["traitKinds"]
+    preference = slot_contract["defaultValuePreference"]
+    preference_exceptions = review_request.get(
+        request_fields["defaultValuePreferenceExceptions"], {}
+    )
     for slot in review_request[request_fields["slotCandidates"]] or []:
         slot_id = slot.get("id")
         component_ids = sorted(
@@ -491,6 +564,160 @@ def deterministic_authoring_contract_audit(
                 ),
             }
         )
+        default_value = slot.get("defaultValue")
+        exception = (
+            preference_exceptions.get(slot_id)
+            if isinstance(preference_exceptions, dict)
+            else None
+        )
+        exception_valid = bool(
+            isinstance(exception, dict)
+            and exception.get("reviewed") is True
+            and isinstance(exception.get("reason"), str)
+            and exception["reason"].strip()
+        )
+        exact_visible_text = slot.get("exactVisibleTextEvidence")
+        exact_visible_text_valid = bool(
+            slot.get("type")
+            == slot_contract["slotTypes"]["visibleTextPrompt"]
+            and isinstance(exact_visible_text, dict)
+            and exact_visible_text.get("approvedImageSha256")
+            == review_request[request_fields["approvedImageSha256"]]
+            and exact_visible_text.get("visibleText") == default_value
+            and isinstance(exact_visible_text.get("evidence"), str)
+            and exact_visible_text["evidence"].strip()
+        )
+        default_user_facing = bool(
+            isinstance(default_value, str)
+            and default_value == default_value.strip()
+            and default_value
+            and ("\n" not in default_value or exact_visible_text_valid)
+            and not _production_prompt_clauses(default_value, rules)
+        )
+        default_single_axis = bool(
+            isinstance(slot.get("semanticRole"), str)
+            and slot["semanticRole"].strip()
+        )
+        default_minimal = bool(
+            isinstance(default_value, str)
+            and (
+                preference["preferredMinimum"]
+                <= len(default_value)
+                <= preference["preferredMaximum"]
+                or exception_valid
+            )
+        )
+        default_value_reviews.append(
+            {
+                default_review_fields["slotIdentity"]: slot_id,
+                default_review_fields["defaultValue"]: default_value,
+                default_review_fields["userFacing"]: default_user_facing,
+                default_review_fields["singleAxis"]: default_single_axis,
+                default_review_fields["minimalWording"]: default_minimal,
+                default_review_fields["evidence"]: (
+                    f"独立复核 {slot_id} 的用户语言、单一编辑轴和最短自然表述"
+                ),
+            }
+        )
+        if slot.get("type") == subject_type:
+            decision = slot.get(inheritance_field)
+            inherited = (
+                decision.get(inheritance_fields["inheritFromUpload"])
+                if isinstance(decision, dict)
+                else None
+            )
+            fixed = (
+                decision.get(inheritance_fields["keepFromTemplate"])
+                if isinstance(decision, dict)
+                else None
+            )
+            classifications = (
+                decision.get(inheritance_fields["traitClassifications"])
+                if isinstance(decision, dict)
+                else None
+            )
+            clothing_visible = (
+                decision.get(inheritance_fields["clothingVisible"])
+                if isinstance(decision, dict)
+                else None
+            )
+            reason = (
+                decision.get(inheritance_fields["reason"])
+                if isinstance(decision, dict)
+                else None
+            )
+            inherited_values = (
+                inherited
+                if isinstance(inherited, list)
+                and all(isinstance(value, str) for value in inherited)
+                else []
+            )
+            fixed_values = (
+                fixed
+                if isinstance(fixed, list)
+                and all(isinstance(value, str) for value in fixed)
+                else []
+            )
+            upload_traits_complete = bool(
+                inheritance_contract["requiredInheritedTrait"]
+                in inherited_values
+                and len(inherited_values) - 1
+                >= inheritance_contract["minimumSpecificInheritedTraits"]
+            )
+            clothing_inherited = bool(
+                isinstance(classifications, dict)
+                and any(
+                    classifications.get(value) == trait_kinds["clothing"]
+                    for value in inherited_values
+                )
+            )
+            fixed_clothing = [
+                value
+                for value in fixed_values
+                if isinstance(classifications, dict)
+                and classifications.get(value) == trait_kinds["clothing"]
+            ]
+            clothing_policy = inheritance_contract["clothingPolicy"]
+            template_exceptions_minimal = bool(
+                not fixed_values
+                or (
+                    isinstance(reason, str)
+                    and reason.strip()
+                    and (
+                        not fixed_clothing
+                        or (
+                            not set(fixed_clothing)
+                            & set(clothing_policy["forbiddenGenericTemplateValues"])
+                            and any(
+                                marker in reason
+                                for marker in clothing_policy["requiredReasonMarkers"]
+                            )
+                        )
+                    )
+                )
+            )
+            clothing_policy_valid = bool(
+                isinstance(clothing_visible, bool)
+                and (not clothing_visible or clothing_inherited)
+                and (not fixed_clothing or clothing_visible)
+            )
+            identity_inheritance_reviews.append(
+                {
+                    inheritance_review_fields["slotIdentity"]: slot_id,
+                    inheritance_review_fields["uploadTraitsComplete"]: (
+                        upload_traits_complete
+                    ),
+                    inheritance_review_fields["templateExceptionsMinimal"]: (
+                        template_exceptions_minimal
+                    ),
+                    inheritance_review_fields["clothingPolicyValid"]: (
+                        clothing_policy_valid
+                    ),
+                    inheritance_review_fields["evidence"]: (
+                        f"独立对照 Approved Image 复核 {slot_id} 的可见身份、服装继承和最小模板例外"
+                    ),
+                }
+            )
     subject_context = review_request[request_fields["subjectPresenceContext"]]
     subject_context_errors = subject_presence_context_errors(subject_context, rules)
     declared_subject = subject_context[subject_context_fields["declaredPresence"]]
@@ -525,6 +752,40 @@ def deterministic_authoring_contract_audit(
             "逐项复核 Approved Image 主体、组件图、Authoring Handoff 主体连续性和主体槽策略"
         ),
     }
+    tags = review_request.get(request_fields["classificationTags"])
+    generic_values = set(tag_contract["genericOnlyValues"])
+    has_specific_tag = bool(
+        isinstance(tags, list)
+        and any(
+            isinstance(tag, str) and tag not in generic_values
+            for tag in tags
+        )
+    )
+    tag_reviews = [
+        {
+            tag_review_fields["tag"]: tag,
+            tag_review_fields["groundedInApprovedImage"]: True,
+            tag_review_fields["classificationUseful"]: has_specific_tag,
+            tag_review_fields["evidence"]: (
+                f"独立对照 Approved Image 的主体、动作、场景、媒介与视觉钩子：{tag}"
+            ),
+        }
+        for tag in tags or []
+        if isinstance(tag, str)
+    ]
+    tags_valid = bool(
+        isinstance(tags, list)
+        and tag_contract["minimumItems"] <= len(tags) <= tag_contract["maximumItems"]
+        and all(
+            isinstance(tag, str)
+            and tag.strip() == tag
+            and tag
+            and len(tag) <= tag_contract["maximumCharacters"]
+            for tag in tags
+        )
+        and len(tags) == len(set(tags))
+        and has_specific_tag
+    )
     gate_roles = (
         "userMotivation",
         "visuallyVisible",
@@ -532,7 +793,16 @@ def deterministic_authoring_contract_audit(
         "mechanismPreserved",
     )
     passed = (
-        user_editable_only
+        all(
+            copy_review[copy_fields[role]] is True
+            for role in (
+                "titleGrounded",
+                "descriptionGrounded",
+                "spokenNaturalness",
+                "slotPortability",
+            )
+        )
+        and user_editable_only
         and not subject_context_errors
         and all(
             subject_review[subject_review_fields[role]] is True
@@ -547,6 +817,30 @@ def deterministic_authoring_contract_audit(
             all(review[slot_fields[role]] is True for role in gate_roles)
             for review in slot_reviews
         )
+        and all(
+            all(
+                review[inheritance_review_fields[role]] is True
+                for role in (
+                    "uploadTraitsComplete",
+                    "templateExceptionsMinimal",
+                    "clothingPolicyValid",
+                )
+            )
+            for review in identity_inheritance_reviews
+        )
+        and all(
+            all(
+                review[default_review_fields[role]] is True
+                for role in ("userFacing", "singleAxis", "minimalWording")
+            )
+            for review in default_value_reviews
+        )
+        and tags_valid
+        and all(
+            review[tag_review_fields["groundedInApprovedImage"]] is True
+            and review[tag_review_fields["classificationUseful"]] is True
+            for review in tag_reviews
+        )
     )
     return {
         review_fields["artifactType"]: contract["artifactType"],
@@ -555,6 +849,7 @@ def deterministic_authoring_contract_audit(
             approved_image.read_bytes()
         ).hexdigest(),
         review_fields["reviewRequestSha256"]: _sha256(review_request),
+        review_fields["copyReview"]: copy_review,
         review_fields["promptReview"]: {
             prompt_fields["userEditableOnly"]: user_editable_only,
             prompt_fields["leakedProductionClauses"]: leaked,
@@ -564,7 +859,10 @@ def deterministic_authoring_contract_audit(
             ),
         },
         review_fields["slotReviews"]: slot_reviews,
+        review_fields["identityInheritanceReviews"]: identity_inheritance_reviews,
+        review_fields["defaultValueReviews"]: default_value_reviews,
         review_fields["subjectPresenceReview"]: subject_review,
+        review_fields["tagReviews"]: tag_reviews,
         review_fields["pass"]: passed,
         review_fields["evidence"]: (
             "独立绑定 Approved Image、组件图、槽位候选与 Prompt 职责的作者合同审计"
@@ -580,10 +878,15 @@ def authoring_contract_audit_errors(
     contract = rules["authoringContractAudit"]
     request_fields = contract["requestFields"]
     review_fields = contract["reviewFields"]
+    copy_fields = contract["copyReviewFields"]
     prompt_fields = contract["promptReviewFields"]
     slot_fields = contract["slotReviewFields"]
+    inheritance_review_fields = contract["identityInheritanceReviewFields"]
+    default_review_fields = contract["defaultValueReviewFields"]
     subject_context_fields = contract["subjectPresenceContextFields"]
     subject_review_fields = contract["subjectPresenceReviewFields"]
+    tag_review_fields = contract["tagReviewFields"]
+    tag_contract = contract["tagAuthoringContract"]
     errors: list[str] = []
     if not isinstance(audit, dict) or set(audit) != set(review_fields.values()):
         return ["作者合同审计形状无效"]
@@ -597,6 +900,25 @@ def authoring_contract_audit_errors(
         errors.append("作者合同审计未绑定当前 Approved Image")
     if audit[review_fields["reviewRequestSha256"]] != _sha256(review_request):
         errors.append("作者合同审计未绑定当前只读请求")
+    copy_review = audit[review_fields["copyReview"]]
+    if not (
+        isinstance(copy_review, dict)
+        and set(copy_review) == set(copy_fields.values())
+        and all(
+            copy_review.get(copy_fields[role]) is True
+            for role in (
+                "titleGrounded",
+                "descriptionGrounded",
+                "spokenNaturalness",
+                "slotPortability",
+            )
+        )
+        and isinstance(copy_review.get(copy_fields["evidence"]), str)
+        and copy_review[copy_fields["evidence"]].strip()
+    ):
+        errors.append(
+            "标题或描述未通过 Approved Image 根据、口语自然度和槽位可迁移性复核"
+        )
     prompt_review = audit[review_fields["promptReview"]]
     prompt = review_request[request_fields["promptTemplate"]]
     clause_fields = contract["promptClauseFields"]
@@ -667,6 +989,41 @@ def authoring_contract_audit_errors(
     )
     if not subject_review_valid:
         errors.append("独立主体存在性、组件图、Handoff 连续性或主体槽策略复核失败")
+    tags = review_request.get(request_fields["classificationTags"])
+    tag_reviews = audit[review_fields["tagReviews"]]
+    generic_values = set(tag_contract["genericOnlyValues"])
+    tag_shape_valid = bool(
+        isinstance(tags, list)
+        and tag_contract["minimumItems"] <= len(tags) <= tag_contract["maximumItems"]
+        and all(
+            isinstance(tag, str)
+            and tag.strip() == tag
+            and tag
+            and len(tag) <= tag_contract["maximumCharacters"]
+            for tag in tags
+        )
+        and len(tags) == len(set(tags))
+        and any(tag not in generic_values for tag in tags)
+    )
+    tag_reviews_valid = bool(
+        isinstance(tag_reviews, list)
+        and isinstance(tags, list)
+        and len(tag_reviews) == len(tags)
+        and all(
+            isinstance(review, dict)
+            and set(review) == set(tag_review_fields.values())
+            and review.get(tag_review_fields["tag"]) == tag
+            and review.get(tag_review_fields["groundedInApprovedImage"]) is True
+            and review.get(tag_review_fields["classificationUseful"]) is True
+            and isinstance(review.get(tag_review_fields["evidence"]), str)
+            and review[tag_review_fields["evidence"]].strip()
+            for review, tag in zip(tag_reviews, tags, strict=True)
+        )
+    )
+    if not tag_shape_valid or not tag_reviews_valid:
+        errors.append(
+            "tags 必须逐项绑定当前 Approved Image，且具有独立分类价值"
+        )
     graph = review_request[request_fields["componentGraph"]]
     graph_fields = rules["multiInstanceContract"]["graphFields"]
     component_fields = rules["multiInstanceContract"]["componentFields"]
@@ -719,6 +1076,75 @@ def authoring_contract_audit_errors(
         ]
         if failed:
             errors.append(f"槽位 {slot_id} 未通过独立价值门禁：{','.join(failed)}")
+    subject_type = slot_contract["slotTypes"]["primarySubjectUpload"]
+    expected_subject_ids = [
+        slot.get("id")
+        for slot in candidates
+        if isinstance(slot, dict) and slot.get("type") == subject_type
+    ] if isinstance(candidates, list) else []
+    inheritance_reviews = audit[review_fields["identityInheritanceReviews"]]
+    inheritance_by_id = {
+        review.get(inheritance_review_fields["slotIdentity"]): review
+        for review in inheritance_reviews
+        if isinstance(review, dict)
+    } if isinstance(inheritance_reviews, list) else {}
+    if not (
+        isinstance(inheritance_reviews, list)
+        and len(inheritance_by_id) == len(inheritance_reviews)
+        and set(inheritance_by_id) == set(expected_subject_ids)
+    ):
+        errors.append("身份特征继承独立复核未完整覆盖当前 subject 槽")
+    for slot_id in expected_subject_ids:
+        review = inheritance_by_id.get(slot_id)
+        if not (
+            isinstance(review, dict)
+            and set(review) == set(inheritance_review_fields.values())
+            and all(
+                review.get(inheritance_review_fields[role]) is True
+                for role in (
+                    "uploadTraitsComplete",
+                    "templateExceptionsMinimal",
+                    "clothingPolicyValid",
+                )
+            )
+            and isinstance(
+                review.get(inheritance_review_fields["evidence"]), str
+            )
+            and review[inheritance_review_fields["evidence"]].strip()
+        ):
+            errors.append(
+                f"subject 槽 {slot_id} 的身份、服装继承或最小模板例外复核失败"
+            )
+    default_reviews = audit[review_fields["defaultValueReviews"]]
+    default_by_id = {
+        review.get(default_review_fields["slotIdentity"]): review
+        for review in default_reviews
+        if isinstance(review, dict)
+    } if isinstance(default_reviews, list) else {}
+    if not (
+        isinstance(default_reviews, list)
+        and len(default_by_id) == len(default_reviews)
+        and set(default_by_id) == set(expected_ids)
+    ):
+        errors.append("默认值简洁性独立复核未完整覆盖当前槽位")
+    for slot in candidates if isinstance(candidates, list) else []:
+        slot_id = slot.get("id")
+        review = default_by_id.get(slot_id)
+        if not (
+            isinstance(review, dict)
+            and set(review) == set(default_review_fields.values())
+            and review.get(default_review_fields["defaultValue"])
+            == slot.get("defaultValue")
+            and all(
+                review.get(default_review_fields[role]) is True
+                for role in ("userFacing", "singleAxis", "minimalWording")
+            )
+            and isinstance(review.get(default_review_fields["evidence"]), str)
+            and review[default_review_fields["evidence"]].strip()
+        ):
+            errors.append(
+                f"槽位 {slot_id} 的默认值用户语言、编辑轴或最简表述复核失败"
+            )
     if audit[review_fields["pass"]] is not (not errors):
         errors.append("作者合同审计 pass 与逐项结果不一致")
     if not (

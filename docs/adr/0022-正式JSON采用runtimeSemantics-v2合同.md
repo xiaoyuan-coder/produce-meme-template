@@ -1,6 +1,6 @@
 # ADR 0022：正式 JSON 采用 runtimeSemantics v2 合同
 
-- 状态：已接受
+- 状态：已被 ADR 0032 取代
 - 日期：2026-08-18
 
 ## 背景
@@ -9,7 +9,7 @@
 
 ## 决定
 
-新生产项使用 `runtime-semantics-v2-contract` 快照。正式 JSON 输出 `imageN: 1`、`kind: "PROMPT"`、`preprocessSteps` 和 `runtimeSemantics`；subject 图片槽删除 `image.extract`，正式投影删除 `promptEnhancement`。`runtimeSemantics.version` 固定为 `1`，每个开放输入通过 `inputBindings` 指向具名 `targetInstances`，媒介、风格、构图、关系和色光进入 `visualContract`。
+新生产项使用 `runtime-semantics-v2-contract` 快照。正式 JSON 输出 `imageN: 1`、`kind: "PROMPT"`、`preprocessSteps` 和 `runtimeSemantics`；subject 图片槽删除 `image.extract`，正式投影删除 `promptEnhancement`。本 ADR 当时冻结的 `runtimeSemantics.version=1` 已由 ADR 0032 升级；其余字段边界继续有效。
 
 正式投影继续保持白名单；本 Skill 默认只输出 `metadata.tags` 与条件性的 `metadata.needsReview`。作者 Schema 保留研发合同声明的可选字段和 `communityKey`/`featureKeys`，P8 仅生成仓库职责内的稳定子集。subject `text` 不再额外输出 placeholder。`cover` 与 `referenceImage` 分别保存并继续指向同一张 Approved Template Image。存量 v1 样例与旧合同快照保留为迁移证据，不参与新生产项编译。
 

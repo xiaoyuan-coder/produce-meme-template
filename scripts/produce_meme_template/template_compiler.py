@@ -1977,18 +1977,49 @@ def _identity_inheritance_relations(
         if slot["type"] != subject_type:
             continue
         decision = slot[authoring_field]
-        inherited = "、".join(decision[fields["inheritFromUpload"]])
+        separator = rules["runtimeSemanticsContract"]["listSeparator"]
+        inherited = separator.join(decision[fields["inheritFromUpload"]])
         relations.append(
             f"图片模式下，输入 {slot['id']} 的{inherited}读取用户上传图，并按模板媒介重绘"
         )
         fixed_values = decision[fields["keepFromTemplate"]]
         if fixed_values:
-            fixed = "、".join(fixed_values)
+            fixed = separator.join(fixed_values)
             relations.append(
                 f"输入 {slot['id']} 的{fixed}沿用模板角色位；"
                 f"{decision[fields['reason']]}"
             )
     return relations
+
+
+def _compiled_clothing_ownership(
+    slot: dict[str, Any], rules: dict[str, Any]
+) -> str:
+    """Project the authoring inheritance decision to the binary runtime field.
+
+    The authoring contract keeps finer-grained evidence for structural clothing
+    exceptions.  Runtime ownership follows the upload whenever any clothing
+    trait is inherited; it is template-owned only when every declared clothing
+    trait is fixed by the template.
+    """
+
+    slot_contract = rules["slotCompilationContract"]
+    inheritance = slot_contract["identityInheritanceDecision"]
+    fields = inheritance["fields"]
+    decision = slot[inheritance["authoringField"]]
+    classifications = decision[fields["traitClassifications"]]
+    clothing_kind = inheritance["traitKinds"]["clothing"]
+    clothing_traits = {
+        trait for trait, kind in classifications.items() if kind == clothing_kind
+    }
+    inherited = set(decision[fields["inheritFromUpload"]])
+    fixed = set(decision[fields["keepFromTemplate"]])
+    values = rules["runtimeSemanticsContract"]["clothingOwnershipValues"]
+    if clothing_traits & inherited:
+        return values["source"]
+    if clothing_traits and clothing_traits <= fixed:
+        return values["template"]
+    return values["source"]
 
 
 def _source_isolation_formal_relations(
@@ -1998,7 +2029,9 @@ def _source_isolation_formal_relations(
 ) -> list[str]:
     contract = rules["runtimeSemanticsContract"]["sourceIsolationDecision"]
     relation_templates = contract["formalRelations"]
-    identity_text = "、".join(sorted(identity_inputs))
+    identity_text = rules["runtimeSemanticsContract"]["listSeparator"].join(
+        sorted(identity_inputs)
+    )
     return [
         relation_templates["identityExclusion"].format(
             identityInputs=identity_text
@@ -2213,20 +2246,36 @@ def _compile_runtime_semantics(
         if isinstance(authored_runtime, dict)
         else None
     )
+    authored_bindings = (
+        authored_runtime.get(runtime_fields["inputBindings"])
+        if isinstance(authored_runtime, dict)
+        else None
+    )
     target_kinds = runtime_contract["targetKinds"]
-    authored_targets_valid = bool(
-        isinstance(authored_targets, list)
-        and authored_targets
-        and all(
-            isinstance(target, dict)
-            and set(target_fields.values()) <= set(target)
-            and set(target) <= {
-                *target_fields.values(),
-                *target_optional_fields.values(),
-            }
-            and isinstance(target.get(target_fields["identity"]), str)
+    group_fields = runtime_contract["identityGroupFields"]
+    group_contract = runtime_contract["identityGroupContract"]
+    identity_group_kind = target_kinds["identityGroup"]
+
+    def authored_target_valid(target: Any) -> bool:
+        if not isinstance(target, dict):
+            return False
+        common_fields = set(target_fields.values())
+        kind = target.get(target_fields["kind"])
+        allowed_fields = {
+            *common_fields,
+            *target_optional_fields.values(),
+        }
+        required_fields = common_fields
+        if kind == identity_group_kind:
+            allowed_fields = {*common_fields, *group_fields.values()}
+            required_fields = {*common_fields, *group_fields.values()}
+        if not required_fields <= set(target) or not set(target) <= allowed_fields:
+            return False
+        if kind not in set(target_kinds.values()):
+            return False
+        if not (
+            isinstance(target.get(target_fields["identity"]), str)
             and target[target_fields["identity"]].strip()
-            and target.get(target_fields["kind"]) in set(target_kinds.values())
             and isinstance(target.get(target_fields["role"]), str)
             and len(target[target_fields["role"]].strip())
             >= target_grounding["minimumRoleCharacters"]
@@ -2237,14 +2286,32 @@ def _compile_runtime_semantics(
             >= target_grounding["minimumRegionCharacters"]
             and target[target_fields["region"]].strip()
             not in set(target_grounding["forbiddenRegionValues"])
-            and all(
-                isinstance(target.get(optional_field), str)
-                and target[optional_field].strip()
-                for optional_field in target_optional_fields.values()
-                if optional_field in target
+        ):
+            return False
+        if kind == identity_group_kind:
+            minimum = target.get(group_fields["minimumMembers"])
+            maximum = target.get(group_fields["maximumMembers"])
+            return bool(
+                target.get(group_fields["memberKind"])
+                in set(group_contract["memberKinds"])
+                and isinstance(minimum, int)
+                and not isinstance(minimum, bool)
+                and isinstance(maximum, int)
+                and not isinstance(maximum, bool)
+                and group_contract["minimumMembers"] <= minimum <= maximum
+                <= group_contract["maximumMembers"]
             )
-            for target in authored_targets
+        return all(
+            isinstance(target.get(optional_field), str)
+            and target[optional_field].strip()
+            for optional_field in target_optional_fields.values()
+            if optional_field in target
         )
+
+    authored_targets_valid = bool(
+        isinstance(authored_targets, list)
+        and authored_targets
+        and all(authored_target_valid(target) for target in authored_targets)
         and len(
             {target[target_fields["identity"]] for target in authored_targets}
         )
@@ -2266,7 +2333,10 @@ def _compile_runtime_semantics(
         for component in graph[graph_fields["components"]]
     }
     unknown_authored_targets = sorted(
-        set(authored_target_by_id) - graph_component_ids
+        target_id
+        for target_id, target in authored_target_by_id.items()
+        if target_id not in graph_component_ids
+        and target[target_fields["kind"]] != identity_group_kind
     )
     if unknown_authored_targets:
         raise _stop(
@@ -2299,6 +2369,30 @@ def _compile_runtime_semantics(
     subject_type = slot_types["primarySubjectUpload"]
     shadow_role = multi_contract["componentRoles"]["shadow"]
 
+    authored_dynamic_slots: dict[str, str] = {}
+    if isinstance(authored_bindings, dict):
+        for slot_id, binding in authored_bindings.items():
+            if not isinstance(binding, dict):
+                continue
+            if (
+                binding.get(binding_fields["operation"])
+                == runtime_contract["operations"]["replaceIdentity"]
+                and binding.get(binding_fields["identityBindingPolicy"])
+                == runtime_contract["identityBindingPolicies"]["preserveGroup"]
+            ):
+                target_ids = binding.get(binding_fields["targetIdentities"])
+                if isinstance(target_ids, list) and len(target_ids) == 1:
+                    authored_dynamic_slots[slot_id] = target_ids[0]
+    unknown_dynamic_slots = sorted(set(authored_dynamic_slots) - set(slot_by_id))
+    if unknown_dynamic_slots:
+        raise _stop(
+            rules,
+            "blocked",
+            "contractFailure",
+            "动态群像 binding 引用了不存在的开放槽。",
+            {"slotIds": unknown_dynamic_slots},
+        )
+
     def primary_subject_targets(components: list[dict[str, Any]]) -> list[dict[str, Any]]:
         candidates = [
             component
@@ -2313,6 +2407,7 @@ def _compile_runtime_semantics(
         slot_id
         for slot_id, components in components_by_control.items()
         if slot_by_id[slot_id]["type"] == subject_type
+        and slot_id not in authored_dynamic_slots
         and (
             not primary_subject_targets(components)
             or len(
@@ -2336,6 +2431,8 @@ def _compile_runtime_semantics(
     incomplete_identity_slots: dict[str, list[str]] = {}
     for slot_id, controlled_components in components_by_control.items():
         if slot_by_id[slot_id]["type"] != subject_type:
+            continue
+        if slot_id in authored_dynamic_slots:
             continue
         controlled_targets = primary_subject_targets(controlled_components)
         identity_unit = controlled_targets[0][component_fields["identityUnit"]]
@@ -2376,11 +2473,45 @@ def _compile_runtime_semantics(
             else target_kinds["contentElement"]
         )
         target_ids = []
-        for component in components:
-            target_id = component[component_fields["identity"]]
-            target_ids.append(target_id)
-            bound_target_kinds[target_id] = kind
-        if is_subject:
+        if slot_id not in authored_dynamic_slots:
+            for component in components:
+                target_id = component[component_fields["identity"]]
+                target_ids.append(target_id)
+                bound_target_kinds[target_id] = kind
+        if is_subject and slot_id in authored_dynamic_slots:
+            group_target_id = authored_dynamic_slots[slot_id]
+            group_target = authored_target_by_id.get(group_target_id)
+            if not (
+                group_target
+                and group_target[target_fields["kind"]] == identity_group_kind
+                and components
+            ):
+                raise _stop(
+                    rules,
+                    "blocked",
+                    "contractFailure",
+                    "动态群像槽必须绑定一个已声明的 identity_group 和至少一个确认图主体实例。",
+                    {
+                        rules["visibleTextContract"]["slotOriginFields"][
+                            "slotIdentity"
+                        ]: slot_id,
+                        "targetId": group_target_id,
+                    },
+                )
+            target_ids = [group_target_id]
+            bound_target_kinds[group_target_id] = identity_group_kind
+            bindings[slot_id] = {
+                binding_fields["operation"]: operations["replaceIdentity"],
+                binding_fields["targetIdentities"]: target_ids,
+                binding_fields["identityBindingPolicy"]: runtime_contract[
+                    "identityBindingPolicies"
+                ]["preserveGroup"],
+                **copy.deepcopy(runtime_contract["dynamicIdentityBindingBase"]),
+                binding_fields["clothingOwnership"]: _compiled_clothing_ownership(
+                    slot, rules
+                ),
+            }
+        elif is_subject:
             binding_policy = runtime_contract["identityBindingPolicies"][
                 "oneToOne" if len(target_ids) == 1 else "sameSourceRepeated"
             ]
@@ -2389,6 +2520,9 @@ def _compile_runtime_semantics(
                 binding_fields["targetIdentities"]: target_ids,
                 binding_fields["identityBindingPolicy"]: binding_policy,
                 **copy.deepcopy(runtime_contract["identityBindingBase"]),
+                binding_fields["clothingOwnership"]: _compiled_clothing_ownership(
+                    slot, rules
+                ),
             }
         else:
             bindings[slot_id] = {
@@ -2412,7 +2546,8 @@ def _compile_runtime_semantics(
     unbound_identity_targets = sorted(
         target_id
         for target_id, target in authored_target_by_id.items()
-        if target[target_fields["kind"]] == target_kinds["identitySubject"]
+        if target[target_fields["kind"]]
+        in {target_kinds["identitySubject"], identity_group_kind}
         and target_id not in bound_target_kinds
     )
     if missing_authored_targets or mismatched_target_kinds or unbound_identity_targets:
@@ -3417,9 +3552,13 @@ def _formal_projection(draft: dict[str, Any], url: str, rules: dict[str, Any]) -
 
 
 def _runtime_semantics_contract_errors(
-    record: dict[str, Any], rules: dict[str, Any]
+    record: dict[str, Any], rules: dict[str, Any], *, require_current: bool = True
 ) -> list[str]:
-    """Validate v2 relationships that JSON Schema cannot express."""
+    """Validate relationships that JSON Schema cannot express.
+
+    Production uses ``require_current=True``.  Compatibility readers such as T1
+    may accept every explicitly readable historical version.
+    """
     top_level = rules["formalProjection"]["topLevel"]
     contract = rules["runtimeSemanticsContract"]
     input_schema = record.get(top_level["userInputSchema"])
@@ -3456,10 +3595,13 @@ def _runtime_semantics_contract_errors(
     target_fields = contract["targetInstanceFields"]
     binding_fields = contract["inputBindingFields"]
     expected_runtime_fields = set(runtime_fields.values())
-    if (
-        set(runtime) != expected_runtime_fields
-        or runtime.get(runtime_fields["version"]) != contract["version"]
-    ):
+    runtime_version = runtime.get(runtime_fields["version"])
+    accepted_versions = (
+        {contract["version"]}
+        if require_current
+        else set(contract["readableVersions"])
+    )
+    if set(runtime) != expected_runtime_fields or runtime_version not in accepted_versions:
         errors.append("runtimeSemantics 字段集或 version 无效。")
     targets = runtime.get(runtime_fields["targetInstances"])
     bindings = runtime.get(runtime_fields["inputBindings"])
@@ -3506,23 +3648,52 @@ def _runtime_semantics_contract_errors(
             continue
         operation = binding.get(binding_fields["operation"])
         if operation == contract["operations"]["replaceIdentity"]:
-            expected_policy = contract["identityBindingPolicies"][
-                "oneToOne" if len(target_ids) == 1 else "sameSourceRepeated"
-            ]
-            expected = {
-                binding_fields["operation"]: contract["operations"]["replaceIdentity"],
-                binding_fields["targetIdentities"]: target_ids,
-                binding_fields["identityBindingPolicy"]: expected_policy,
-                **contract["identityBindingBase"],
-            }
-            if binding != expected:
-                errors.append(f"{input_id} 的身份绑定策略与固定目标数量不一致。")
-            elif any(
-                target_by_id[target_id].get(target_fields["kind"])
-                != contract["targetKinds"]["identitySubject"]
-                for target_id in target_ids
-            ):
-                errors.append(f"{input_id} 必须绑定 identity_subject。")
+            policy = binding.get(binding_fields["identityBindingPolicy"])
+            clothing_field = binding_fields["clothingOwnership"]
+            clothing_value = binding.get(clothing_field)
+            allowed_clothing = set(contract["clothingOwnershipValues"].values())
+            if runtime_version == contract["version"] and clothing_value not in allowed_clothing:
+                errors.append(f"{input_id} 必须显式声明 clothingOwnership。")
+            elif clothing_field in binding and clothing_value not in allowed_clothing:
+                errors.append(f"{input_id} 的 clothingOwnership 无效。")
+            if policy == contract["identityBindingPolicies"]["preserveGroup"]:
+                expected = {
+                    binding_fields["operation"]: contract["operations"]["replaceIdentity"],
+                    binding_fields["targetIdentities"]: target_ids,
+                    binding_fields["identityBindingPolicy"]: policy,
+                    **contract["dynamicIdentityBindingBase"],
+                    clothing_field: clothing_value,
+                }
+                if (
+                    runtime_version != contract["version"]
+                    or len(target_ids) != 1
+                    or binding != expected
+                    or target_by_id[target_ids[0]].get(target_fields["kind"])
+                    != contract["targetKinds"]["identityGroup"]
+                ):
+                    errors.append(
+                        f"{input_id} 的动态群像必须以 preserve_group 精确绑定一个 identity_group。"
+                    )
+            else:
+                expected_policy = contract["identityBindingPolicies"][
+                    "oneToOne" if len(target_ids) == 1 else "sameSourceRepeated"
+                ]
+                expected = {
+                    binding_fields["operation"]: contract["operations"]["replaceIdentity"],
+                    binding_fields["targetIdentities"]: target_ids,
+                    binding_fields["identityBindingPolicy"]: expected_policy,
+                    **contract["identityBindingBase"],
+                }
+                if clothing_field in binding:
+                    expected[clothing_field] = clothing_value
+                if binding != expected:
+                    errors.append(f"{input_id} 的身份绑定策略与固定目标数量不一致。")
+                elif any(
+                    target_by_id[target_id].get(target_fields["kind"])
+                    != contract["targetKinds"]["identitySubject"]
+                    for target_id in target_ids
+                ):
+                    errors.append(f"{input_id} 必须绑定 identity_subject。")
             identity_targets_owned.extend(target_ids)
             if input_slot_fields["image"] in item:
                 identity_image_inputs.append(input_id)
@@ -3548,6 +3719,25 @@ def _runtime_semantics_contract_errors(
             errors.append(f"{input_id} 的绑定操作无效。")
     if len(identity_targets_owned) != len(set(identity_targets_owned)):
         errors.append("同一身份目标不能由多个 subject 输入接管。")
+    group_fields = contract["identityGroupFields"]
+    group_contract = contract["identityGroupContract"]
+    for target_id, target in target_by_id.items():
+        if target.get(target_fields["kind"]) != contract["targetKinds"]["identityGroup"]:
+            continue
+        minimum = target.get(group_fields["minimumMembers"])
+        maximum = target.get(group_fields["maximumMembers"])
+        if not (
+            runtime_version == contract["version"]
+            and target.get(group_fields["memberKind"])
+            in set(group_contract["memberKinds"])
+            and isinstance(minimum, int)
+            and not isinstance(minimum, bool)
+            and isinstance(maximum, int)
+            and not isinstance(maximum, bool)
+            and group_contract["minimumMembers"] <= minimum <= maximum
+            <= group_contract["maximumMembers"]
+        ):
+            errors.append(f"{target_id} 的动态群像成员范围无效。")
     if identity_image_inputs and content_image_inputs:
         relations = runtime.get(runtime_fields["visualContract"], {}).get(
             contract["visualContractFields"]["relations"], []
@@ -3564,7 +3754,12 @@ def _runtime_semantics_contract_errors(
     return sorted(set(errors))
 
 
-def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
+def _validate_final(
+    record: dict[str, Any],
+    rules: dict[str, Any],
+    *,
+    require_current: bool = True,
+) -> dict[str, Any]:
     schema = _load_json(GALLERY_SCHEMA_PATH)
     contract = rules["formalProjection"]
     top_level = contract["topLevel"]
@@ -3615,7 +3810,9 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
         _public_asset_url_valid(cover, rules)
         and _public_asset_url_valid(reference_image, rules)
     )
-    runtime_semantics_errors = _runtime_semantics_contract_errors(record, rules)
+    runtime_semantics_errors = _runtime_semantics_contract_errors(
+        record, rules, require_current=require_current
+    )
     passed = bool(
         not errors
         and not forbidden_keys
@@ -3648,9 +3845,11 @@ def _validate_final(record: dict[str, Any], rules: dict[str, Any]) -> dict[str, 
 
 
 def formal_template_contract_valid(
-    record: Any, rules: dict[str, Any]
+    record: Any, rules: dict[str, Any], *, require_current: bool = True
 ) -> bool:
     """Return whether a persisted Gallery template satisfies the formal contract."""
     if not isinstance(record, dict):
         return False
-    return bool(_validate_final(record, rules)["pass"])
+    return bool(
+        _validate_final(record, rules, require_current=require_current)["pass"]
+    )

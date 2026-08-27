@@ -1,0 +1,38 @@
+{
+  "artifactType": "upstream-contract-snapshot",
+  "contractId": "gallery-template",
+  "contractVersion": "agent-template-json-runtime-contract-2026-08-26",
+  "source": "研发 CURRENT 作者合同、真实 TypeScript runtime schema 与 template-import/schema.json",
+  "sourceEvidence": "2026-08-26 生效；真实 gallery:validate 已通过固定主体与动态群组官方样例",
+  "acquisitionCommit": "4504c8a94aa5608f5d2e9e8df30111b983e9e18b",
+  "acquiredAt": "2026-08-27T00:00:00+08:00",
+  "schemaFile": "gallery-template.schema.json",
+  "sourceArtifactSha256": "317ed2444a8109722fd6bdafd00c1f43b66b59096aea8b29d6aecfb2a542f608",
+  "sourceDocumentSha256": "1c8e384bbc256b3ef833afb20258830fa96b26cc8d026c7a929c8d1acd79b91a",
+  "upstreamImportSchemaSha256": "076f575b5b7cec45d4dd424c45085d93c04b5b1fb77f91555925655152ac0ccd",
+  "upstreamRuntimeSchemaSha256": "cc567ef3a49a5eb05b56167720b907bce1a12dd263b9b8037b5f73388eb3ae3f",
+  "upstreamSchemaDiscrepancies": [
+    {
+      "field": "runtimeSemantics.inputBindings.*.clothingOwnership",
+      "documentationSchema": "omitted",
+      "runtimeSchema": "optional source|template",
+      "producerRule": "required for every new replace_identity binding"
+    }
+  ],
+  "compatibility": {
+    "consumer": "produce-meme-template",
+    "supportedContract": "agent-template-json-runtime-contract-2026-08-26",
+    "authorProtocolVersion": 2,
+    "inputSchemaVersion": 2,
+    "runtimeSemanticsWriteVersion": 2,
+    "runtimeSemanticsReadableVersions": [
+      1,
+      2
+    ],
+    "formalCoverField": "cover",
+    "formalReferenceField": "referenceImage",
+    "legacyPromptEnhancementAllowed": false,
+    "legacySubjectExtractAllowed": false,
+    "legacyArrayInputSchemaAllowedForNewProduction": false
+  }
+}

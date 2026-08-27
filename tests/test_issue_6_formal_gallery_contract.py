@@ -155,13 +155,22 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
             {"version", "targetInstances", "inputBindings", "visualContract"},
             set(semantics),
         )
-        self.assertEqual(1, semantics["version"])
+        self.assertEqual(2, semantics["version"])
         target_by_id = {
             target["id"]: target for target in semantics["targetInstances"]
         }
         self.assertEqual(
             {item["id"] for item in record["inputSchema"]["slots"]},
             set(semantics["inputBindings"]),
+        )
+        identity_bindings = [
+            binding
+            for binding in semantics["inputBindings"].values()
+            if binding["operation"] == "replace_identity"
+        ]
+        self.assertTrue(identity_bindings)
+        self.assertTrue(
+            all(binding["clothingOwnership"] == "source" for binding in identity_bindings)
         )
         self.assertEqual(2, record["inputSchema"]["version"])
         for item in record["inputSchema"]["slots"]:
@@ -370,7 +379,11 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
                 self.assertEqual(expected, source_projection)
                 projected_expected = _formal_projection(expected, expected[COVER_FIELD], RULES)
                 self.assertEqual(expected, projected_expected)
-                self.assertTrue(_validate_final(projected_expected, RULES)["pass"])
+                self.assertTrue(
+                    _validate_final(
+                        projected_expected, RULES, require_current=False
+                    )["pass"]
+                )
                 self.assertFalse(_validate_final(source, RULES)["pass"])
                 classifications = []
                 for path in leaf_paths(source):
@@ -436,7 +449,7 @@ class Issue6FormalGalleryContractTest(unittest.TestCase):
                 ),
             ]
         )
-        self.assertTrue(_validate_final(record, RULES)["pass"])
+        self.assertTrue(_validate_final(record, RULES, require_current=False)["pass"])
 
     def test_unknown_formal_fields_are_rejected_instead_of_silently_dropped(self) -> None:
         base = load_json(SAMPLE_FIXTURE / "heart.expected.json")

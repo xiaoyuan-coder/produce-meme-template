@@ -7,7 +7,12 @@ from .adapters import (
 )
 from .workflow import BatchProductionResult, ProductionResult, run_production
 from .execution_authority import build_live_production_adapters
-from .template_test import TemplateTestResult, run_template_test
+from .template_test import (
+    TemplateTestPreparationResult,
+    TemplateTestResult,
+    prepare_template_test,
+    run_recorded_template_test,
+)
 from .experience_regression import (
     ExperienceRegressionAdapters,
     run_experience_regression,
@@ -34,6 +39,7 @@ __all__ = [
     "ProductionResult",
     "RecordedShadowReadinessAdapters",
     "TemplateTestResult",
+    "TemplateTestPreparationResult",
     "build_release",
     "build_live_production_adapters",
     "live_release_readiness_preflight",
@@ -44,7 +50,8 @@ __all__ = [
     "recorded_shadow_request",
     "run_release_readiness",
     "stage_release",
-    "run_template_test",
+    "prepare_template_test",
+    "run_recorded_template_test",
     "verify_code_review_receipt",
     "verify_release_readiness_completion",
 ]

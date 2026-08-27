@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from scripts.produce_meme_template.authoring_handoff import (
+    default_subject_binding_analysis,
+)
+
 
 def author_explicit_slot_suggestion_reviews(
     audit: dict[str, Any],
@@ -328,6 +332,10 @@ def rebuild_source_component_graph_for_named_closure(
             operation_fields["explanation"]: "闭包内组件统一替换，闭包外锚点保持稳定",
         }
     ]
+    binding_field = rules["sourceAuthoringContextContract"][
+        "subjectBindingField"
+    ]
+    analysis[binding_field] = default_subject_binding_analysis(analysis, rules)
     return analysis
 
 

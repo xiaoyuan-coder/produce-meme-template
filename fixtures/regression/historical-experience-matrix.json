@@ -338,11 +338,11 @@
     {
       "experienceId": "E37",
       "topic": "T1 独立模板 JSON 生图测试",
-      "migrationStatus": "confirmed",
-      "legacyDisposition": null,
-      "authority": {"path": "references/template-json-test.md", "anchor": "## 1. 入口与边界"},
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "T1 改为编译 Codex 内置生图执行包；旧 Fal 队列流程仅作为显式命名的供应商回放。",
+      "authority": {"path": "references/template-json-test.md", "anchor": "## 唯一含义"},
       "implementation": {"kind": "machine-rule", "path": "contracts/machine-rules.json", "locator": "/templateTestContract"},
-      "evidence": [{"testId": "tests.test_issue_14_template_json_test.Issue14TemplateJsonTest.test_explicit_t1_runs_both_edit_modes_without_mutating_production", "polarity": "good-case", "fixturePaths": ["tests/test_issue_14_template_json_test.py"]}]
+      "evidence": [{"testId": "tests.test_issue_14_template_json_test.Issue14TemplateJsonTest.test_t1_is_an_explicit_subcommand_of_the_existing_entrypoint", "polarity": "good-case", "fixturePaths": ["tests/test_issue_14_template_json_test.py"]}]
     },
     {
       "experienceId": "E38",
@@ -485,6 +485,484 @@
             "fixtures/e2e/simple-animal/request.json",
             "tests/test_issue_27_execution_authority.py"
           ]
+        }
+      ]
+    },
+    {
+      "experienceId": "E45",
+      "topic": "主体绑定组必须完整进入第一阶段依赖闭包",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "单角色专属配饰、重复实例和 CP/组合成员统一由 subjectBindingAnalysis 声明；命中组内任一组件时必须同步替换全组。",
+      "authority": {
+        "path": "references/replacement-spec.md",
+        "anchor": "## 4. 依赖闭包"
+      },
+      "implementation": {
+        "kind": "machine-rule",
+        "path": "contracts/machine-rules.json",
+        "locator": "/sourceAuthoringContextContract/subjectBindingGroupFields"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_first_stage_blocks_when_a_bound_subject_component_is_missing_from_closure",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-analysis.json",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E46",
+      "topic": "第一阶段冻结唯一换图 Prompt 与完整性证明",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "P2 不再重新拼接提示词；Generation Package 保存唯一 prompt、promptSha256 和四项全真的 firstStageGate。",
+      "authority": {
+        "path": "references/replacement-spec.md",
+        "anchor": "## 5. 生图 prompt 的固定结构"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/generation_runtime.py",
+        "locator": "_compile_generation_package"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_first_stage_freezes_one_exact_prompt_and_gate_proof",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-analysis.json",
+            "tests/test_issue_17_major_stages.py"
+          ]
+        }
+      ]
+    },
+    {
+      "experienceId": "E47",
+      "topic": "T1 只调用 Codex 内置生图并绑定真实上传图",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "T1 公共入口只编译 codex_builtin_imagegen 执行包；Fal 队列回放改用 run_recorded_template_test。",
+      "authority": {
+        "path": "references/template-json-test.md",
+        "anchor": "## 唯一含义"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/template_test.py",
+        "locator": "prepare_template_test"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_14_template_json_test.Issue14TemplateJsonTest.test_t1_codex_package_binds_real_user_upload_without_fal",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "tests/test_issue_14_template_json_test.py"
+          ]
+        }
+      ]
+    },
+    {
+      "experienceId": "E48",
+      "topic": "下游数据失败不能重新打开已完成的生图阶段",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": null,
+      "authority": {
+        "path": "docs/adr/0023-用四个可恢复大阶段聚合P0-P8.md",
+        "anchor": "第一阶段冻结换图计划与 Generation Package"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_runtime.py",
+        "locator": "_run_single_production"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_three_failure_cannot_reopen_stage_two_generation",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/request.json",
+            "tests/test_issue_17_major_stages.py"
+          ]
+        }
+      ]
+    },
+    {
+      "experienceId": "E49",
+      "topic": "身份换图同步覆盖同图全部主体与专属组件",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "单一主要目标按身份替换群组解释；CP、搭档和独立多主体全部进入同一闭包，遗漏任一主体时 P1 阻断。",
+      "authority": {
+        "path": "references/replacement-spec.md",
+        "anchor": "## 4. 依赖闭包"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/replacement_planning.py",
+        "locator": "_plan_replacement"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_identity_replacement_cannot_leave_an_independent_second_subject_unchanged",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/shadow-release/ordinary-person/source-analysis.json",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E50",
+      "topic": "接触与遮挡逐关系阻断肢体拓扑错误",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "接触几何门禁增加逐关系部位可溯源、拓扑、接触、遮挡和无融合证据；任一否定即视觉硬失败。",
+      "authority": {
+        "path": "references/template-image-gate.md",
+        "anchor": "## 2. 硬门禁"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/generation_runtime.py",
+        "locator": "_evaluate_visual_gate"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_subject_contact_topology_failure_blocks_hand_and_limb_bugs",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-analysis.json",
+            "tests/test_issue_4_template_image_gate.py"
+          ],
+          "expectedGateLocator": "/errorCodes/visualHardFailure"
+        }
+      ]
+    },
+    {
+      "experienceId": "E51",
+      "topic": "分类标签逐图编写并绑定独立图像证据",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "metadata.tags 不再接受批次共用泛标签；每个标签逐项证明 Approved Image 根据与分类价值。",
+      "authority": {
+        "path": "references/template-authoring.md",
+        "anchor": "### 8.1 内容标签"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_gates.py",
+        "locator": "authoring_contract_audit_errors"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_tags_require_per_image_grounding_and_independent_review",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-template-image.ppm",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        },
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_generic_batch_tags_are_blocked_before_formal_compilation",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-template-image.ppm",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E52",
+      "topic": "P8 重算并对账全部关键结果资格",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "最终化不再只信任历史阶段状态；关键资格账本缺失、篡改或重算不一致时禁止上传和正式投影。",
+      "authority": {
+        "path": "references/gallery-template-compiler.md",
+        "anchor": "## 4. 四层验收与正式投影"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/delivery_runtime.py",
+        "locator": "_current_template_data_errors"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_finalization_replays_the_complete_critical_outcome_qualification",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/request.json",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E53",
+      "topic": "subject 身份与服装继承必须独立复核",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "作者提交的 identityInheritanceDecision 只是候选事实；P4 直接对照 Approved Image 复核上传特征、服装策略和最小模板例外。",
+      "authority": {
+        "path": "references/template-authoring.md",
+        "anchor": "### 5.1 身份特征继承裁决"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_gates.py",
+        "locator": "authoring_contract_audit_errors"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_identity_inheritance_requires_independent_approved_image_review",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-template-image.ppm",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E54",
+      "topic": "槽位默认值必须是最简用户表述",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "长度与例外证据之外，P4 逐槽独立复核用户语言、单一编辑轴和最短自然措辞。",
+      "authority": {
+        "path": "references/template-authoring.md",
+        "anchor": "## 4. 槽位公共属性"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_gates.py",
+        "locator": "authoring_contract_audit_errors"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_default_values_require_independent_minimal_wording_review",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-analysis.json",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E55",
+      "topic": "可见文字完整分类与唯一路由进入最终资格账本",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "文字合同不再只作为 P6 内部结论；P8 必须重算 visible_text_routing 并对账。",
+      "authority": {
+        "path": "references/visible-text-contract.md",
+        "anchor": "## 4. 双层验收"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/outcome_qualification.py",
+        "locator": "compile_critical_outcome_qualification"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_visible_text_routing_is_a_critical_delivery_outcome",
+          "polarity": "good-case",
+      "fixturePaths": [
+        "fixtures/e2e/text-dense/scenarios.json",
+        "tests/test_issue_26_production_readiness_gates.py"
+      ]
+        }
+      ]
+    },
+    {
+      "experienceId": "E56",
+      "topic": "标题与描述独立绑定 Approved Image",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "titleEvidence 不再由作者自证即通过；P4 直接复核标题和描述的图像根据、口语自然度与槽位可迁移性。",
+      "authority": {
+        "path": "references/template-authoring.md",
+        "anchor": "## 7. 标题规范"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_gates.py",
+        "locator": "authoring_contract_audit_errors"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_26_production_readiness_gates.ProductionReadinessGateTest.test_title_and_description_require_independent_image_grounding",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/approved-template-image.ppm",
+            "tests/test_issue_26_production_readiness_gates.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E57",
+      "topic": "所有已有独立审计结论提升为不可删减的最终交付条件",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "P8 资格账本精确覆盖换图、Approved Image、文案、主体、槽位、推荐项、文字、运行语义、渲染、画风、标签和正式记录合同；缺失或篡改任一结论都停止上传。",
+      "authority": {
+        "path": "references/gallery-template-compiler.md",
+        "anchor": "## 4. 四层验收与正式投影"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/outcome_qualification.py",
+        "locator": "compile_critical_outcome_qualification"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_four_public_stages_resume_one_item_and_stop_at_real_boundaries",
+          "polarity": "good-case",
+      "fixturePaths": [
+        "fixtures/e2e/simple-animal/request.json",
+        "tests/test_issue_17_major_stages.py"
+      ]
+        },
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_finalization_replays_the_complete_critical_outcome_qualification",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/request.json",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/resultStates/blocked"
+        }
+      ]
+    },
+    {
+      "experienceId": "E58",
+      "topic": "商品载体与截图来源必须在 P1 冻结目标画布",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "衣服印花只提取并正视化独立设计，截图只保留内容区并裁掉黑框、设备边框和界面控件；缺少路由时禁止提交生图。",
+      "authority": {
+        "path": "references/replacement-spec.md",
+        "anchor": "### 2.1 来源画布与载体路由"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/generation_runtime.py",
+        "locator": "_compile_generation_package"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_freezes_product_print_and_screenshot_canvas_routing_in_prompt",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-analysis.json",
+            "tests/test_issue_17_major_stages.py"
+          ]
+        },
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_blocks_missing_canvas_routing_and_illegal_sticker_removal",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-analysis.json",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/errorCodes/externalFailure"
+        }
+      ]
+    },
+    {
+      "experienceId": "E59",
+      "topic": "贴纸与商标按来源内容逐项保留而不自动清除",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "普通贴纸、装饰图标和用户未要求删除的商标默认保留或随身份同步；删除只接受显式授权、载体噪声、身份冲突或权利阻断依据。",
+      "authority": {
+        "path": "references/replacement-spec.md",
+        "anchor": "### 2.2 来源标记逐项处置"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/authoring_handoff.py",
+        "locator": "source_authoring_context_errors"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_preserved_stickers_and_trademarks_are_not_treated_as_canvas_pollution",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/visual-review.json",
+            "tests/test_issue_4_template_image_gate.py"
+          ]
+        },
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_blocks_missing_canvas_routing_and_illegal_sticker_removal",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-analysis.json",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/errorCodes/externalFailure"
+        }
+      ]
+    },
+    {
+      "experienceId": "E60",
+      "topic": "P2 使用逐项标记证据派生清洁门禁",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "泛化的 fullCanvasClean 不再单独否决已批准保留的贴纸或商标；水印、平台标和其他 required-remove 项未清除时仍阻断 Approved Image。",
+      "authority": {
+        "path": "references/template-image-gate.md",
+        "anchor": "## 2. 硬门禁"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/generation_runtime.py",
+        "locator": "_evaluate_visual_gate"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_4_template_image_gate.Issue4TemplateImageGateTest.test_required_watermark_removal_must_pass_structured_mark_evidence",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/visual-review.json",
+            "tests/test_issue_4_template_image_gate.py"
+          ],
+          "expectedGateLocator": "/errorCodes/visualHardFailure"
+        }
+      ]
+    },
+    {
+      "experienceId": "E61",
+      "topic": "全部可达规范条款绑定可执行所有者和红绿证据",
+      "migrationStatus": "confirmed",
+      "legacyDisposition": "Skill、一级 reference、实施规格或 ADR 中的任何新增、删除和改写都会触发全量语义单元重算；缺少代码所有者、Good Case、Bad Case 或历史经验时仓库验证失败。",
+      "authority": {
+        "path": "references/normative-rule-registry.md",
+        "anchor": "## 2. 执行所有权"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/normative_registry.py",
+        "locator": "validate_registry_snapshot"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_repository_contract.RepositoryContractTest.test_every_skill_authority_unit_has_an_executable_owner_and_bad_case",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "contracts/normative-rule-registry.json",
+            "tests/test_repository_contract.py"
+          ]
+        },
+        {
+          "testId": "tests.test_repository_contract.RepositoryContractTest.test_normative_registry_rejects_a_deleted_authority_unit",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "contracts/normative-rule-registry.json",
+            "tests/test_repository_contract.py"
+          ],
+          "expectedGateLocator": "/normativeRuleRegistryContract/artifactName"
         }
       ]
     }

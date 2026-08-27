@@ -16,7 +16,7 @@
 
 同一入口接受 1–4 大阶段选择：第一阶段完成 P0–P1 并输出换图执行包；第二阶段通过 Fal API 完成 P2 并输出 Approved Template Image；第三阶段完成 P3–P6 并输出待 OSS 模板数据包；第四阶段完成 P7–P8 并输出最终正式 JSON。省略阶段选择时串联执行全部四阶段。每次调用都从同一 Production Item 的不可变谱系恢复。
 
-Skill 对外保持一个公共生产工作流接缝，支持单图和批量提交；批量提交内部拆成彼此独立的 `Production Item`。生图和 OSS 作为注入式执行适配器接入该工作流，业务规则、状态、产物和验收全部由工作流核心控制。`T1` 作为同一 Skill 下的独立测试命令，只读取用户明确指定的现成正式 JSON，不进入 P0–P8 状态机，也不改变正式 JSON。
+Skill 对外保持一个公共生产工作流接缝，支持单图和批量提交；批量提交内部拆成彼此独立的 `Production Item`。生图和 OSS 作为注入式执行适配器接入该工作流，业务规则、状态、产物和验收全部由工作流核心控制。`T1` 作为同一 Skill 下的独立测试命令，只读取用户明确指定的现成正式 JSON，编译后调用 Codex 内置生图工具；它不进入 P0–P8 状态机，不调用 Fal/OSS，也不改变正式 JSON。
 
 Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、完成条件、风险升级和 reference 路由；替换、文字、视觉合同、槽位、文案、正式 JSON 编译、生命周期、OSS 和 T1 规则分别拥有唯一 reference 与机器合同；确定性编译、验证、版本、恢复和上传准备由 scripts 承担；历史经验以匿名化红绿 fixture 和端到端验收样本存在。正式交付只包含完成 URL 回填的 `gallery-template.json`，替换理由、六维分析、版本 pin、推荐项理由和审核证据保留在生产 sidecar 中。
 
@@ -102,12 +102,18 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 78. As a 模板生产者, I want 状态和错误码稳定, so that我可以判断缺输入、可复核风险、硬阻断和执行失败。
 79. As a 模板测试者, I want 明确指定一份现成模板 JSON 启动 T1, so that我可以单独验证模板编辑和真实生图效果。
 80. As a 模板测试者, I want T1 默认一次生成一张图, so that测试成本可控且结果容易归因。
-81. As a 模板测试者, I want T1 覆盖槽位替换和全文编辑, so that两种用户交互都能验证。
-82. As a 模板测试者, I want T1 报告绑定 JSON SHA、模板 revision、模板图 URL 和测试器版本, so that测试结果不会错配到其他数据版本。
+81. As a 模板测试者, I want T1 覆盖槽位替换、真实用户上传图和全文编辑, so that实际用户输入与两种编辑方式都能验证。
+82. As a 模板测试者, I want T1 执行包绑定 JSON SHA、模板 revision、模板参考图和用户上传图 SHA, so that测试结果不会错配到其他数据版本。
 83. As a 模板测试者, I want T1 结果不修改正式 JSON 和生产状态, so that测试失败只触发新的修订建议。
 84. As a Skill 维护者, I want 所有机器枚举和状态只定义一次, so that文档、Python、JavaScript 和测试不会各自漂移。
 85. As a Skill 维护者, I want SKILL.md 保持精简并通过明确指针加载细分规则, so that每次调用只读取当前分支需要的知识。
 86. As a Skill 维护者, I want 每个内部模块拥有清晰输入输出, so that替换、分析、槽位和 JSON 编译可以独立修复。
+87. As a 模板生产者, I want 身份换图自动覆盖同图全部身份单元, so that CP、搭档和多主体不会只换一个。
+88. As a 模板生产者, I want 接触与遮挡逐关系审核肢体拓扑, so that 错指、多肢、融合和凭空肢体不会成为确认模板图。
+89. As a 模板生产者, I want 每张模板独立编写和审核分类标签, so that 批量模板不会复用同一组泛标签。
+90. As a 模板生产者, I want P8 从全部证据重算关键结果资格, so that 任一门禁结果被绕过、删除或篡改时都无法交付。
+91. As a 模板生产者, I want T 恤印花和截图来源在 P1 先确定目标画布, so that 衣服、模特、黑色截屏框和设备界面不会进入第二阶段成图。
+92. As a 模板生产者, I want 贴纸、装饰图标和商标逐项决定保留、同步或删除, so that P2 不会把合法视觉内容误判为污染。
 87. As a Skill 维护者, I want 一个最高层端到端测试接缝, so that重构内部模块时仍能证明用户结果保持正确。
 88. As a Skill 维护者, I want 历史 GoodCase 和 BadCase 变成固定 fixture, so that过往批次经验不会继续停留在复盘文字中。
 89. As a Skill 维护者, I want 两份最新正式 JSON 同时作为合同样例和语义 bad case, so that字段形状得到保留，旧标题和数量冲突也不会被复制。
@@ -125,7 +131,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 对外只提供一个公共工作流接口，支持单图输入、批量输入和 `T1` 独立测试命令。批量输入返回逐个 Production Item 的结果集合，不自动形成共享业务实体。
 - 公共生产工作流是最高测试 seam。生图、任务轮询、图像读取、视觉证据和 OSS 上传通过注入式 adapter 提供，确定性测试使用 fake adapter，真实集成测试使用实际 adapter。
 - P0–P8 是一次完整生产调用的固定生命周期。P7 OSS 上传属于生产主流程；调用完整生产即授权在前置门禁通过后上传确认模板图，无需沿用旧流程的第二次固定命令。
-- `T1` 与 P0–P8 使用独立生命周期、状态、目录和版本记录。T1 只接受已落盘且通过静态验证的正式 JSON，不承担生产完成门禁。
+- `T1` 与 P0–P8 使用独立生命周期、状态、目录和版本记录。T1 只接受已落盘且通过静态验证的正式 JSON，执行后端固定为 Codex 内置生图工具，不承担生产完成门禁。供应商队列/WAL 回放使用独立命名，不占用 T1 语义。
 - 主流程状态依次表达接收、替换计划完成、生图准备完成、模板图生成、模板图确认、模板图分析、模板数据编译、静态验证、资源上传和最终化；不确定项进入 `NEEDS_REVIEW`，硬合同或画面失败进入 `BLOCKED`，外部执行异常进入稳定失败结果。
 - 状态结果沿用现有 `completed`、`needs_input`、`blocked`、`failed` 外部结果词汇，并为每个未完成结果提供稳定错误码、证据和可恢复阶段。
 - 每个 Production Item 创建独立 `Production Manifest`、`Production Pin`、revision 索引和产物依赖图。批量提交默认不共享版本 pin；恰好使用同一 release 的项目仍各自记录。
@@ -142,7 +148,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - Template Analysis 保存事实置信度、机制、组件图、四个数量、文字区域、身份拓扑、六维视觉合同、专项合同、固定结构和编辑边界。
 - 高价值槽位常态 2–5 个且通常约 3 个。首次只发现一个候选时继续复核主体、内容物、颜色、文字、服装、道具、场景和嵌套内容；穷尽后确实只有一个时允许单槽并保存例外证据。
 - 主体通常属于高价值槽位。服装、造型、发型、姿势、颜色和配饰分别通过独立价值与可生成性检查，禁止按人物类型批量套用。
-- 每个身份图片输入在 P3 裁决特征继承范围：默认继承用户上传图中清晰可见的特征，只将构成模板核心玩法的特征列为最小模板固定例外。服装默认跟随上传图；特定服装特征承担核心玩法时才进入 `keepFromTemplate`。裁决保留于 sidecar 并编译为 `runtimeSemantics.relations`。
+- 每个身份图片输入在 P3 裁决特征继承范围：默认继承用户上传图中清晰可见的特征，只将构成模板核心玩法的特征列为最小模板固定例外。服装默认跟随上传图；特定服装特征承担核心玩法时才进入 `keepFromTemplate`。细粒度裁决保留于 sidecar 并编译为 `runtimeSemantics.relations`，二态归属确定性写入每个身份 binding 的 `clothingOwnership`。
 - 文字区域先分类角色和操作，再决定是否开放。只有身份绑定文字、主要视觉文字、承担笑点的关键句和长文中的高价值词组可以进入文字槽；装饰微字、版权出处、氛围填充和低价值说明保持固定或清理。
 - 默认值优先使用 2–8 个中文字符，原则上不超过 12 个字符；精确画内文字按实际内容处理。文字槽另外受角色和版面容量约束。
 - 主体开放时，确认模板图和正式 JSON 默认态中的具体身份文字必须删除、中性化或转为具有中性默认值的独立短文字槽。正式合同没有声明自动联动时，不生成身份解析、别名推导和计算默认值字段。
@@ -152,8 +158,10 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - `inputSchema` 固定为 `{version: 2, slots: [...]}`，每个槽的 `text` 与 `image` 模式正交组合。`targetInstances`、`inputBindings` 和 `visualContract` 从同一中间模型确定性编译。身份输入绑定一个目标时使用 `one_to_one`，同一来源身份覆盖多个固定实例时使用 `same_source_repeated`。
 - 内容图片输入绑定 `content_element`；身份图与内容图并存时必须提交来源隔离裁决，每个内容图目标必须提交 `post_edit/template_fixed/independent` 容器分类。
 - `visualContract` 使用正向、可观察的媒介、画风、构图、关系和条件性色光事实；编译器必须检查它与开放槽位和自由编辑内容的冲突。
+- `metadata.tags` 每图独立编写 2–5 项，逐项绑定 Approved Image 可见事实与分类价值；泛标签、重复标签和无单图证据的批量共用标签在 draft 前阻断。
+- P6 产出 27 项关键结果资格账本，P8 从冻结生图包、视觉审核、作者审核和验证报告重算并精确对账后才可上传。
 - 正式模板记录使用白名单投影，只保留 `key`、`status`、`title`、`description`、`imageSize`、`imageN`、`kind`、`promptTemplate`、`inputSchema`、`preprocessSteps`、`runtimeSemantics`、`metadata.tags`、条件性的 `metadata.needsReview`、`cover` 和 `referenceImage`。
-- 新模板的 `inputSchema.slots[].image` 不输出 `enabled` 或 `extract`；`runtimeSemantics` 是输入目标、绑定和视觉约束的唯一正式运行权威，正式 JSON 不输出 `promptEnhancement`。
+- 新模板的 `inputSchema.slots[].image` 不输出 `enabled` 或 `extract`；`runtimeSemantics` 是输入目标、绑定和视觉约束的唯一正式运行权威，正式 JSON 不输出 `promptEnhancement`。新生产只写 runtimeSemantics v2；T1 可读 v1/v2；存量 v1 以显式服装裁决迁移到隔离输出，不覆盖原数据。
 - `candidateScope`、`runtimeRequirements`、`templateSource`、`inputSemantics`、`suggestionRationales` 和 `optimizationAudit` 以及其他生产审计字段全部保留在 sidecar，不进入正式 JSON。
 - 当前正式封面字段固定为 `cover`。`coverUrl` 不输出、不双写，并作为版本冲突 fixture 持续验证。
 - P7 只上传当前 Approved Template Image。Asset Receipt 保存图片摘要、对象键、URL 和幂等信息；P8 将同一 HTTPS URL 写入 `cover` 与 `referenceImage`。
@@ -174,7 +182,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 
 - 好测试只断言用户可观察行为：输入、状态、正式产物、sidecar 合同、稳定错误、允许发生的生图与 OSS 副作用。测试不依赖内部函数调用顺序、reference 加载顺序或模块数量。
 - 最高测试 seam 是公共生产工作流。使用来源图片 fixture、可选策略和 fake generation/OSS adapter 驱动完整 P0–P8，断言逐阶段状态、不可变产物和最终正式 JSON。
-- `T1` 使用同一命令入口下的独立子命令测试，断言它只消费指定 JSON、生成独立报告且不改变 Production Item。
+- `T1` 使用同一命令入口下的独立子命令测试，断言它只消费指定 JSON 与真实用户上传图、生成 `codex-imagegen-request.json`、不调用 Fal/OSS 且不改变 Production Item。
 - 优先复用现有工作流的注入式生成器与上传器、不可变 revision、Artifact Manifest、合同版本错误、上传幂等和最终 URL 一致性测试经验；现有三阶段目录和候选槽位语义不作为新行为断言。
 - 为公共生产 seam 建立最小 tracer fixture：单张简单网图在自主策略下完成主要目标替换、模板图确认、三槽设计、正式投影、OSS 回填和最终落盘。
 - 建立批量隔离测试：两张图同批提交时分别拥有分析、替换、pin、状态和输出；交换任一图片的 sidecar 或模板图必须失败。
@@ -185,9 +193,9 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 建立普通真人生成身份 fixture，证明无需固定本地身份资产；旧脸、旧身体、多人串脸和身份文字残留分别为红例。
 - 建立知名 IP 同类替换 fixture，验证角色锚点、反锚点、姿态兼容、媒介兼容和身份文字闭包。
 - 建立单一主要目标测试，证明关联文字、影子、倒影和重复实例属于 dependency closure；未授权的第二主要目标变化构成漂移。
-- 建立 Generation Package 编译快照，覆盖 changed set、frozen set、六维合同、接触关系、清洁要求和一张图默认值。
+- 建立 Generation Package 编译快照，覆盖 changed set、frozen set、来源目标画布、来源标记逐项策略、六维合同、接触关系、清洁要求和一张图默认值。
 - 建立 WAL 与恢复测试，证明 request ID 先于轮询持久化、网络恢复不重复 submit、不同 failure class 回到正确阶段。
-- 建立模板图视觉审核 fixture，覆盖媒介漂移、结构破坏、旧身份残留、文字错误、水印残留、容器漏换、穿戴漂浮、反射漏换和分格漏换。
+- 建立模板图视觉审核 fixture，覆盖媒介漂移、结构破坏、旧身份残留、文字错误、水印残留、载体/截屏框残留、贴纸与商标误删、容器漏换、穿戴漂浮、反射漏换和分格漏换。
 - 建立硬失败测试，证明人工决定不能把视觉硬失败直接推进为 Approved Template Image。
 - 建立审核新鲜度测试，证明 Generation Package 或模板图 SHA 变化后旧审核证据失效。
 - 建立模板图事实源测试，主动让来源图身份、物种、节日、数量和文字进入 title、description、默认值、Prompt 或 hidden fields，验证全部被拦截。
@@ -201,9 +209,13 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 建立中性标题测试，对每个主体开放模板执行最大差异输入替换；标题仍需准确、自然且可由模板图核验。
 - 建立推荐项测试，覆盖同轴、同颗粒度、默认值去重、生成可行性和纯图片槽无需文本建议。
 - 建立 Prompt Template 测试，证明全部结构化槽位都有绑定，非槽位自由编辑内容允许存在，所有默认值和推荐项代入后语法自然。
+- 建立多主体换图红例，证明遗漏 CP 成员、搭档成员、独立第二主体或任一专属组件时 P1 阻断且不调用生图 API。
+- 建立交互肢体红例，对每条接触和遮挡关系否定部位可溯源性、拓扑、接触、遮挡或无融合结论，确认 P2 不产生 Approved Image。
+- 建立逐图标签红例，覆盖泛标签组、重复标签、数量越界和独立审核否定，确认均在正式编译前停止。
+- 建立关键结果资格重放测试，删除或篡改账本后重试 P8，确认不上传且不产生正式 JSON。
 - 建立两种编辑模式等价测试，证明槽位编辑与全文编辑最后都得到完整 resolved prompt。
 - 建立用户权限冲突测试，证明 `visualContract` 不会恢复用户修改过的主体、文字、颜色、服装、道具和场景。
-- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、`one_to_one`、`same_source_repeated`、内容组分配、来源隔离、容器分类、媒介、画风、构图、关系和服装裁决。
+- 建立 runtimeSemantics 测试，覆盖目标唯一性、输入—目标类型匹配、`one_to_one`、`same_source_repeated`、`identity_group + preserve_group + group_photo`、内容组分配、来源隔离、容器分类、媒介、画风、构图、关系、`clothingOwnership` 和 v1→v2 显式迁移。
 - 建立正式投影测试，对两份最新正式样例的全部 110 类归一化叶子路径执行分类；未分类数必须保持为 0。
 - 建立字段白名单测试，正式 JSON 只允许当前合同字段；旧流程 metadata、临时路径、Data URL、生产术语和 `coverUrl` 必须失败。
 - 建立 Schema 测试，正式 JSON 通过冻结的 runtimeSemantics v2 Schema；`image.extract` 与 `promptEnhancement` 均被拒绝，placeholder 全部可解析。
@@ -214,7 +226,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 建立版本漂移测试，覆盖源码与安装副本差异、release 额外文件、合同 major 不兼容、运行中升级和批量混合 pin。
 - 建立 Skill 结构测试，覆盖 frontmatter 仅含允许字段、description 触发范围、reference 指针、脚本入口、UI metadata 和 manifest 跟踪文件一致性。
 - 建立规则唯一来源测试，扫描重复枚举、状态和字段白名单，防止验证器、脚本和文档再次各自维护副本。
-- 将历史经验矩阵中 E01–E44 逐项绑定至少一个绿 fixture 或红 fixture；迁移状态和验收证据缺失时禁止宣称能力迁移完成。
+- 将历史经验矩阵中 E01–E61 逐项绑定至少一个绿 fixture 或红 fixture；迁移状态和验收证据缺失时禁止宣称能力迁移完成。
 - 两份最新正式 JSON 原样作为输入 fixture，并建立修正后的 expected fixture，覆盖中性标题、宠物数量一致性、Prompt 自由编辑内容和旧 metadata 投影。
 - 确定性测试不调用真实图片 API、OSS、管理台或数据库。真实 adapter 通过单独集成测试验证。
 - Skill 内容和脚本完成后使用结构验证器、全量单元测试和端到端 smoke test；随后通过最小上下文的独立前向测试检查触发、流程遵循和产物质量。
@@ -243,7 +255,7 @@ Skill 内部按深模块组织。`SKILL.md` 只保留触发范围、主流程、
 - 当前工作树含有大量其他进行中修改。实现必须按 ticket 隔离改动，避免把管理台、风格模板和其他用户工作混入本重构。
 - 当前正式合同依据是用户确认的数据口径、冻结 Schema、两份最新正式样例及其 SHA，以及已接受 ADR。研发编译链路文档和后端实现不构成阻断条件。
 - 两份最新样例用于冻结字段形状和回归问题，不能直接复制其中写死主体的标题、数量冲突描述和旧流程 metadata。
-- ADR 完整性审计已覆盖全部 49 条 Implementation Decisions；ADR 0001–0027 中 26 份生效，ADR 0007 已由 ADR 0008 取代。完整映射见《ADR 决策覆盖矩阵》；用户已确认当前决策前沿为空。
+- ADR 完整性审计已覆盖全部 52 条 Implementation Decisions；ADR 0001–0031 中 30 份生效，ADR 0007 已由 ADR 0008 取代。全量规范注册表还必须对所有可达权威文档的每个语义单元重算覆盖，缺少可执行所有者、Good Case、Bad Case 或历史经验时禁止完成。完整映射见《ADR 决策覆盖矩阵》；用户已确认当前决策前沿为空。
 - 生产价值的两个最高优先级枢纽是：P1–P2 形成正确的 Approved Template Image，以及 P3–P6 将模板图事实编译为正确的用户编辑合同和正式模板 JSON。
 - 第一轮实现应先打通一个真实纵向切片：单图自主替换、生成一张模板图、自动确认、三槽分析、正式投影、fake OSS 回填和最终落盘；随后再扩展复杂身份、文字、批量策略、恢复和版本发布。
 - 下一阶段使用 `/to-tickets` 将本规格拆成 blockers-first 的 tracer-bullet tickets。每张票据需要声明阻塞关系、外部验收行为和它所迁移的历史经验 ID。

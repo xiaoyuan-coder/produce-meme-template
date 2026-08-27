@@ -34,13 +34,15 @@ P6 必须确认全部 `freeEditableContent` 原样进入 Prompt Template，并�
 
 Replacement Pool 保存于 `replacement-plan.json`，Slot Suggestion Pool 保存于 `editable-template-spec.json`。两个集合独立编译，正式 JSON 只包含产品合同支持的槽位建议。
 
+`metadata.tags` 在 P4 执行逐图独立审核，详细编写规则读取 `template-authoring.md`。审核请求同时绑定 Approved Image SHA、当前图标题、描述和标签；审核结果必须与当前标签精确一对一，每项都确认图像事实根据和分类价值。泛标签、重复标签、批次复用且无单图证据的标签不能进入 draft。
+
 ## 3. runtimeSemantics
 
-`runtimeSemantics.version` 固定为 `1`。Approved Template Image 分析必须逐个写出 `targetInstances` 的稳定 ID、可观察角色和明确空间区域；编译器保留这些作者事实，并与 Approved 组件图双向核对。subject 输入对应唯一 `identity_subject`，prompt 内容输入对应一个或一组 `content_element`；关键固定内容可以作为无输入绑定的 `content_element`。每个 input id 必须在 `inputBindings` 中出现且只能绑定类型匹配的目标。编译器保留 `identityInheritanceDecision` 在 `editable-template-spec.json`，并将上传继承范围与核心玩法例外确定性转为 `visualContract.relations`；该裁决不投影为新的正式字段。
+`runtimeSemantics.version` 的新生产写版本固定为 `2`，兼容读取版本为 v1/v2。Approved Template Image 分析必须逐个写出 `targetInstances` 的稳定 ID、可观察角色和明确空间区域；编译器保留这些作者事实，并与 Approved 组件图双向核对。固定 subject 输入对应 `identity_subject`，动态合照输入对应一个 `identity_group`，prompt 内容输入对应一个或一组 `content_element`；关键固定内容可以作为无输入绑定的 `content_element`。每个 input id 必须在 `inputBindings` 中出现且只能绑定类型匹配的目标。
 
 Artifact Schema `0.22.0` 起，P3 还必须提交 `renderingCoherenceDecision`。它把当前组件图完整划分为统一或刻意混合的渲染单元，并为每个 subject 精确绑定 target、身份继承范围、模板保留范围和完整重绘结论。编译器只从这份决策生成正式 `visualContract.medium/styleTraits`；组件遗漏、单元重叠、混合媒介缺少边界依据、subject 未完整重绘或权限与槽位不一致都会在 draft 前阻断。该 sidecar 不改变正式 Gallery Schema。
 
-subject binding 固定使用 `replace_identity + one_to_one + illustration_redraw + single_subject + reject`，并只接受一张单主体图片。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。当前正式合同不声明合照成员选择、像素保留或未经客户端确认的多主体能力。
+固定 subject binding 使用 `replace_identity + one_to_one|same_source_repeated + illustration_redraw + single_subject + reject`。动态合照使用一个 `identity_group` 和 `preserve_group + group_photo + reject`；成员类别只允许 person/pet，人数范围满足 `1 <= minMembers <= maxMembers <= 20`。每个身份 binding 都由 `identityInheritanceDecision` 确定性投影 `clothingOwnership=source|template`；同时保留更细的结构例外关系。内容 binding 使用 `replace_content`；单目标采用 `replace_as_unit`，需要保持空间组结构的多目标采用 `preserve_target_group`。合照选单人、像素保留、人宠混合自动拆组和未经客户端确认的多图分组保持关闭。
 
 `visualContract` 的作者语义与逐图画风标准读取 `template-authoring.md`，正式结构精确包含：
 
@@ -56,7 +58,24 @@ subject binding 固定使用 `replace_identity + one_to_one + illustration_redra
 
 ## 4. 四层验收与正式投影
 
-P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；runtimeSemantics 范围和目标—绑定职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-22/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前作者合同的只读快照，来源、取得时间、兼容范围和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
+P6 分别记录 Schema、语义、视觉合同和 Gallery Contract 证据，`pass` 由四层结果共同推导。语义层要求 `semantic-audit.json` 合同有效、内容摘要双向一致，并通过机器规则列出的全部审计项；每个具名检查必须提供机器映射指定的结构化证据。Prompt 代入覆盖默认值和全部推荐场景，开放轴与推荐审查覆盖全部槽位，最大差异输入覆盖每个推荐池；runtimeSemantics 范围和目标—绑定职责对象严格匹配机器角色。空容器、标量占位或覆盖不完整都不能形成通过结论。
+
+四层验证后还必须编译 `critical-outcome-qualification.json`。该资格账本从已持久化事实重算机器合同声明的 27 项关键结果，覆盖换图依赖闭包、画风、身份与多主体、来源目标画布、来源标记策略、冻结 Prompt、交互肢体、Approved Image、用户文案、主体与槽位策略、身份继承、默认值、Prompt 代入、用户权限、标题与推荐项、runtimeSemantics、身份和可见文字、渲染、标签及正式记录合同。27 项 ID 必须精确覆盖且全部为真。P8 不相信历史通过状态；它重新编译账本，并与已持久化账本精确对账，缺失、删改或任一项变为假都停止上传和正式投影。
+
+P8 使用 `contracts/machine-rules.json` 的白名单投影，并以 `contracts/upstream/gallery-template/agent-template-json-runtime-contract-2026-08-26/gallery-template.schema.json` 再次校验最终记录。该 Schema 是当前作者合同的只读快照，来源、取得时间、兼容范围、上游文档/运行 Schema 差异和摘要记录在同目录 `snapshot-metadata.json`；投影白名单继续独立存在于机器规则中。
+
+存量 v1 先运行 `python3 scripts/migrate_gallery_contract_v2.py --input <file-or-dir>` 生成审计清单。每个身份槽补齐 `source|template` 决策后，传入 `--decisions <json> --apply --output <new-dir>` 写出 v2；工具拒绝覆盖原文件或已存在的输出。动态群组不能从 v1 自动推导，需重新执行作者分析。
+
+决策文件按模板 key 和 input id 两级映射，例如：
+
+```json
+{
+  "mutual-cheek-hold-couple-portrait": {
+    "boy_subject": "source",
+    "girl_subject": "source"
+  }
+}
+```
 
 本 Skill 的 P8 生产投影固定输出：
 

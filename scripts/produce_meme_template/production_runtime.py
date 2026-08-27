@@ -54,6 +54,7 @@ from .generation_runtime import (
     _sanitize_generation_failure_reason,
 )
 from .replacement_planning import _build_pin, _plan_replacement
+from .outcome_qualification import compile_critical_outcome_qualification
 from .production_gates import (
     authoring_contract_audit_errors,
     compile_authoring_review_request,
@@ -471,13 +472,37 @@ def _run_template_data_stage(
         p6,
         ["gallery-template.draft.json", review_name, "semantic-audit.json"],
     )
-    if not validation["pass"]:
+    qualification = compile_critical_outcome_qualification(
+        generation_package,
+        review,
+        authoring_audit,
+        validation,
+        rules,
+    )
+    qualification_contract = rules["criticalOutcomeContract"]
+    qualification_name = qualification_contract["artifactName"]
+    _atomic_write_new(output_dir / qualification_name, _json_bytes(qualification))
+    _record_artifact(
+        manifest,
+        output_dir,
+        qualification_name,
+        p6,
+        [
+            generation_package_name,
+            review_name,
+            authoring_audit_name,
+            "validation-report.json",
+        ],
+    )
+    if not validation["pass"] or not qualification[
+        qualification_contract["fields"]["pass"]
+    ]:
         raise _stop(
             rules,
             "blocked",
             "contractFailure",
-            "四层静态验收未通过。",
-            validation,
+            "四层静态验收或关键结果资格门禁未通过。",
+            {"validation": validation, "criticalQualification": qualification},
         )
     _advance(manifest, rules, p6, timestamp)
     data_name = rules["majorStageContract"]["artifactNames"][
@@ -493,6 +518,7 @@ def _run_template_data_stage(
         "formalDraft": "gallery-template.draft.json",
         "semanticAudit": "semantic-audit.json",
         "validationReport": "validation-report.json",
+        "criticalOutcomeQualification": qualification_name,
     }
     data_package = _stage_package(
         manifest,
@@ -2239,6 +2265,21 @@ def _run_single_production(
             operation_request_field: copy.deepcopy(
                 generation_package[operation_request_field]
             ),
+            rules["multiInstanceContract"]["planFields"]["componentGraph"]: (
+                copy.deepcopy(
+                    plan[
+                        rules["multiInstanceContract"]["planFields"][
+                            "componentGraph"
+                        ]
+                    ]
+                )
+            ),
+            rules["sourceCanvasContract"]["field"]: copy.deepcopy(
+                source_analysis[rules["sourceCanvasContract"]["field"]]
+            ),
+            rules["sourceMarkTreatmentContract"]["field"]: copy.deepcopy(
+                source_analysis[rules["sourceMarkTreatmentContract"]["field"]]
+            ),
         }
         review_request_snapshot = copy.deepcopy(review_request)
         review = _adapter_snapshot_image_object_call(
@@ -2291,6 +2332,15 @@ def _run_single_production(
             ),
             expected_image_operations=plan[
                 rules["multiInstanceContract"]["planFields"]["imageOperations"]
+            ],
+            expected_component_graph=plan[
+                rules["multiInstanceContract"]["planFields"]["componentGraph"]
+            ],
+            expected_source_canvas=source_analysis[
+                rules["sourceCanvasContract"]["field"]
+            ],
+            expected_source_mark_policy=source_analysis[
+                rules["sourceMarkTreatmentContract"]["field"]
             ],
         )
         if not candidate_unchanged or not review_request_unchanged:

@@ -28,6 +28,196 @@ from .workflow_core import (
 )
 
 
+def _first_stage_requirement_results(
+    plan: dict[str, Any],
+    source_analysis: dict[str, Any],
+    sections: dict[str, str],
+    prompt: str,
+    rules: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Derive P1 qualification from the authored graph and frozen prompt."""
+
+    gate_contract = rules["sourceAuthoringContextContract"][
+        "firstStageGateContract"
+    ]
+    requirement_ids = rules["criticalOutcomeContract"]["requirementIds"]
+    fields = rules["criticalOutcomeContract"]["requirementResultFields"]
+    identity_contract = rules["identityReplacementContract"]
+    dependency_fields = identity_contract["dependencyFields"]
+    component_id_field = dependency_fields["componentIdentity"]
+    closure_ids = {
+        item[component_id_field]
+        for item in plan.get("dependencyClosure", [])
+        if isinstance(item, dict)
+        and isinstance(item.get(component_id_field), str)
+        and item[component_id_field].strip()
+    }
+    multi = rules["multiInstanceContract"]
+    operation_fields = multi["operationFields"]
+    operation_target_ids = {
+        component_id
+        for operation in plan.get(multi["planFields"]["imageOperations"], [])
+        if isinstance(operation, dict)
+        for component_id in operation.get(
+            operation_fields["targetRegions"], []
+        )
+        if isinstance(component_id, str) and component_id.strip()
+    }
+    dependency_pass = bool(closure_ids and closure_ids == operation_target_ids)
+
+    context = rules["sourceAuthoringContextContract"]
+    binding = plan.get(context["subjectBindingField"], {})
+    binding_fields = context["subjectBindingFields"]
+    group_fields = context["subjectBindingGroupFields"]
+    groups = (
+        binding.get(binding_fields["groups"], [])
+        if isinstance(binding, dict)
+        else []
+    )
+    touched_groups = [
+        group
+        for group in groups
+        if isinstance(group, dict)
+        and set(group.get(group_fields["requiredComponents"], [])) & closure_ids
+    ]
+    source_category = plan["primaryTargets"][0]["sourceCategory"]
+    identity_categories = {
+        rules["sourceCategories"][route["sourceCategoryRole"]]
+        for route in identity_contract["routes"].values()
+    }
+    identity_feature_pass = bool(
+        source_category not in identity_categories
+        or touched_groups
+        and all(
+            set(group[group_fields["requiredComponents"]]) <= closure_ids
+            for group in touched_groups
+        )
+    )
+    all_identity_units = {
+        identity_unit
+        for group in groups
+        if isinstance(group, dict)
+        for identity_unit in group.get(group_fields["identityUnits"], [])
+    }
+    all_bound_components = {
+        component_id
+        for group in groups
+        if isinstance(group, dict)
+        for component_id in group.get(group_fields["requiredComponents"], [])
+    }
+    multi_subject_pass = bool(
+        source_category not in identity_categories
+        or len(all_identity_units) <= 1
+        or all_bound_components <= closure_ids
+    )
+
+    visual = source_analysis.get("visualContract", {})
+    visual_fields = context["sourceVisualContractFields"]
+    section_by_visual_role = {
+        "medium": "styleMedium",
+        "form": "styleForm",
+        "edge": "styleEdge",
+        "colorAndShading": "styleColorAndShading",
+        "surface": "styleSurface",
+        "composition": "styleComposition",
+    }
+    style_pass = bool(
+        isinstance(visual, dict)
+        and all(
+            isinstance(visual.get(visual_fields[role]), str)
+            and visual[visual_fields[role]].strip()
+            and visual[visual_fields[role]]
+            in sections.get(section_by_visual_role[role], "")
+            for role in section_by_visual_role
+        )
+    )
+    canvas_contract = rules["sourceCanvasContract"]
+    canvas_fields = canvas_contract["fields"]
+    canvas = source_analysis.get(canvas_contract["field"], {})
+    source_canvas_section = sections.get("sourceCanvas", "")
+    canvas_pass = bool(
+        isinstance(canvas, dict)
+        and source_canvas_section
+        and all(
+            value in source_canvas_section
+            for role in (
+                "targetRegions",
+                "excludedCarrierRegions",
+                "requiredActions",
+                "preserveDesignFeatures",
+            )
+            for value in canvas.get(canvas_fields[role], [])
+        )
+    )
+    mark_contract = rules["sourceMarkTreatmentContract"]
+    policy_fields = mark_contract["fields"]
+    treatment_fields = mark_contract["treatmentFields"]
+    mark_policy = source_analysis.get(mark_contract["field"], {})
+    treatments = (
+        mark_policy.get(policy_fields["treatments"], [])
+        if isinstance(mark_policy, dict)
+        else []
+    )
+    mark_section = sections.get("sourceMarks", "")
+    mark_pass = bool(
+        isinstance(mark_policy, dict)
+        and mark_policy.get(policy_fields["assessed"]) is True
+        and mark_section
+        and all(
+            item[treatment_fields[role]] in mark_section
+            for item in treatments
+            for role in ("identity", "type", "region", "action")
+        )
+    )
+    prompt_pass = bool(prompt.strip() and prompt == "\n".join(sections.values()))
+
+    raw_results = (
+        (
+            requirement_ids["replacementDependencyClosure"],
+            dependency_pass,
+            f"依赖闭包 {len(closure_ids)} 个组件与图像操作目标精确对账",
+        ),
+        (
+            requirement_ids["sourceStyleFidelity"],
+            style_pass,
+            "媒介、形态、边缘、色光、表面与构图六维逐项进入冻结 Prompt",
+        ),
+        (
+            requirement_ids["identityFeatureBinding"],
+            identity_feature_pass,
+            f"身份替换命中 {len(touched_groups)} 个主体绑定组并覆盖其专属组件",
+        ),
+        (
+            requirement_ids["multiSubjectClosure"],
+            multi_subject_pass,
+            f"主体身份单元 {len(all_identity_units)} 个，多主体时全组同步进入换图闭包",
+        ),
+        (
+            requirement_ids["sourceCanvasNormalization"],
+            canvas_pass,
+            "商品载体/截图边框已在 P1 路由为明确目标画布和排除动作",
+        ),
+        (
+            requirement_ids["sourceMarkPolicy"],
+            mark_pass,
+            f"{len(treatments)} 个来源标记逐项绑定保留、同步或删除策略",
+        ),
+        (
+            requirement_ids["generationPromptFrozen"],
+            prompt_pass,
+            "Generation Package 字面由固定顺序段落唯一编译并绑定 SHA-256",
+        ),
+    )
+    return [
+        {
+            fields["identity"]: requirement_id,
+            fields["pass"]: passed,
+            fields["evidence"]: evidence,
+        }
+        for requirement_id, passed, evidence in raw_results
+    ]
+
+
 def _compile_generation_package(
     plan: dict[str, Any], source_analysis: dict[str, Any], rules: dict[str, Any]
 ) -> dict[str, Any]:
@@ -35,19 +225,101 @@ def _compile_generation_package(
     dependency_value_field = rules["identityReplacementContract"]["dependencyFields"][
         "description"
     ]
+    context_contract = rules["sourceAuthoringContextContract"]
+    visual_fields = context_contract["sourceVisualContractFields"]
+    visual = source_analysis["visualContract"]
     sections = {
-        "task": "基于参考资产完成整图重构，输出一张可独立使用的新模板图。",
+        "task": (
+            "基于参考图完成局部身份重构。参考图是媒介、画风、构图和空间关系的唯一视觉事实源；"
+            "只改变替换计划与主体绑定组明确授权的组件，其余画面保持不变。"
+        ),
         "replacementTarget": f"将{target['sourceRole']}完整替换为{target['replacementValue']}。",
         "dependencyClosure": "；".join(
             item[dependency_value_field] for item in plan["dependencyClosure"]
         ),
-        "frozenSet": "；".join(plan["frozenSet"]),
-        "mediumContract": "；".join(f"{key}: {value}" for key, value in source_analysis["visualContract"].items()),
-        "residueCleanup": "清理旧身份特征、旧轮廓、水印、签名、平台标和账户标。",
-        "spatialRelations": "；".join(source_analysis["spatialRelations"]),
-        "output": "保持完整画布与原比例，清晰输出，不新增文字。",
     }
-    context_contract = rules["sourceAuthoringContextContract"]
+    binding_fields = context_contract["subjectBindingFields"]
+    group_fields = context_contract["subjectBindingGroupFields"]
+    binding = plan["subjectBindingAnalysis"]
+    binding_lines = [
+        (
+            f"绑定组 {group[group_fields['identity']]}（{group[group_fields['relationship']]}）"
+            f"包含身份单元 {','.join(group[group_fields['identityUnits']])}；"
+            f"必须同步替换组件 {','.join(group[group_fields['requiredComponents']])}；"
+            f"依据：{group[group_fields['evidence']]}"
+        )
+        for group in binding[binding_fields["groups"]]
+        if set(group[group_fields["requiredComponents"]])
+        & {
+            item[rules["identityReplacementContract"]["dependencyFields"]["componentIdentity"]]
+            for item in plan["dependencyClosure"]
+        }
+    ]
+    sections["subjectBindings"] = "；".join(binding_lines) or (
+        "当前替换目标不涉及身份主体绑定；按依赖闭包执行内容替换。"
+    )
+    canvas_contract = rules["sourceCanvasContract"]
+    canvas_fields = canvas_contract["fields"]
+    canvas_modes = canvas_contract["modes"]
+    canvas = source_analysis[canvas_contract["field"]]
+    canvas_mode = canvas[canvas_fields["mode"]]
+    targets = "、".join(canvas[canvas_fields["targetRegions"]])
+    excluded = "、".join(canvas[canvas_fields["excludedCarrierRegions"]]) or "无"
+    actions = "、".join(canvas[canvas_fields["requiredActions"]])
+    preserved = "、".join(canvas[canvas_fields["preserveDesignFeatures"]])
+    if canvas_mode == canvas_modes["printArtwork"]:
+        canvas_instruction = (
+            "只提取衣服表面的独立印花并正视化；排除衣服本体、模特身体、"
+            "衣架、商品阴影和拍摄环境，不生成 T 恤 mockup 或穿着效果"
+        )
+    elif canvas_mode == canvas_modes["screenContent"]:
+        canvas_instruction = (
+            "只保留截图内容区；裁掉黑色截屏框、设备边框、界面控件和屏幕外环境"
+        )
+    elif canvas_mode == canvas_modes["fullScene"]:
+        canvas_instruction = "完整商品或场景本身承担玩法，保持完整场景画布"
+    else:
+        canvas_instruction = "来源为独立设计，保持完整来源画布"
+    sections["sourceCanvas"] = (
+        f"目标画布：{canvas_instruction}；目标区域 ID：{targets}；"
+        f"排除载体区域 ID：{excluded}；执行动作：{actions}；"
+        f"保留设计内部结构：{preserved}。"
+    )
+    mark_contract = rules["sourceMarkTreatmentContract"]
+    policy_fields = mark_contract["fields"]
+    treatment_fields = mark_contract["treatmentFields"]
+    mark_policy = source_analysis[mark_contract["field"]]
+    mark_lines = [
+        (
+            f"{item[treatment_fields['identity']]}|{item[treatment_fields['type']]}|"
+            f"{item[treatment_fields['region']]}|{item[treatment_fields['action']]}："
+            f"{item[treatment_fields['evidence']]}"
+        )
+        for item in mark_policy[policy_fields["treatments"]]
+    ]
+    sections["sourceMarks"] = (
+        "来源标记逐项策略："
+        + ("；".join(mark_lines) if mark_lines else "已核对，未发现需单独处置的标记")
+        + "。普通贴纸、装饰图标和用户未要求删除的商标不视为污染。"
+    )
+    sections.update(
+        {
+            "frozenSet": "；".join(plan["frozenSet"]),
+            "styleMedium": f"媒介必须保持：{visual[visual_fields['medium']]}。",
+            "styleForm": f"造型与比例必须保持：{visual[visual_fields['form']]}。",
+            "styleEdge": f"轮廓与边缘必须保持：{visual[visual_fields['edge']]}。",
+            "styleColorAndShading": (
+                f"色彩与明暗关系必须保持：{visual[visual_fields['colorAndShading']]}。"
+            ),
+            "styleSurface": f"纹理与材质表现必须保持：{visual[visual_fields['surface']]}。",
+            "styleComposition": f"构图、裁切与占幅必须保持：{visual[visual_fields['composition']]}。",
+            "residueCleanup": (
+                "清理旧身份特征与旧轮廓；来源标记只按逐项策略执行，"
+                "禁止自行删除已标记保留的贴纸、装饰图标或商标。"
+            ),
+            "spatialRelations": "；".join(source_analysis["spatialRelations"]),
+        }
+    )
     cultural = source_analysis[context_contract["culturalReferenceField"]]
     continuity = source_analysis[context_contract["subjectContinuityField"]]
     cultural_fields = context_contract["culturalReferenceFields"]
@@ -104,13 +376,67 @@ def _compile_generation_package(
             f"{item[decision_fields['action']]} -> {item[decision_fields['result']]}"
             for item in plan[plan_fields["textDecisions"]]
         )
-    request_id = "gen-" + _sha_bytes(_canonical_bytes({"plan": plan, "sections": sections}))[:24]
+    sections["output"] = "输出一张图；保持完整画布与原比例，清晰输出，不新增文字。"
+    prompt = "\n".join(sections.values())
+    gate_contract = context_contract["firstStageGateContract"]
+    gate_fields = gate_contract["fields"]
+    requirement_fields = rules["criticalOutcomeContract"][
+        "requirementResultFields"
+    ]
+    requirement_ids = rules["criticalOutcomeContract"]["requirementIds"]
+    requirement_results = _first_stage_requirement_results(
+        plan, source_analysis, sections, prompt, rules
+    )
+    requirement_pass_by_id = {
+        result[requirement_fields["identity"]]: result[requirement_fields["pass"]]
+        for result in requirement_results
+    }
+    first_stage_gate = {
+        gate_fields["dependencyClosure"]: requirement_pass_by_id[
+            requirement_ids["replacementDependencyClosure"]
+        ],
+        gate_fields["subjectBindings"]: all(
+            requirement_pass_by_id[requirement_ids[role]]
+            for role in ("identityFeatureBinding", "multiSubjectClosure")
+        ),
+        gate_fields["visualContract"]: requirement_pass_by_id[
+            requirement_ids["sourceStyleFidelity"]
+        ],
+        gate_fields["sourceCanvas"]: requirement_pass_by_id[
+            requirement_ids["sourceCanvasNormalization"]
+        ],
+        gate_fields["sourceMarks"]: requirement_pass_by_id[
+            requirement_ids["sourceMarkPolicy"]
+        ],
+        gate_fields["prompt"]: requirement_pass_by_id[
+            requirement_ids["generationPromptFrozen"]
+        ],
+        gate_fields["promptSha256"]: _sha_bytes(prompt.encode("utf-8")),
+        gate_fields["requirementResults"]: requirement_results,
+    }
+    if not all(
+        first_stage_gate[gate_fields[role]] is True
+        for role in (
+            "dependencyClosure",
+            "subjectBindings",
+            "visualContract",
+            "sourceCanvas",
+            "sourceMarks",
+            "prompt",
+        )
+    ):
+        raise ValueError("first-stage gate cannot compile a complete generation prompt")
+    request_id = "gen-" + _sha_bytes(
+        _canonical_bytes({"plan": plan, "prompt": prompt})
+    )[:24]
     multi_contract = rules["multiInstanceContract"]
     return {
         "artifactType": "generation-package",
         "schemaVersion": plan["schemaVersion"],
         "requestId": request_id,
+        "prompt": prompt,
         "sections": sections,
+        gate_contract["field"]: first_stage_gate,
         multi_contract["generationFields"]["imageOperations"]: copy.deepcopy(
             plan[multi_contract["planFields"]["imageOperations"]]
         ),
@@ -132,6 +458,12 @@ def _compile_redo_generation_package(
         "previousVisualReviewSha256": _sha_bytes(_canonical_bytes(previous_review)),
     }
     package["redo"] = correction
+    package["prompt"] = (
+        package["prompt"]
+        + "\n纠正要求：修复上一版本未通过的门禁："
+        + "、".join(correction["failedGates"])
+        + "；其余已通过约束继续保持。"
+    )
     package["requestId"] = "gen-" + _sha_bytes(
         _canonical_bytes({"previousRequestId": previous_package["requestId"], "correction": correction})
     )[:24]
@@ -153,7 +485,7 @@ def _compile_generation_task(
     generation_package_sha = _sha_bytes(_json_bytes(generation_package))
     request_intent = {
         intent_fields["generationRequestIdentity"]: generation_package["requestId"],
-        intent_fields["prompt"]: "\n".join(generation_package["sections"].values()),
+        intent_fields["prompt"]: generation_package["prompt"],
         intent_fields["imageCount"]: generation_options[option_fields["imageCount"]],
         intent_fields["primaryOutputIndex"]: generation_options[
             option_fields["primaryOutputIndex"]
@@ -879,6 +1211,9 @@ def _evaluate_visual_gate(
     expected_bindings: dict[str, str],
     identity_text_required: bool,
     expected_image_operations: list[dict[str, Any]],
+    expected_component_graph: dict[str, Any],
+    expected_source_canvas: dict[str, Any],
+    expected_source_mark_policy: dict[str, Any],
 ) -> WorkflowStop | None:
     if not isinstance(review, dict):
         return _stop(
@@ -905,8 +1240,42 @@ def _evaluate_visual_gate(
     operation_fields = multi_contract["operationFields"]
     operation_review_fields = multi_contract["operationReviewFields"]
     operation_evidence = review.get(evidence_fields["imageOperations"])
+    interaction_evidence = review.get(evidence_fields["interactionIntegrity"])
+    source_canvas_evidence = review.get(evidence_fields["sourceCanvas"])
+    source_mark_evidence = review.get(evidence_fields["sourceMarkTreatments"])
+    canvas_contract = rules["sourceCanvasContract"]
+    canvas_fields = canvas_contract["fields"]
+    canvas_evidence_fields = contract["sourceCanvasEvidenceFields"]
+    mark_contract = rules["sourceMarkTreatmentContract"]
+    mark_policy_fields = mark_contract["fields"]
+    treatment_fields = mark_contract["treatmentFields"]
+    mark_review_fields = mark_contract["reviewEvidenceFields"]
+    expected_mark_treatments = {
+        item[treatment_fields["identity"]]: item
+        for item in expected_source_mark_policy[mark_policy_fields["treatments"]]
+    }
     expected_operation_ids = {
         operation[operation_fields["identity"]] for operation in expected_image_operations
+    }
+    graph_fields = multi_contract["graphFields"]
+    relation_fields = multi_contract["relationFields"]
+    interaction_fields = contract["interactionIntegrityFields"]
+    interaction_types = {
+        multi_contract["relationTypes"][role]
+        for role in contract["interactionRelationTypeKeys"]
+    }
+    expected_interactions = {
+        relation[relation_fields["identity"]]: {
+            interaction_fields["relationType"]: relation[
+                relation_fields["type"]
+            ],
+            interaction_fields["endpointComponents"]: [
+                relation[relation_fields["source"]],
+                relation[relation_fields["target"]],
+            ],
+        }
+        for relation in expected_component_graph[graph_fields["relations"]]
+        if relation[relation_fields["type"]] in interaction_types
     }
     bindings = review.get("bindings")
     method = review.get("method")
@@ -977,6 +1346,84 @@ def _evaluate_visual_gate(
             }
         )
         == len(operation_evidence)
+        and isinstance(interaction_evidence, list)
+        and len(interaction_evidence) == len(expected_interactions)
+        and all(
+            isinstance(item, dict)
+            and set(item) == set(interaction_fields.values())
+            and item.get(interaction_fields["relationIdentity"])
+            in expected_interactions
+            and item.get(interaction_fields["relationType"])
+            == expected_interactions[
+                item[interaction_fields["relationIdentity"]]
+            ][interaction_fields["relationType"]]
+            and item.get(interaction_fields["endpointComponents"])
+            == expected_interactions[
+                item[interaction_fields["relationIdentity"]]
+            ][interaction_fields["endpointComponents"]]
+            and all(
+                isinstance(item.get(interaction_fields[field]), bool)
+                for field in (
+                    "subjectPartsTraceable",
+                    "topologyPlausible",
+                    "contactPlausible",
+                    "occlusionOrderPlausible",
+                    "noFusionOrExtraParts",
+                )
+            )
+            and isinstance(item.get(interaction_fields["evidence"]), str)
+            and item[interaction_fields["evidence"]].strip()
+            for item in interaction_evidence
+        )
+        and len(
+            {
+                item[interaction_fields["relationIdentity"]]
+                for item in interaction_evidence
+            }
+        )
+        == len(interaction_evidence)
+        and isinstance(source_canvas_evidence, dict)
+        and set(source_canvas_evidence) == set(canvas_evidence_fields.values())
+        and source_canvas_evidence.get(canvas_evidence_fields["mode"])
+        == expected_source_canvas[canvas_fields["mode"]]
+        and all(
+            isinstance(source_canvas_evidence.get(canvas_evidence_fields[field]), bool)
+            for field in (
+                "actionsSatisfied",
+                "excludedCarrierAbsent",
+                "designFeaturesPreserved",
+            )
+        )
+        and isinstance(
+            source_canvas_evidence.get(canvas_evidence_fields["evidence"]), str
+        )
+        and source_canvas_evidence[canvas_evidence_fields["evidence"]].strip()
+        and isinstance(source_mark_evidence, list)
+        and len(source_mark_evidence) == len(expected_mark_treatments)
+        and all(
+            isinstance(item, dict)
+            and set(item) == set(mark_review_fields.values())
+            and item.get(mark_review_fields["identity"]) in expected_mark_treatments
+            and item.get(mark_review_fields["type"])
+            == expected_mark_treatments[item[mark_review_fields["identity"]]][
+                treatment_fields["type"]
+            ]
+            and item.get(mark_review_fields["action"])
+            == expected_mark_treatments[item[mark_review_fields["identity"]]][
+                treatment_fields["action"]
+            ]
+            and isinstance(item.get(mark_review_fields["actionSatisfied"]), bool)
+            and isinstance(item.get(mark_review_fields["evidence"]), str)
+            and item[mark_review_fields["evidence"]].strip()
+            for item in source_mark_evidence
+        )
+        and len(
+            {
+                item[mark_review_fields["identity"]]
+                for item in source_mark_evidence
+            }
+        )
+        == len(source_mark_evidence)
         and isinstance(bindings, dict)
         and all(bindings.get(key) == value for key, value in expected_bindings.items())
         and evidence_payload is not None
@@ -999,9 +1446,46 @@ def _evaluate_visual_gate(
             "视觉审核证据合同无效或未绑定当前生图事实。",
             {"expectedBindings": expected_bindings},
         )
-    failures = [name for name, passed in hard_gates.items() if passed is not True]
+    derived_cleanliness_gates = {
+        contract["hardGateRoles"]["fullCanvasCleanliness"],
+    }
+    failures = [
+        name
+        for name, passed in hard_gates.items()
+        if name not in derived_cleanliness_gates and passed is not True
+    ]
     failures.extend(name for name, value in dimensions.items() if value["pass"] is not True)
     failures.extend(name for name, found in cleanliness.items() if found is True)
+    if any(
+        source_canvas_evidence[canvas_evidence_fields[field]] is not True
+        for field in (
+            "actionsSatisfied",
+            "excludedCarrierAbsent",
+            "designFeaturesPreserved",
+        )
+    ):
+        failures.append(contract["hardGateRoles"]["fullCanvasCleanliness"])
+    remove_action = mark_contract["actions"]["remove"]
+    preserve_action = mark_contract["actions"]["preserve"]
+    watermark_types = {
+        mark_contract["types"]["watermark"],
+        mark_contract["types"]["platformMark"],
+        mark_contract["types"]["accountMark"],
+        mark_contract["types"]["pseudoSignature"],
+    }
+    for item in source_mark_evidence:
+        if item[mark_review_fields["actionSatisfied"]] is True:
+            continue
+        action = item[mark_review_fields["action"]]
+        mark_type = item[mark_review_fields["type"]]
+        if action == preserve_action:
+            failures.append(contract["hardGateRoles"]["nonTargetPreservation"])
+        elif action == remove_action:
+            failures.append(contract["hardGateRoles"]["fullCanvasCleanliness"])
+            if mark_type in watermark_types:
+                failures.append(contract["hardGateRoles"]["watermarkAbsence"])
+        else:
+            failures.append(contract["hardGateRoles"]["dependencyClosure"])
     if visible_text["pass"] is not True:
         failures.append(contract["hardGateRoles"]["visibleText"])
     if identity_text_required and (
@@ -1019,6 +1503,18 @@ def _evaluate_visual_gate(
             failures.append(contract["hardGateRoles"]["contactGeometry"])
         if item[operation_review_fields["nonTargetStable"]] is not True:
             failures.append(contract["hardGateRoles"]["nonTargetPreservation"])
+    for item in interaction_evidence:
+        if any(
+            item[interaction_fields[field]] is not True
+            for field in (
+                "subjectPartsTraceable",
+                "topologyPlausible",
+                "contactPlausible",
+                "occlusionOrderPlausible",
+                "noFusionOrExtraParts",
+            )
+        ):
+            failures.append(contract["hardGateRoles"]["contactGeometry"])
     if failures:
         failed_gates = sorted(set(failures))
         review["decision"] = contract["decisionValues"]["rejected"]

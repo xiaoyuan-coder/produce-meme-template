@@ -22,6 +22,7 @@ from .artifacts import (
     canonical_json_bytes as _canonical_bytes,
     load_json_object as _read_json,
 )
+from .authoring_handoff import default_subject_binding_analysis
 from .validation import is_public_ip_address, is_safe_public_https_url
 from .production_gates import (
     deterministic_authoring_contract_audit,
@@ -212,8 +213,17 @@ class DeterministicFixtureAdapters:
             }
         if continuity_field not in result:
             mechanism = result["mechanism"]
+            multi = rules["multiInstanceContract"]
+            graph = result[multi["sourceFields"]["componentGraph"]]
+            component_fields = multi["componentFields"]
+            identity_units = {
+                component[component_fields["identityUnit"]]
+                for component in graph[multi["graphFields"]["components"]]
+                if isinstance(component.get(component_fields["identityUnit"]), str)
+                and component[component_fields["identityUnit"]].strip()
+            }
             result[continuity_field] = {
-                "subjectCount": 1,
+                "subjectCount": len(identity_units),
                 "speciesOrType": target["category"],
                 "genderPresentation": "当前画面未显示可靠性别线索",
                 "apparentAge": "保持当前主体的年龄阶段",
@@ -226,6 +236,35 @@ class DeterministicFixtureAdapters:
                 ],
                 "evidence": "fixture 从来源机制中冻结主体连续性下界",
             }
+        canvas_contract = rules["sourceCanvasContract"]
+        canvas_fields = canvas_contract["fields"]
+        result.setdefault(
+            canvas_contract["field"],
+            {
+                canvas_fields["mode"]: canvas_contract["modes"][
+                    "standaloneDesign"
+                ],
+                canvas_fields["targetRegions"]: ["full-source-canvas"],
+                canvas_fields["excludedCarrierRegions"]: [],
+                canvas_fields["requiredActions"]: [
+                    canvas_contract["actions"]["preserveFullCanvas"]
+                ],
+                canvas_fields["preserveDesignFeatures"]: [
+                    "来源画面的完整构图与阅读顺序"
+                ],
+                canvas_fields["evidence"]: "fixture 来源为独立画面，无商品载体或截屏边框",
+            },
+        )
+        mark_contract = rules["sourceMarkTreatmentContract"]
+        mark_fields = mark_contract["fields"]
+        result.setdefault(
+            mark_contract["field"],
+            {
+                mark_fields["assessed"]: True,
+                mark_fields["treatments"]: [],
+                mark_fields["evidence"]: "fixture 已核对来源标记，未发现需单独处置的标记",
+            },
+        )
         if replacement_strategy and replacement_strategy.get("replacementValue") is not None:
             requested_value = replacement_strategy["replacementValue"]
             requested_category = replacement_strategy["replacementCategory"]
@@ -267,6 +306,12 @@ class DeterministicFixtureAdapters:
                 }
                 for preserve_value in replacement_strategy["preserve"]
             ]
+        binding_field = rules["sourceAuthoringContextContract"][
+            "subjectBindingField"
+        ]
+        result.setdefault(
+            binding_field, default_subject_binding_analysis(result, rules)
+        )
         return result
 
     def generate(self, source_image: Path, generation_package: dict[str, Any]) -> dict[str, Any]:
@@ -406,8 +451,78 @@ class DeterministicFixtureAdapters:
         self, generated_image: Path, review_request: dict[str, Any]
     ) -> dict[str, Any]:
         result = _read_json(self.fixture_dir / "visual-review.json")
-        result["schemaVersion"] = _read_json(RULES_PATH)["schemaVersion"]
-        contract = _read_json(RULES_PATH)["visualReviewContract"]
+        rules = _read_json(RULES_PATH)
+        result["schemaVersion"] = rules["schemaVersion"]
+        contract = rules["visualReviewContract"]
+        evidence_fields = contract["evidenceFieldRoles"]
+        cleanliness = result[evidence_fields["cleanliness"]]
+        for finding in contract["cleanlinessFindingRoles"].values():
+            cleanliness.setdefault(finding, False)
+        interaction_fields = contract["interactionIntegrityFields"]
+        multi = rules["multiInstanceContract"]
+        graph = review_request[multi["planFields"]["componentGraph"]]
+        graph_fields = multi["graphFields"]
+        relation_fields = multi["relationFields"]
+        interaction_types = {
+            multi["relationTypes"][role]
+            for role in contract["interactionRelationTypeKeys"]
+        }
+        result[evidence_fields["interactionIntegrity"]] = [
+            {
+                interaction_fields["relationIdentity"]: relation[
+                    relation_fields["identity"]
+                ],
+                interaction_fields["relationType"]: relation[
+                    relation_fields["type"]
+                ],
+                interaction_fields["endpointComponents"]: [
+                    relation[relation_fields["source"]],
+                    relation[relation_fields["target"]],
+                ],
+                interaction_fields["subjectPartsTraceable"]: True,
+                interaction_fields["topologyPlausible"]: True,
+                interaction_fields["contactPlausible"]: True,
+                interaction_fields["occlusionOrderPlausible"]: True,
+                interaction_fields["noFusionOrExtraParts"]: True,
+                interaction_fields["evidence"]: (
+                    "fixture 逐关系复核肢体归属、拓扑、接触、遮挡顺序与融合异常"
+                ),
+            }
+            for relation in graph[graph_fields["relations"]]
+            if relation[relation_fields["type"]] in interaction_types
+        ]
+        canvas_contract = rules["sourceCanvasContract"]
+        canvas_fields = canvas_contract["fields"]
+        source_canvas = review_request[canvas_contract["field"]]
+        canvas_evidence_fields = contract["sourceCanvasEvidenceFields"]
+        result[evidence_fields["sourceCanvas"]] = {
+            canvas_evidence_fields["mode"]: source_canvas[canvas_fields["mode"]],
+            canvas_evidence_fields["actionsSatisfied"]: True,
+            canvas_evidence_fields["excludedCarrierAbsent"]: True,
+            canvas_evidence_fields["designFeaturesPreserved"]: True,
+            canvas_evidence_fields["evidence"]: (
+                "fixture 已核对目标画布动作、载体排除和设计内部结构"
+            ),
+        }
+        mark_contract = rules["sourceMarkTreatmentContract"]
+        mark_policy_fields = mark_contract["fields"]
+        treatment_fields = mark_contract["treatmentFields"]
+        review_fields = mark_contract["reviewEvidenceFields"]
+        result[evidence_fields["sourceMarkTreatments"]] = [
+            {
+                review_fields["identity"]: item[treatment_fields["identity"]],
+                review_fields["type"]: item[treatment_fields["type"]],
+                review_fields["action"]: item[treatment_fields["action"]],
+                review_fields["actionSatisfied"]: True,
+                review_fields["evidence"]: (
+                    f"fixture 已核对 {item[treatment_fields['identity']]} 的"
+                    f" {item[treatment_fields['action']]} 动作"
+                ),
+            }
+            for item in review_request[mark_contract["field"]][
+                mark_policy_fields["treatments"]
+            ]
+        ]
         result["bindings"] = {
             **review_request["bindings"],
             "generatedImageSha256": hashlib.sha256(generated_image.read_bytes()).hexdigest(),

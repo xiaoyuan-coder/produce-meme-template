@@ -4,7 +4,7 @@
 
 P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA 绑定的只读 Authoring Handoff。Approved Image 决定最终可见事实；Handoff 提供 P1 已冻结的玩法、IP/文化身份、主体连续性、组件拓扑和替换边界。P3 围绕两者差量编写标题、描述、槽位、Prompt Template 和 `runtimeSemantics`，不重复从零发现上述语义事实。
 
-完成一次编写前，逐项确认：每个用户可见字面都能追溯到当前确认图或用户对该图的显式要求；每个槽位都通过四道价值门禁并绑定当前组件；Prompt 完整表达开放内容；`runtimeSemantics` 精确定位目标并使用可观察的画风事实；当前 Production Item 没有读取兄弟项的标题、默认值、槽位、Prompt 或视觉合同。
+完成一次编写前，逐项确认：每个用户可见字面都能追溯到当前确认图或用户对该图的显式要求；每个槽位都通过四道价值门禁并绑定当前组件；Prompt 完整表达开放内容；`runtimeSemantics` 精确定位目标并使用可观察的画风事实；内容标签能逐项追溯到当前确认图并具有分类价值；当前 Production Item 没有读取兄弟项的标题、默认值、槽位、Prompt、标签或视觉合同。
 
 ## 2. 单图事实域
 
@@ -149,7 +149,7 @@ P3–P6 使用当前 Production Item 的 Approved Template Image 和与其 SHA �
 - `inheritFromUpload` 必须包含机器合同声明的“可辨认身份特征”，并至少按当前图补充一项肤色、毛色与花纹、发型、服装、配饰、表情或动作等清晰可辨范围。
 - `keepFromTemplate` 只列参与核心玩法的例外，可以为空；存在固定例外时，`reason` 必须用一句当前图事实说明其玩法、动作、关系、结构或视觉钩子依据。两个列表不得重叠。
 - 模板媒介、画风、造型比例和构图骨架继续属于 `visualContract`，不写入身份特征列表。
-- 裁决保留在生产 sidecar；编译器将其生成为图片模式的 `runtimeSemantics.visualContract.relations`，正式 `inputSchema` 不新增字段。`image.promptValue` 继续只提供中性主体说明。
+- 细粒度裁决保留在生产 sidecar；编译器将其生成为图片模式的 `runtimeSemantics.visualContract.relations`，并为每个 `replace_identity` binding 确定性写入 `clothingOwnership=source|template`。正式 `inputSchema` 不新增字段，`image.promptValue` 继续只提供中性主体说明。
 - 若某项特征已开放为槽位，用户本次槽位值拥有最高权限，不再将同一默认值列为模板固定例外。
 - “至少一项具体范围”是确定性 fail-fast 下界。当前图事实和固定例外是否真正参与模板玩法，由直接读取 Approved Template Image 的 P3 作者分析负责裁决；P6 独立语义审计只复核编译后权限、目标、绑定与约束之间的一致性。
 
@@ -190,15 +190,21 @@ Prompt Template 的每个字面都应是用户可编辑的内容或它们之间�
 
 槽位编辑与全文编辑拥有同等用户字面权限。用户改写主体、文字、颜色、服装、道具或场景后，隐藏层不得恢复旧默认值。单图 Prompt 不引用批次主题、兄弟图内容或“与上一张一致”等上下文。
 
+### 8.1 内容标签
+
+`metadata.tags` 是面向分类、筛选和审核的单图内容标签。每张 Approved Template Image 独立编写 2–5 个标签，优先覆盖该图最有辨识度的主体类型、动作或关系、场景、媒介或视觉钩子。每个标签必须能由当前图像事实证明，并能帮助用户区分该模板与其他模板。
+
+“人物、动物、物件、图片、模板、表情包、热门、有趣、好看”这类泛标签不能单独构成有效分类。批量生产中重复同一组标签不能替代逐图编写。P4 将每个标签与 Approved Image 独立对照，记录 `groundedInApprovedImage`、`classificationUseful` 和非空证据；标签数量、长度、唯一性、逐项证据或任一结论不合格时，在正式编译前阻断当前项。
+
 ## 9. runtimeSemantics 编译规范
 
 ### 9.1 targetInstances
 
-每个开放目标和关键身份边界使用稳定 ID，并绑定当前 `componentGraph` 中的实际组件。`role` 描述当前图中可观察的职责，`region` 描述可定位的空间范围；两者分别达到机器合同的最小信息长度，且“主体、背景、画面元素、主体区域、画面区域、对应位置”这类通用词不能单独形成定位。重复实例、镜像、阴影、容器和分格继续按多实例合同建立关系。
+每个开放目标和关键身份边界使用稳定 ID。固定目标绑定当前 `componentGraph` 中的实际组件；动态合照以一个 `identity_group` 描述可伸缩区域，并写出 `memberKind/minMembers/maxMembers`。`role` 描述当前图中可观察的职责，`region` 描述可定位的空间范围；两者分别达到机器合同的最小信息长度，且“主体、背景、画面元素、主体区域、画面区域、对应位置”这类通用词不能单独形成定位。重复实例、镜像、阴影、容器和分格继续按多实例合同建立关系。
 
 ### 9.2 inputBindings
 
-每个正式 input ID 恰好出现一次。身份输入绑定一个 `identity_subject` 时使用 `one_to_one`；同一来源身份覆盖两个及以上固定可见实例时使用 `same_source_repeated`。内容输入绑定一个 `content_element`，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
+每个正式 input ID 恰好出现一次。身份输入绑定一个 `identity_subject` 时使用 `one_to_one`；同一来源身份覆盖两个及以上固定可见实例时使用 `same_source_repeated`；一张合照的全部同类成员随人数变化时，使用一个 `identity_group` 和 `preserve_group + group_photo`。每个身份 binding 显式写服装归属。内容输入绑定一个 `content_element`，或绑定需要保持组结构的一组内容目标。绑定只决定输入接管哪个目标，不承载风格文案。
 
 ### 9.3 renderingCoherenceDecision
 

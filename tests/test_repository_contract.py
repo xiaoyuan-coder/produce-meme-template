@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import json
 import hashlib
 import re
@@ -20,6 +21,46 @@ def load(path: Path):
 
 
 class RepositoryContractTest(unittest.TestCase):
+    def test_every_skill_authority_unit_has_an_executable_owner_and_bad_case(
+        self,
+    ) -> None:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "validate_normative_rule_registry.py"),
+                "--root",
+                str(ROOT),
+                "--check",
+            ],
+            cwd=ROOT,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+
+        self.assertEqual(0, completed.returncode, completed.stdout)
+
+    def test_normative_registry_rejects_a_deleted_authority_unit(self) -> None:
+        from scripts.produce_meme_template.normative_registry import (
+            validate_registry_snapshot,
+        )
+
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        self.assertEqual(
+            "contracts/normative-rule-registry.json",
+            rules["normativeRuleRegistryContract"]["artifactName"],
+        )
+        registry = load(ROOT / "contracts" / "normative-rule-registry.json")
+        tampered = copy.deepcopy(registry)
+        self.assertTrue(tampered["sources"][0]["units"])
+        tampered["sources"][0]["units"].pop()
+
+        self.assertIn(
+            "authority unit coverage drift: " + tampered["sources"][0]["path"],
+            validate_registry_snapshot(ROOT, tampered, rules),
+        )
+
     def test_production_execution_contract_is_the_only_execution_mode_source(self) -> None:
         rules = load(ROOT / "contracts" / "machine-rules.json")
         contract = rules["productionExecutionContract"]
@@ -146,6 +187,54 @@ class RepositoryContractTest(unittest.TestCase):
                 )
             )
             self.assertEqual(len(mapping), len(set(mapping.values())))
+
+    def test_critical_outcome_contract_has_complete_unique_evidence_ownership(self) -> None:
+        rules = load(ROOT / "contracts" / "machine-rules.json")
+        contract = rules["criticalOutcomeContract"]
+        requirement_ids = contract["requirementIds"]
+        evidence_owners = contract["evidenceOwners"]
+
+        self.assertEqual(set(requirement_ids), set(evidence_owners))
+        self.assertEqual(
+            {
+                "replacementDependencyClosure",
+                "sourceStyleFidelity",
+                "identityFeatureBinding",
+                "multiSubjectClosure",
+                "sourceCanvasNormalization",
+                "sourceMarkPolicy",
+                "generationPromptFrozen",
+                "interactionIntegrity",
+                "approvedImageQuality",
+                "userVisibleCopy",
+                "userVisiblePromptTemplate",
+                "highValueSlotBinding",
+                "subjectEditPolicy",
+                "identityInheritancePolicy",
+                "conciseSlotDefaults",
+                "resolvedPromptIntegrity",
+                "openContentAuthority",
+                "titlePortability",
+                "slotSuggestionQuality",
+                "runtimeSemanticsIntegrity",
+                "runtimeSemanticsResponsibilities",
+                "identityTextNeutrality",
+                "visibleTextRouting",
+                "renderingCoherence",
+                "runtimeStyleMedium",
+                "classificationTags",
+                "formalRecordContract",
+            },
+            set(requirement_ids),
+        )
+        self.assertEqual(len(requirement_ids), len(set(requirement_ids.values())))
+        self.assertTrue(
+            all(
+                isinstance(owner, str)
+                and ".json#/" in owner
+                for owner in evidence_owners.values()
+            )
+        )
 
     def test_runtime_module_dependencies_are_acyclic(self) -> None:
         package = ROOT / "scripts" / "produce_meme_template"
@@ -351,7 +440,7 @@ class RepositoryContractTest(unittest.TestCase):
             rules["runtimeSemanticsContract"]["fields"].values()
         )
         schema_fields = set(
-            schema["$defs"]["runtimeSemantics"]["properties"]
+            schema["$defs"]["runtimeSemanticsV2"]["properties"]
         )
 
         self.assertEqual(schema_fields, runtime_fields)
@@ -420,7 +509,7 @@ class RepositoryContractTest(unittest.TestCase):
                 all(isinstance(value, str) and value for value in mapping.values())
             )
         self.assertEqual(
-            [f"E{index:02d}" for index in range(1, 45)],
+            [f"E{index:02d}" for index in range(1, 62)],
             contract["experienceIds"],
         )
         experience_fields = contract["experienceFields"]

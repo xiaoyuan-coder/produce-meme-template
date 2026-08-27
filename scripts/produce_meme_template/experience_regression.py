@@ -323,7 +323,8 @@ class ExperienceRegressionAdapters:
             "formal_template_contract_valid;"
             "rules=json.load(open('contracts/machine-rules.json'));"
             "record=json.load(sys.stdin);"
-            "print(json.dumps(formal_template_contract_valid(record,rules)))"
+            "print(json.dumps(formal_template_contract_valid("
+            "record,rules,require_current=False)))"
         )
         try:
             completed = subprocess.run(
