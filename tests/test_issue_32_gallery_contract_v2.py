@@ -295,6 +295,34 @@ class Issue32GalleryContractV2Test(unittest.TestCase):
             report = json.loads(completed.stdout)
             self.assertEqual("invalid", report["items"][0]["status"])
 
+    def test_migration_cli_rejects_a_boolean_bundle_version(self) -> None:
+        source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            input_path = root / "invalid-bundle.json"
+            input_path.write_text(
+                json.dumps({"version": True, "templates": [source]}),
+                encoding="utf-8",
+            )
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts" / "migrate_gallery_contract_v2.py"),
+                    "--input",
+                    str(input_path),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(2, completed.returncode)
+            self.assertNotIn("Traceback", completed.stderr)
+            report = json.loads(completed.stdout)
+            self.assertEqual("invalid", report["items"][0]["status"])
+
     def test_migration_cli_rejects_a_template_key_that_escapes_output(self) -> None:
         source = json.loads(LEGACY_SAMPLE.read_text(encoding="utf-8"))
         source["key"] = "../escaped"

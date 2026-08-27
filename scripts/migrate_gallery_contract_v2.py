@@ -39,9 +39,11 @@ def _records(
             and bundle_fields["templates"] in payload
         ):
             templates = payload.get(bundle_fields["templates"])
+            version = payload.get(bundle_fields["version"])
             if (
-                payload.get(bundle_fields["version"])
-                not in set(migration_contract["readableBundleVersions"])
+                not isinstance(version, int)
+                or isinstance(version, bool)
+                or version not in set(migration_contract["readableBundleVersions"])
                 or not isinstance(templates, list)
             ):
                 raise ValueError(f"invalid Gallery v2 bundle: {item}")
@@ -126,7 +128,27 @@ def main() -> int:
             parser.error("--output must not be a symlink")
         args.output.mkdir(parents=True, exist_ok=True)
         output_root = args.output.resolve()
-    for fallback_key, record in _records(args.input, migration_contract):
+    try:
+        records = _records(args.input, migration_contract)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(
+            json.dumps(
+                {
+                    report_fields["items"]: [
+                        {
+                            report_fields["key"]: args.input.stem,
+                            report_fields["status"]: statuses["invalid"],
+                            report_fields["requiredClothingDecisions"]: [],
+                            report_fields["errors"]: [str(exc)],
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 2
+    for fallback_key, record in records:
         template_key = (
             record.get(template_key_field, fallback_key)
             if isinstance(record, dict)

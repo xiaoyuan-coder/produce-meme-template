@@ -84,6 +84,12 @@ class RepositoryContractTest(unittest.TestCase):
             "网络重试复用 request ID": "generation",
             "自动检查六维视觉合同": "visual-review",
             "只有真实歧义和多个有效方案接近时请求人工决定": "visual-review",
+            "当前正式封面字段固定为 `cover`": "template-compilation",
+            "正式 JSON 默认状态采用当前合同支持的 DRAFT": "template-compilation",
+            "Skill 使用渐进式披露": "governance",
+            "建立模板图视觉审核 fixture": "visual-review",
+            "建立逐图标签红例": "template-authoring",
+            "建立用户权限冲突测试": "template-compilation",
         }
         for fragment, expected_family in expected_assignments.items():
             matching = [
@@ -102,6 +108,62 @@ class RepositoryContractTest(unittest.TestCase):
         self.assertEqual(
             {"template-compilation"},
             {unit["familyId"] for unit in migration_adr["units"]},
+        )
+        for relative, expected in {
+            "SKILL.md": {
+                "T1 测试": "template-test",
+                "生成执行与 WAL 恢复合同": "generation",
+                "正式模板编译合同": "template-compilation",
+            },
+            "CONTEXT.md": {
+                "确认模板图（Approved Template Image）": "visual-review",
+                "提示词模板（Prompt Template）": "template-authoring",
+                "正式投影（Formal Projection）": "template-compilation",
+                "模板 JSON 测试（Template JSON Test）": "template-test",
+            },
+        }.items():
+            source = next(
+                item for item in registry["sources"] if item["path"] == relative
+            )
+            source_units = scan_authority_units(ROOT / relative)
+            source_assignments = {
+                text: unit["familyId"]
+                for text, unit in zip(source_units, source["units"])
+            }
+            for fragment, expected_family in expected.items():
+                matching = [
+                    family
+                    for text, family in source_assignments.items()
+                    if fragment in text
+                ]
+                self.assertTrue(matching, fragment)
+                self.assertEqual({expected_family}, set(matching), fragment)
+
+        reviewed_corrections = {
+            "NR-specs-skill-md-feefa5d0e4b4-1": "lifecycle",
+            "NR-specs-skill-md-b9f23b03495f-1": "execution-authority",
+            "NR-specs-skill-md-a3452e346940-1": "domain-model",
+            "NR-skill-md-bae82d2c90b7-1": "template-compilation",
+            "NR-context-md-cd5e82e2fabe-1": "lifecycle",
+            "NR-context-md-c2904079d2a9-1": "domain-model",
+            "NR-context-md-c674fd66a7fc-1": "template-compilation",
+            "NR-context-md-ed687400b650-1": "template-compilation",
+            "NR-context-md-fc9ab0de8862-1": "template-compilation",
+            "NR-context-md-6ecf2073b358-1": "template-compilation",
+            "NR-context-md-bf713e0b6ad7-1": "domain-model",
+            "NR-context-md-efd09f174332-1": "domain-model",
+        }
+        actual_by_rule_id = {
+            unit["ruleId"]: unit["familyId"]
+            for source in registry["sources"]
+            for unit in source["units"]
+        }
+        self.assertEqual(
+            reviewed_corrections,
+            {
+                rule_id: actual_by_rule_id.get(rule_id)
+                for rule_id in reviewed_corrections
+            },
         )
 
         tampered = copy.deepcopy(registry)
