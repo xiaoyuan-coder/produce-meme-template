@@ -965,6 +965,40 @@
           "expectedGateLocator": "/normativeRuleRegistryContract/artifactName"
         }
       ]
+    },
+    {
+      "experienceId": "E62",
+      "topic": "完整来源画布比例与生图 API 尺寸必须一致",
+      "migrationStatus": "rewritten",
+      "legacyDisposition": "standalone_design 和 full_scene 根据来源图真实宽高比选择最接近的正式合同尺寸；P1 Prompt 和 Generation Task 共用该尺寸，不得再用固定方形参数覆盖完整画布约束。",
+      "authority": {
+        "path": "references/replacement-spec.md",
+        "anchor": "## 5. 生图 prompt 的固定结构"
+      },
+      "implementation": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_runtime.py",
+        "locator": "_preserved_canvas_image_size_error"
+      },
+      "evidence": [
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_binds_preserved_canvas_ratio_to_api_size",
+          "polarity": "good-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-image.ppm",
+            "tests/test_issue_17_major_stages.py"
+          ]
+        },
+        {
+          "testId": "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_blocks_wrong_preserved_canvas_api_size",
+          "polarity": "bad-case",
+          "fixturePaths": [
+            "fixtures/e2e/simple-animal/source-image.ppm",
+            "tests/test_issue_17_major_stages.py"
+          ],
+          "expectedGateLocator": "/errorCodes/externalFailure"
+        }
+      ]
     }
   ],
   "corpus": {

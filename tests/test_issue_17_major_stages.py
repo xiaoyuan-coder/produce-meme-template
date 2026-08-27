@@ -117,6 +117,33 @@ class Issue17MajorStagesTest(unittest.TestCase):
                     },
                 )
 
+    def test_stage_one_binds_preserved_canvas_ratio_to_api_size(self) -> None:
+        completed = self.run_stage(1, DeterministicFixtureAdapters(FIXTURE))
+
+        self.assertEqual("completed", completed.outcome)
+        package = load_json(completed.output_dir / "generation-package.json")
+        self.assertEqual("1024x1024", package["output"]["size"])
+        self.assertIn("目标尺寸 1024x1024", package["sections"]["output"])
+        self.assertNotIn("保持完整画布与原比例", package["prompt"])
+
+    def test_stage_one_blocks_wrong_preserved_canvas_api_size(self) -> None:
+        class WrongCanvasSizeAdapters(DeterministicFixtureAdapters):
+            def analyze_source(self, source_image, replacement_strategy):
+                analysis = super().analyze_source(source_image, replacement_strategy)
+                analysis["imageSize"] = "1152x896"
+                return analysis
+
+        wrong = run_production(
+            {**self.request, "productionItemId": "wrong-preserved-canvas-size"},
+            self.output_root,
+            WrongCanvasSizeAdapters(FIXTURE),
+            clock=lambda: FIXED_TIME,
+            stage=1,
+        )
+        self.assertEqual("failed", wrong.outcome)
+        self.assertEqual(RULES["errorCodes"]["externalFailure"], wrong.error_code)
+        self.assertFalse((wrong.output_dir / "source-analysis.json").exists())
+
     def test_stage_one_blocks_missing_canvas_routing_and_illegal_sticker_removal(
         self,
     ) -> None:

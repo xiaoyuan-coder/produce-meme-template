@@ -632,7 +632,7 @@ class RepositoryContractTest(unittest.TestCase):
                 all(isinstance(value, str) and value for value in mapping.values())
             )
         self.assertEqual(
-            [f"E{index:02d}" for index in range(1, 62)],
+            [f"E{index:02d}" for index in range(1, 63)],
             contract["experienceIds"],
         )
         experience_fields = contract["experienceFields"]

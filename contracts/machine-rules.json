@@ -44,7 +44,7 @@
       "sha256": "sha256",
       "family": "familyId"
     },
-    "assignmentDigest": "890bb9a28fc276ce7294fe57d1bad84ee4d4bb8ca90e19a87ed1208f880ee312",
+    "assignmentDigest": "d648b0ed2d100ce86785202baee2cc052c8cb2b9bc087c1d4d912325e6542627",
     "enforcementClasses": {
       "runtimeGate": "runtime_gate",
       "repositoryGate": "repository_gate",
@@ -2620,7 +2620,7 @@
     "artifactType": "historical-experience-regression",
     "matrixRelativePath": "fixtures/regression/historical-experience-matrix.json",
     "evidenceRunnerRelativePath": "scripts/experience_evidence_runner.py",
-    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52", "E53", "E54", "E55", "E56", "E57", "E58", "E59", "E60", "E61"],
+    "experienceIds": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08", "E09", "E10", "E11", "E12", "E13", "E14", "E15", "E16", "E17", "E18", "E19", "E20", "E21", "E22", "E23", "E24", "E25", "E26", "E27", "E28", "E29", "E30", "E31", "E32", "E33", "E34", "E35", "E36", "E37", "E38", "E39", "E40", "E41", "E42", "E43", "E44", "E45", "E46", "E47", "E48", "E49", "E50", "E51", "E52", "E53", "E54", "E55", "E56", "E57", "E58", "E59", "E60", "E61", "E62"],
     "requiredCorpusRoles": {
       "latestHeartInput": "latest-heart-input",
       "latestHeartExpected": "latest-heart-expected",
@@ -2795,7 +2795,8 @@
       "E58": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}],
       "E59": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}],
       "E60": [{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/visualHardFailure"}],
-      "E61": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/normativeRuleRegistryContract/artifactName"}]
+      "E61": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/normativeRuleRegistryContract/artifactName"}],
+      "E62": [{"polarityRole":"goodCase","expectedGateLocator":null},{"polarityRole":"badCase","expectedGateLocator":"/errorCodes/externalFailure"}]
     },
     "requiredExperienceSha256ById": {
       "E01": "8637294644ba7803b860a32bb2cb7f3a5f56949604328988c0aa6cd40baee8be",
@@ -2858,7 +2859,8 @@
       "E58": "35e7d72bf25a19b5531ef82604d09f9bd907850017bb91ae18a3be79c03c671b",
       "E59": "48f9431e81084940334b7f264ee6d7f8eeb01af00fc9911e40b89d629b14d1bf",
       "E60": "adbb911d5fea4a6e26fc92a58000da2c67b9397d1ca84a634dfcf710b9b6d565",
-      "E61": "16843b14d90827ee714090d022cc42b79d5b1aec4f43b46ba2f06d6a1bdb0fc8"
+      "E61": "16843b14d90827ee714090d022cc42b79d5b1aec4f43b46ba2f06d6a1bdb0fc8",
+      "E62": "e8c76701c67acb32775f3d0907dcd324da50cccc8e85ca7fe399ff254e14afbb"
     },
     "implementationKinds": {
       "machineRule": "machine-rule",

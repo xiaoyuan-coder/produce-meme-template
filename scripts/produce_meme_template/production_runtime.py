@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from PIL import Image, ImageOps
 
 from .artifacts import (
     canonical_json_bytes as _canonical_bytes,
@@ -53,6 +56,43 @@ from .generation_runtime import (
     _prepared_generation_wal,
     _sanitize_generation_failure_reason,
 )
+
+
+def _preserved_canvas_image_size_error(
+    source_image: Path,
+    source_analysis: dict[str, Any],
+    rules: dict[str, Any],
+) -> str | None:
+    canvas_contract = rules["sourceCanvasContract"]
+    canvas = source_analysis.get(canvas_contract["field"])
+    if not isinstance(canvas, dict):
+        return None
+    mode = canvas.get(canvas_contract["fields"]["mode"])
+    preserved_modes = {
+        canvas_contract["modes"]["standaloneDesign"],
+        canvas_contract["modes"]["fullScene"],
+    }
+    if mode not in preserved_modes:
+        return None
+    with Image.open(source_image) as image:
+        width, height = ImageOps.exif_transpose(image).size
+    if width <= 0 or height <= 0:
+        return "source image dimensions are invalid"
+    source_ratio = width / height
+    canonical_sizes = rules["runtimeSemanticsContract"]["canonicalImageSizes"]
+
+    def ratio_distance(value: str) -> float:
+        candidate_width, candidate_height = (int(part) for part in value.split("x"))
+        return abs(math.log((candidate_width / candidate_height) / source_ratio))
+
+    expected = min(canonical_sizes, key=ratio_distance)
+    actual = source_analysis.get("imageSize")
+    if actual != expected:
+        return (
+            f"preserved source canvas requires nearest canonical imageSize {expected}; "
+            f"analysis selected {actual}"
+        )
+    return None
 from .replacement_planning import _build_pin, _plan_replacement
 from .outcome_qualification import compile_critical_outcome_qualification
 from .production_gates import (
@@ -1726,6 +1766,17 @@ def _run_single_production(
                     "externalFailure",
                     "来源分析没有完成 IP/文化身份发现或主体连续性冻结。",
                     {"errors": authoring_context_errors},
+                )
+            canvas_size_error = _preserved_canvas_image_size_error(
+                source_image, source_analysis, rules
+            )
+            if canvas_size_error is not None:
+                raise _stop(
+                    rules,
+                    "failed",
+                    "externalFailure",
+                    "来源分析的目标尺寸与完整画布比例不一致。",
+                    {"error": canvas_size_error},
                 )
             _atomic_write_new(output_dir / "source-analysis.json", _json_bytes(source_analysis))
             _record_artifact(manifest, output_dir, "source-analysis.json", p0, [str(evidence_source.relative_to(output_dir))])

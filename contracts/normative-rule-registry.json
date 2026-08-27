@@ -89,6 +89,27 @@
         "generationPromptFrozen"
       ]
     },
+    "source-canvas-size": {
+      "enforcementClass": "runtime_gate",
+      "owner": {
+        "kind": "python-symbol",
+        "path": "scripts/produce_meme_template/production_runtime.py",
+        "locator": "_preserved_canvas_image_size_error"
+      },
+      "goodCaseTestIds": [
+        "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_binds_preserved_canvas_ratio_to_api_size"
+      ],
+      "badCaseTestIds": [
+        "tests.test_issue_17_major_stages.Issue17MajorStagesTest.test_stage_one_blocks_wrong_preserved_canvas_api_size"
+      ],
+      "experienceIds": [
+        "E62"
+      ],
+      "criticalOutcomeRoles": [
+        "sourceCanvasNormalization",
+        "generationPromptFrozen"
+      ]
+    },
     "batch": {
       "enforcementClass": "runtime_gate",
       "owner": {
@@ -3136,7 +3157,7 @@
     },
     {
       "path": "references/replacement-spec.md",
-      "sha256": "93ffee65a199e8ab022a7fb91e96809c1c9590bb57acbc1e5be9d50f5f6fc380",
+      "sha256": "5a6e054926241a09905d97c406a01e100707b9499f4843db7ecf8d645c0cd5b8",
       "familyId": "replacement",
       "units": [
         {
@@ -3710,9 +3731,9 @@
           "familyId": "replacement"
         },
         {
-          "ruleId": "NR-references-replacement-spec-md-5c52c62ea820-1",
-          "sha256": "5c52c62ea8204602474a58bea670834056d6a8a1a4237124b3d4585bd2c8cf37",
-          "familyId": "replacement"
+          "ruleId": "NR-references-replacement-spec-md-8e0ce5c5935b-1",
+          "sha256": "8e0ce5c5935ba29f154a00404a828dfbf258ba63b524a4e0376e6fc16ad74670",
+          "familyId": "source-canvas-size"
         },
         {
           "ruleId": "NR-references-replacement-spec-md-5b01591869f5-1",

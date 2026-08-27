@@ -376,7 +376,12 @@ def _compile_generation_package(
             f"{item[decision_fields['action']]} -> {item[decision_fields['result']]}"
             for item in plan[plan_fields["textDecisions"]]
         )
-    sections["output"] = "输出一张图；保持完整画布与原比例，清晰输出，不新增文字。"
+    target_size = source_analysis["imageSize"]
+    sections["output"] = (
+        f"输出一张图；目标尺寸 {target_size}；完整保留来源画面内容、"
+        "构图关系和主体相对占幅；仅允许为适配目标尺寸自然延展原有背景，"
+        "禁止拉伸、裁掉未授权区域或新增文字。"
+    )
     prompt = "\n".join(sections.values())
     gate_contract = context_contract["firstStageGateContract"]
     gate_fields = gate_contract["fields"]

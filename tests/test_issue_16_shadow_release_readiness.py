@@ -82,6 +82,17 @@ class AnimalOnlyReadinessAdapters:
     def workflow_adapters_for_scenario(self, scenario: dict):
         workflow_adapters = DeterministicFixtureAdapters(BASE_FIXTURE)
         original_audit = workflow_adapters.audit_semantics
+        original_analyze = workflow_adapters.analyze_source
+        role = scenario[SCENARIO_FIELDS["role"]]
+        role_fixture = SHADOW_FIXTURE / role.replace("_", "-")
+
+        def analyze_unrelated_animal(source_image, replacement_strategy):
+            analysis = original_analyze(source_image, replacement_strategy)
+            role_analysis = json.loads(
+                (role_fixture / "source-analysis.json").read_text(encoding="utf-8")
+            )
+            analysis["imageSize"] = role_analysis["imageSize"]
+            return analysis
 
         def audit_current_scenario(content: dict) -> dict:
             audit = original_audit(content)
@@ -98,11 +109,9 @@ class AnimalOnlyReadinessAdapters:
             return audit
 
         workflow_adapters.audit_semantics = audit_current_scenario
-        role = scenario[SCENARIO_FIELDS["role"]]
+        workflow_adapters.analyze_source = analyze_unrelated_animal
         workflow_adapters.approved_image_path_override = (
-            SHADOW_FIXTURE
-            / role.replace("_", "-")
-            / "approved-template-image.png"
+            role_fixture / "approved-template-image.png"
         )
         return workflow_adapters
 

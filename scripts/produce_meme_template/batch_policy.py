@@ -280,6 +280,7 @@ def _source_analysis_identity_valid(
     source_analysis: Any, rules: dict[str, Any]
 ) -> bool:
     target = source_analysis.get("target") if isinstance(source_analysis, dict) else None
+    canonical_sizes = rules["runtimeSemanticsContract"]["canonicalImageSizes"]
     return bool(
         isinstance(target, dict)
         and target.get("category") in set(rules["sourceCategories"].values())
@@ -287,6 +288,7 @@ def _source_analysis_identity_valid(
         and target["role"].strip()
         and isinstance(target.get("identity"), str)
         and target["identity"].strip()
+        and source_analysis.get("imageSize") in set(canonical_sizes)
     )
 
 
