@@ -650,6 +650,7 @@ class RepositoryContractTest(unittest.TestCase):
             set(contract["requiredCorpusRoles"].values()),
             set(matrix[matrix_fields["corpus"]]),
         )
+
         self.assertEqual(
             set(contract["requiredCorpusRoles"]),
             set(contract["requiredCorpusBindings"]),
@@ -694,6 +695,21 @@ class RepositoryContractTest(unittest.TestCase):
                 experience_digests[experience_id],
             )
         self.assertNotIn("historicalExperienceEvidence", rules)
+
+    def test_authority_docs_do_not_duplicate_historical_experience_id_ranges(
+        self,
+    ) -> None:
+        registry = load(ROOT / "contracts" / "normative-rule-registry.json")
+        fixed_range = re.compile(r"E\d{2}\s*[–-]\s*E\d{2}")
+        duplicates = [
+            source["path"]
+            for source in registry["sources"]
+            if fixed_range.search(
+                (ROOT / source["path"]).read_text(encoding="utf-8")
+            )
+        ]
+
+        self.assertEqual([], duplicates)
 
     def test_template_test_contract_has_one_typed_machine_source(self) -> None:
         contract = load(ROOT / "contracts" / "machine-rules.json")[
