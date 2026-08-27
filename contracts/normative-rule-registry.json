@@ -948,7 +948,7 @@
     },
     {
       "path": "SKILL.md",
-      "sha256": "1ac8951a1657d31c01c94413bc998e41b3e170e7ba685da17dbf6ca6a8b500e6",
+      "sha256": "5270d597dbf2ab44b9e26f8690d5be274a98fbaf853083557876f769231923fc",
       "familyId": "governance",
       "units": [
         {
@@ -1117,8 +1117,8 @@
           "familyId": "template-test"
         },
         {
-          "ruleId": "NR-skill-md-bf3db8d0ac23-1",
-          "sha256": "bf3db8d0ac238a3254311b22fb5fc6baf84b147d71ce225b2c1d9dd0d3afa5d8",
+          "ruleId": "NR-skill-md-b88aa6effff7-1",
+          "sha256": "b88aa6effff717cd3f7aa7841fcb47f4dbea314e3bba0b333281f4b0ec7d09a9",
           "familyId": "historical-regression"
         },
         {
@@ -2486,12 +2486,12 @@
     },
     {
       "path": "references/historical-experience-regression.md",
-      "sha256": "f100656132d9d62f38b6afe0ff95397a6c832e71de75932685067471f628ed77",
+      "sha256": "e48562df56df7515729c4d0dbcdb5b8476359173730f0fab2f355113bb6a1298",
       "familyId": "historical-regression",
       "units": [
         {
-          "ruleId": "NR-torical-experience-regression-md-46f6f2fe2cc1-1",
-          "sha256": "46f6f2fe2cc13a0ab5697a08ea8ee89e51be447f16dfec3c431aa6e11283670d",
+          "ruleId": "NR-torical-experience-regression-md-6227f9bc7507-1",
+          "sha256": "6227f9bc7507f968358c43039c82a9a7e2ea0845e532a615fc737a740aa42b66",
           "familyId": "historical-regression"
         },
         {
@@ -2520,8 +2520,8 @@
           "familyId": "historical-regression"
         },
         {
-          "ruleId": "NR-torical-experience-regression-md-2f891c5aa97b-1",
-          "sha256": "2f891c5aa97bfefb15bd34ebd7bb90481c2de0753699c90a3571b15773da8448",
+          "ruleId": "NR-torical-experience-regression-md-cfe651ac944e-1",
+          "sha256": "cfe651ac944e303f98732dcde62d3736e31af18e174bc9c62b06c03272eda38c",
           "familyId": "historical-regression"
         },
         {
@@ -4941,7 +4941,7 @@
     },
     {
       "path": "specs/新模板生产Skill实施规格.md",
-      "sha256": "cb7fadc3e8d3acdd0f387f400ab0c5fce57bcc73534a69abe7d8fa6496ffa78e",
+      "sha256": "b5b286e95a8481c2e09e4b0851c59c0412c0d39dab0e325ac0587ddc75781eb6",
       "familyId": "governance",
       "units": [
         {
@@ -5975,8 +5975,8 @@
           "familyId": "governance"
         },
         {
-          "ruleId": "NR-specs-skill-md-6f3834270972-1",
-          "sha256": "6f38342709723c32222ef0f8d37361db877b1d7d7e4d040e3b3c53503681d96c",
+          "ruleId": "NR-specs-skill-md-eeecb3680aad-1",
+          "sha256": "eeecb3680aad7dbd5d647cf2cde9bb1127d1330083655d3dc79aa920fc0530b8",
           "familyId": "historical-regression"
         },
         {

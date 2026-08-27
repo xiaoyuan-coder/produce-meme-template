@@ -2,7 +2,7 @@
 
 ## 1. 唯一追踪矩阵
 
-`fixtures/regression/historical-experience-matrix.json` 是 E01–E61 的机器追踪矩阵。每条经验只声明一个当前权威规则、一个实现定位、迁移状态、旧口径裁决和至少一条具体 unittest 证据。机器枚举、字段名、迁移状态、证据极性、corpus 角色、报告字段与失败分类只读取 `contracts/machine-rules.json` 的 `historicalExperienceContract`。
+`fixtures/regression/historical-experience-matrix.json` 是机器合同所列全部历史经验的追踪矩阵。每条经验只声明一个当前权威规则、一个实现定位、迁移状态、旧口径裁决和至少一条具体 unittest 证据。经验 ID 集合及顺序、字段名、迁移状态、证据极性、corpus 角色、报告字段与失败分类只读取 `contracts/machine-rules.json` 的 `historicalExperienceContract`。
 
 条件化、重写或废止的经验必须写明 `legacyDisposition`。这份裁决与当前实现证据一起验证，旧入口或旧字段不能仅凭历史文档继续生效。E31 的正式隐藏层职责已经由当前冻结 Gallery Contract、编译器和冲突审计共同验收，迁移状态从待冻结收口为确认迁移。
 
@@ -20,6 +20,6 @@
 
 ## 4. 发布门禁
 
-`scripts/release_validation_runner.py` 在完整单元、fixture、Schema 和 E2E 测试通过后编译历史经验报告；E01–E61、机器合同声明的全部 corpus 角色或任一版本绑定不完整时返回失败，release build 不会继续。安装副本运行同一报告入口时，production pin 来自该只读安装副本，因此源码 Git revision、发布清单、安装文件、pin 和报告可以逐摘要对账。
+`scripts/release_validation_runner.py` 在完整单元、fixture、Schema 和 E2E 测试通过后编译历史经验报告；机器合同声明的任一历史经验、corpus 角色或版本绑定不完整时返回失败，release build 不会继续。安装副本运行同一报告入口时，production pin 来自该只读安装副本，因此源码 Git revision、发布清单、安装文件、pin 和报告可以逐摘要对账。
 
 回归门禁只读取本仓库当前规则与匿名化 fixture，不修改旧 Unified 或拆分版，也不调用真实图片 API、OSS、数据库、管理台和自动发布入口。

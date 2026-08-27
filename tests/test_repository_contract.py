@@ -631,9 +631,11 @@ class RepositoryContractTest(unittest.TestCase):
             self.assertTrue(
                 all(isinstance(value, str) and value for value in mapping.values())
             )
+        experience_ids = contract["experienceIds"]
+        self.assertTrue(experience_ids)
         self.assertEqual(
-            [f"E{index:02d}" for index in range(1, 63)],
-            contract["experienceIds"],
+            list(range(1, len(experience_ids) + 1)),
+            [int(value.removeprefix("E")) for value in experience_ids],
         )
         experience_fields = contract["experienceFields"]
         matrix_fields = contract["matrixFields"]

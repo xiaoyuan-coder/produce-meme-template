@@ -44,7 +44,7 @@
       "sha256": "sha256",
       "family": "familyId"
     },
-    "assignmentDigest": "d648b0ed2d100ce86785202baee2cc052c8cb2b9bc087c1d4d912325e6542627",
+    "assignmentDigest": "7a803af211a1fdc893df80f03c1c303e1765e2f48a8f1d17f2cb02a071889833",
     "enforcementClasses": {
       "runtimeGate": "runtime_gate",
       "repositoryGate": "repository_gate",

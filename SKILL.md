@@ -48,7 +48,7 @@ description: 从来源网图分阶段或端到端生产可交付的 Meme 模板 
 - 三线版本、发布风险分级、不可变发布包、安装验证、doctor 和显式 pin 迁移读取 [Release、安装、doctor 与版本 pin 合同](references/release-doctor-install.md)。
 - 正式/回放模式、adapter 拓扑、执行画像、阶段 provider 对账、交付资格和零重复外部调用读取 [正式执行画像与交付资格合同](references/production-execution-authority.md)。
 - T1 的现成 JSON 门禁、编辑归一、真实生成恢复和偏差报告读取 [T1 独立模板 JSON 生图测试合同](references/template-json-test.md)。
-- E01–E61 的唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
+- 机器合同声明的全部历史经验之唯一落点、代表 corpus、失败分类和发布门禁读取 [历史经验回归门禁](references/historical-experience-regression.md)。
 - 首稳、major 或显式外部风险候选的六类影子样本、未见图前向、四场景 live 和 readiness 报告读取 [真实影子批次与稳定版发布准备合同](references/release-readiness.md)。
 - 创建、迁移、审查或独立测试 Gallery Template JSON，以及 P3–P8 的槽位、Prompt Template、runtimeSemantics 和正式投影，完整读取 [正式模板编译合同](references/gallery-template-compiler.md)。
 - P3–P6 判断模板身份、编辑权限、subject 身份特征继承范围，或编写标题、槽位全部属性、Prompt Template、target/binding 与逐图画风约束时，完整读取 [模板身份、编辑权限与正式字段编写规范](references/template-authoring.md)。
