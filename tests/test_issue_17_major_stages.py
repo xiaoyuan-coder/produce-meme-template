@@ -61,7 +61,8 @@ class Issue17MajorStagesTest(unittest.TestCase):
                 "requiredActions": ["extract_print_artwork", "rectify_perspective"],
                 "preserveDesignFeatures": ["印花内部文字层级", "拼贴阅读顺序"],
                 "evidence": "图案位于衣服表面，离开载体后仍可独立阅读",
-                "expected": ("只提取衣服表面的独立印花", "正视化", "衣服本体", "模特身体"),
+                "expected": ("只提取衣服表面的独立印花", "正视化", "衣服本体", "模特身体", "完整保留独立印花目标区"),
+                "forbidden": "完整保留来源画面内容",
             },
             "black-frame-screenshot": {
                 "mode": "screen_content",
@@ -70,7 +71,8 @@ class Issue17MajorStagesTest(unittest.TestCase):
                 "requiredActions": ["crop_interface_frame"],
                 "preserveDesignFeatures": ["截图内容区的版式", "内容区阅读顺序"],
                 "evidence": "来源是带黑色截屏框和设备界面的内容截图",
-                "expected": ("只保留截图内容区", "裁掉黑色截屏框", "设备边框", "界面控件"),
+                "expected": ("只保留截图内容区", "裁掉黑色截屏框", "设备边框", "界面控件", "完整保留截图目标内容区"),
+                "forbidden": "完整保留来源画面内容",
             },
         }
 
@@ -84,7 +86,7 @@ class Issue17MajorStagesTest(unittest.TestCase):
                         analysis["sourceCanvasDecision"] = {
                             key: value
                             for key, value in scenario.items()
-                            if key != "expected"
+                            if key not in {"expected", "forbidden"}
                         }
                         return analysis
 
@@ -103,6 +105,7 @@ class Issue17MajorStagesTest(unittest.TestCase):
                 package = load_json(result.output_dir / "generation-package.json")
                 for wording in scenario["expected"]:
                     self.assertIn(wording, package["prompt"])
+                self.assertNotIn(scenario["forbidden"], package["prompt"])
                 gate = package["firstStageGate"]
                 self.assertTrue(gate["sourceCanvasComplete"])
                 requirement_id = RULES["criticalOutcomeContract"]["requirementIds"][

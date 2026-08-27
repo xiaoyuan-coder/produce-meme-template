@@ -377,10 +377,24 @@ def _compile_generation_package(
             for item in plan[plan_fields["textDecisions"]]
         )
     target_size = source_analysis["imageSize"]
+    if canvas_mode == canvas_modes["printArtwork"]:
+        output_canvas_instruction = (
+            "完整保留独立印花目标区内容、构图关系和相对占幅；"
+            "已声明的衣服、模特、载体、透视和拍摄环境必须保持排除"
+        )
+    elif canvas_mode == canvas_modes["screenContent"]:
+        output_canvas_instruction = (
+            "完整保留截图目标内容区的内容、版式和阅读顺序；"
+            "已声明的黑色截屏框、设备边框、界面控件和屏幕外环境必须保持排除"
+        )
+    else:
+        output_canvas_instruction = (
+            "完整保留来源画面内容、构图关系和主体相对占幅；"
+            "仅允许为适配目标尺寸自然延展原有背景"
+        )
     sections["output"] = (
-        f"输出一张图；目标尺寸 {target_size}；完整保留来源画面内容、"
-        "构图关系和主体相对占幅；仅允许为适配目标尺寸自然延展原有背景，"
-        "禁止拉伸、裁掉未授权区域或新增文字。"
+        f"输出一张图；目标尺寸 {target_size}；{output_canvas_instruction}；"
+        "禁止拉伸、裁掉目标内容区或新增文字。"
     )
     prompt = "\n".join(sections.values())
     gate_contract = context_contract["firstStageGateContract"]
