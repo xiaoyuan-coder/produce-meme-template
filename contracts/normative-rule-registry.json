@@ -3157,7 +3157,7 @@
     },
     {
       "path": "references/replacement-spec.md",
-      "sha256": "5a6e054926241a09905d97c406a01e100707b9499f4843db7ecf8d645c0cd5b8",
+      "sha256": "eb3add1f18c8ceeb402209efbd3e39d7121e14ffc3d43c69b5547f2b8d1ad906",
       "familyId": "replacement",
       "units": [
         {
@@ -3638,6 +3638,11 @@
         {
           "ruleId": "NR-references-replacement-spec-md-a0d11ff870f4-1",
           "sha256": "a0d11ff870f4fea9d5c5cd9d0b56d7cb9d96d241f3f02d6dcae016ef2c4e57c9",
+          "familyId": "replacement"
+        },
+        {
+          "ruleId": "NR-references-replacement-spec-md-a877c5756441-1",
+          "sha256": "a877c575644190127e95acea3542581f8fba36c3f04602b5e7239f6d35264c7d",
           "familyId": "replacement"
         },
         {

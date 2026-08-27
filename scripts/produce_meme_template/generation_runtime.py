@@ -63,6 +63,19 @@ def _first_stage_requirement_results(
         )
         if isinstance(component_id, str) and component_id.strip()
     }
+    clear_requirements = list(
+        dict.fromkeys(
+            requirement
+            for operation in plan.get(
+                multi["planFields"]["imageOperations"], []
+            )
+            if isinstance(operation, dict)
+            for requirement in operation.get(
+                operation_fields["clearRequirements"], []
+            )
+            if isinstance(requirement, str) and requirement.strip()
+        )
+    )
     dependency_pass = bool(closure_ids and closure_ids == operation_target_ids)
 
     context = rules["sourceAuthoringContextContract"]
@@ -85,6 +98,16 @@ def _first_stage_requirement_results(
         rules["sourceCategories"][route["sourceCategoryRole"]]
         for route in identity_contract["routes"].values()
     }
+    replacement_priority = sections.get("replacementPriority", "")
+    replacement_priority_pass = bool(
+        clear_requirements
+        and plan["primaryTargets"][0]["replacementValue"]
+        in replacement_priority
+        and all(
+            requirement in replacement_priority
+            for requirement in clear_requirements
+        )
+    )
     identity_feature_pass = bool(
         source_category not in identity_categories
         or touched_groups
@@ -92,6 +115,7 @@ def _first_stage_requirement_results(
             set(group[group_fields["requiredComponents"]]) <= closure_ids
             for group in touched_groups
         )
+        and replacement_priority_pass
     )
     all_identity_units = {
         identity_unit
@@ -185,7 +209,10 @@ def _first_stage_requirement_results(
         (
             requirement_ids["identityFeatureBinding"],
             identity_feature_pass,
-            f"身份替换命中 {len(touched_groups)} 个主体绑定组并覆盖其专属组件",
+            (
+                f"身份替换命中 {len(touched_groups)} 个主体绑定组并覆盖其专属组件；"
+                f"{len(clear_requirements)} 条具体清除要求和新身份优先级进入冻结 Prompt"
+            ),
         ),
         (
             requirement_ids["multiSubjectClosure"],
@@ -228,6 +255,14 @@ def _compile_generation_package(
     context_contract = rules["sourceAuthoringContextContract"]
     visual_fields = context_contract["sourceVisualContractFields"]
     visual = source_analysis["visualContract"]
+    operation_fields = rules["multiInstanceContract"]["operationFields"]
+    clear_requirements = list(
+        dict.fromkeys(
+            requirement
+            for operation in plan["imageOperations"]
+            for requirement in operation[operation_fields["clearRequirements"]]
+        )
+    )
     sections = {
         "task": (
             "基于参考图完成局部身份重构。参考图是媒介、画风、构图和空间关系的唯一视觉事实源；"
@@ -313,6 +348,15 @@ def _compile_generation_package(
             ),
             "styleSurface": f"纹理与材质表现必须保持：{visual[visual_fields['surface']]}。",
             "styleComposition": f"构图、裁切与占幅必须保持：{visual[visual_fields['composition']]}。",
+            "replacementPriority": (
+                "替换冲突优先级：在目标区域内，当前替换值“"
+                f"{target['replacementValue']}”的身份、文字、配色、服装、配饰、发型、"
+                "物种与标志特征拥有最高优先级；六维视觉合同仅保留与当前替换值"
+                "不冲突的媒介、构图、光照关系、纹理和表现语言，不得把旧主体的"
+                "字面外观锁回新主体。必须清除："
+                + "；".join(clear_requirements)
+                + "。"
+            ),
             "residueCleanup": (
                 "清理旧身份特征与旧轮廓；来源标记只按逐项策略执行，"
                 "禁止自行删除已标记保留的贴纸、装饰图标或商标。"

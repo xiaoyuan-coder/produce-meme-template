@@ -544,6 +544,23 @@ class Issue7IdentityReplacementTest(unittest.TestCase):
                 )
                 self.assertIn(section_roles["route"], package["sections"])
                 self.assertIn(section_roles["identityText"], package["sections"])
+                self.assertIn("replacementPriority", package["sections"])
+                replacement_priority = package["sections"]["replacementPriority"]
+                self.assertIn(scenario["replacementValue"], replacement_priority)
+                operation_fields = RULES["multiInstanceContract"]["operationFields"]
+                for operation in plan["imageOperations"]:
+                    for requirement in operation[
+                        operation_fields["clearRequirements"]
+                    ]:
+                        self.assertIn(requirement, replacement_priority)
+                self.assertLess(
+                    package["prompt"].index(package["sections"]["styleColorAndShading"]),
+                    package["prompt"].index(replacement_priority),
+                )
+                self.assertLess(
+                    package["prompt"].index(replacement_priority),
+                    package["prompt"].index(package["sections"][section_roles["route"]]),
+                )
                 self.assertEqual(set(PERSON_ATTRIBUTES.values()), set(editable["subjectAttributeAssessments"]))
                 self.assertTrue(
                     all(
